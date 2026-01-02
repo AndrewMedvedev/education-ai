@@ -1,16 +1,13 @@
-import logging
-from pathlib import Path
+from openai import OpenAI
 
-from src.utils import convert_document_to_md
+from src.settings import settings
 
-logging.basicConfig(level=logging.DEBUG)
+client = OpenAI(api_key=settings.openai.apikey)
 
-file_path = Path(
-    r"C:\Users\andre\TyuiuProjects\education-ai\telegram-bot\docs\Tekhnicheskoe_zadanie_II_agent.docx"
+response = client.responses.create(
+  model="gpt-5-nano",
+  input="Привет, до какого момента ограничены твои знания?",
+  store=True,
 )
 
-text = convert_document_to_md(file_path)
-
-print(text)
-
-Path("output.md").write_text(text, encoding="utf-8")
+print(response.output_text)

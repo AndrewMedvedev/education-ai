@@ -2,9 +2,11 @@ from typing import Final
 
 from pathlib import Path
 
+import pytz
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+TIMEZONE = pytz.timezone("Europe/Moscow")
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 ENV_PATH = BASE_DIR / ".env"
 
@@ -15,6 +17,29 @@ class BotSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BOT_")
 
     token: str = "<TOKEN>"
+
+
+class NgrokSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="NGROK_")
+
+    url: str = "http://localhost:8000"
+
+
+class SQLiteSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="BOT_")
+
+    path: Path = BASE_DIR / "telegram-bot" / "db.sqlite3"
+    driver: str = "aiosqlite"
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        return f"sqlite+{self.driver}:///{self.path}"
+
+
+class OpenAISettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="OPENAI_")
+
+    apikey: str = "<APIKEY>"
 
 
 class YandexCloudSettings(BaseSettings):
@@ -30,11 +55,14 @@ class YandexCloudSettings(BaseSettings):
 
     @property
     def yandexgpt_rc(self) -> str:
-        return f"gpt://{self.folder_id}/gemma-3-27b-it/latest"
+        return f"gpt://{self.folder_id}/yandexgpt/rc"
 
 
 class Settings(BaseSettings):
     bot: BotSettings = BotSettings()
+    ngrok: NgrokSettings = NgrokSettings()
+    sqlite: SQLiteSettings = SQLiteSettings()
+    openai: OpenAISettings = OpenAISettings()
     yandexcloud: YandexCloudSettings = YandexCloudSettings()
 
 
