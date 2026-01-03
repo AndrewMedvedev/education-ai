@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Education AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+     <script src="{{ url_for('static', path='js/main.js') }}"></script>
+    <script>
+        // Инициализация Telegram Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        // Адаптация темы (переопределение CSS vars)
+        const theme = Telegram.WebApp.themeParams;
+        document.documentElement.style.setProperty('--bg-color', theme.bg_color || '#FFFFFF');
+        document.documentElement.style.setProperty('--text-color', theme.text_color || '#000000');
+        document.documentElement.style.setProperty('--button-color', theme.button_color || '#154194');
+    </script>
+</body>
+</html>

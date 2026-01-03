@@ -1,0 +1,20 @@
+<h2>Шаг 3: Образовательные материалы</h2>
+<p>Загрузите файлы (PDF, DOCX, презентации) или добавьте ссылки (Git, видео). Можно несколько.</p>
+
+<div class="materials-section">
+    <label>Файлы:</label>
+    <input type="file" id="files" multiple accept=".pdf,.docx,.pptx">
+    <ul id="fileList"></ul>
+    <div class="error" id="filesError"></div>
+</div>
+
+<div class="materials-section">
+    <label>Ссылки (Git, видео):</label>
+    <div id="linksContainer">
+      <label>
+        <input type="url" class="link-input" placeholder="https://example.com" required>
+      </label>
+    </div>
+    <button type="button" class="btn add-link" onclick="addLinkField()">Добавить ссылку</button>
+    <div class="error" id="linksError"></div>
+</div>

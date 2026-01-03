@@ -1,10 +1,12 @@
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .callbacks import StartCBData
+from ..settings import settings
 
 
-def start_kb(tg_user_id: int) -> InlineKeyboardMarkup:
+def start_kb() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="Создать курс", callback_data=StartCBData(tg_user_id=tg_user_id).pack())
+    builder.button(
+        text="Создать курс", web_app=WebAppInfo(url=f"{settings.ngrok.url}/courses/create")
+    )
     return builder.as_markup()

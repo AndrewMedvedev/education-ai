@@ -1,0 +1,121 @@
+:root {
+    --primary: #154194; /* ТИУ-СИНИЙ */
+    --secondary: #C8CCCC; /* ТИУ-ПЛАТИНОВЫЙ */
+    --dark-gray: #616666; /* ТИУ-ТЁМНО-СЕРЫЙ */
+    --gradient-start: #0029CC;
+    --gradient-end: #009FE3;
+    --error: #6D0E54; /* Винный для ошибок */
+    --link: #42D9FF; /* Голубой для ссылок */
+    --bg-color: #FFFFFF; /* По умолчанию, адаптируется Telegram */
+    --text-color: #000000;
+    --button-color: var(--primary);
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.wizard-container {
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid var(--secondary);
+    border-radius: 8px;
+    background: var(--bg-color);
+}
+
+.title {
+    color: var(--primary);
+    text-align: center;
+}
+
+.progress-container {
+    height: 10px;
+    background: var(--secondary);
+    border-radius: 5px;
+    margin: 20px 0;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+    border-radius: 5px;
+    transition: width 0.3s ease-in-out;
+}
+
+.step {
+    display: none;
+    animation: fadeIn 0.5s;
+}
+
+.step.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid var(--secondary);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.btn.primary {
+    background: var(--button-color);
+    color: #FFFFFF;
+}
+
+.btn.secondary {
+    background: var(--secondary);
+    color: var(--dark-gray);
+}
+
+.btn.add-link {
+    background: var(--link);
+    color: #FFFFFF;
+    margin-top: 10px;
+}
+
+.error {
+    color: var(--error);
+    font-size: 0.8em;
+    margin-top: -5px;
+}
+
+.materials-section {
+    margin-bottom: 20px;
+}
+
+.link-input {
+    margin-bottom: 10px;
+}
+
+.buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+#prevBtn {
+    display: none;
+}
