@@ -1,11 +1,22 @@
 from typing import Any
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, BigInteger, ForeignKey, Text
+from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+
+
+class AttachmentModel(Base):
+    __tablename__ = "attachments"
+
+    original_filename: Mapped[str]
+    filepath: Mapped[str] = mapped_column(unique=True)
+    mime_type: Mapped[str]
+    size: Mapped[int]
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class CourseModel(Base):

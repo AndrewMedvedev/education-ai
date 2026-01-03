@@ -103,6 +103,11 @@ async function handleFileUpload(e) {
     fileList.innerHTML = '';
     uploadedFiles.length = 0;
 
+    // Получаем данные пользователя
+    const tg = window.Telegram.WebApp;
+    const user = tg.initDataUnsafe.user;
+    const userId = user?.id;
+
     for (let file of files) {
         if (!['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
             document.getElementById('filesError').innerText = 'Поддерживаются только PDF, DOCX, PPTX';
@@ -112,9 +117,12 @@ async function handleFileUpload(e) {
         formData.append('file', file);
 
         try {
-            const response = await fetch('/api/v1/media/upload', { method: 'POST', body: formData });
+            const response = await fetch(
+                '/api/v1/media/upload',
+                { method: 'POST', body: formData, headers: { 'X-User-ID': userId } }
+            );
             const data = await response.json();
-            uploadedFiles.push({ name: file.name, url: data.url });
+            uploadedFiles.push({ name: file.name, fileId: data.id });
             const li = document.createElement('li');
             li.textContent = file.name + ' (загружен)';
             fileList.appendChild(li);

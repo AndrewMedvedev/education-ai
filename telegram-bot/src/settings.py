@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TIMEZONE = pytz.timezone("Europe/Moscow")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MEDIA_DIR = PROJECT_ROOT / ".media"
+MEDIA_DIR.mkdir(exist_ok=True)
 BASE_DIR = PROJECT_ROOT.parent
 ENV_PATH = BASE_DIR / ".env"
 

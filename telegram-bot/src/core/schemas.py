@@ -11,6 +11,23 @@ from ..utils import current_datetime
 from .enums import AssessmentType, BlockType
 
 
+class File(BaseModel):
+    path: str
+    size: PositiveInt
+    mime_type: str
+    data: bytes
+    uploaded_at: datetime
+
+
+class Attachment(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    original_filename: str
+    filepath: str
+    mime_type: str
+    size: PositiveInt
+    uploaded_at: datetime = Field(default_factory=current_datetime)
+
+
 class Course(BaseModel):
     """Модель образовательного курса"""
 

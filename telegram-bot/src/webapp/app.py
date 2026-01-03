@@ -10,6 +10,7 @@ from starlette.templating import Jinja2Templates
 
 from ..bot.bot import bot, dp
 from ..settings import PROJECT_ROOT, settings
+from .api.routers import router as api_router
 from .routers import router
 
 WEBAPP_DIR = PROJECT_ROOT / "src" / "webapp"
@@ -38,6 +39,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 app.include_router(router)
+app.include_router(api_router)
 
 app.add_middleware(
     CORSMiddleware,
