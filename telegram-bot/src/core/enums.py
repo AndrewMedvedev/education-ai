@@ -12,6 +12,9 @@ class BlockType(StrEnum):
     VIDEO = "video"
     EXTERNAL_LINK = "external_link"
     CODE = "code"
+    CODE_EXAMPLE = "code_example"
+    INTERACTIVE = "interactive"
+    READING = "reading"
 
 
 class AssessmentType(StrEnum):

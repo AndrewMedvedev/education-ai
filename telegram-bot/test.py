@@ -1,13 +1,18 @@
 import asyncio
+import json
 import logging
 from uuid import UUID
 
 import aiofiles
+from langchain_core.exceptions import OutputParserException
 from langchain_core.messages import HumanMessage
 
 from src.ai_agents.course_structure_planner import plan_course_structure
+from src.ai_agents.module_generator import generate_module
 from src.core import schemas
 from src.services import media
+
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
@@ -27,7 +32,21 @@ async def main() -> None:
         Тюменского Индустриального университета, длительность 1 семестр""",
         attachments=[UUID("1f27cdba-95ae-43e7-bf9f-aaf742c6c88f")],
     )
-    print(await plan_course_structure(teacher_inputs))
+    course_structure_plan = await plan_course_structure(teacher_inputs)
+    modules = []
+    for module_note in course_structure_plan.module_notes:
+        try:
+            module = await generate_module(teacher_inputs.discipline, module_note)
+            print(module)
+            modules.append(module)
+        except OutputParserException:
+            logger.exception("Parsing error in module %s {e}", module_note.order)
+    with open("course_plan.json", "w", encoding="utf-8") as f:
+        json.dump(course_structure_plan.model_dump_json(), f, ensure_ascii=False, indent=4)
+    with open("modules.json", "w", encoding="utf-8") as f:
+        json.dump(
+            [module.model_dump_json() for module in modules], f, ensure_ascii=False, indent=4
+        )
 
 
 if __name__ == "__main__":

@@ -56,7 +56,7 @@ class Course(BaseModel):
 
 
 class Module(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
+    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
     title: str = Field(..., description="Название модуля")
     description: str = Field(
         ..., description="Краткий обзор тем и технологий с которыми ознакомится студент"
@@ -66,8 +66,9 @@ class Module(BaseModel):
         default_factory=list,
         description="Вместо жесткой структуры — LEGO-подобные блоки"
     )
-    assessments: list[Assessment] = Field(default_factory=list)
-    dependencies: list[UUID] = Field(default_factory=list)
+    assessments: list[Assessment] = Field(
+        default_factory=list, description="Ассессменты для проверки знаний"
+    )
 
 
 class ContentBlock(BaseModel):
@@ -81,22 +82,31 @@ class ContentBlock(BaseModel):
      - type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
     """
 
-    id: UUID = Field(default_factory=uuid4)
-    block_type: BlockType
-    data: dict[str, Any] = Field(default_factory=dict)
+    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
+    block_type: BlockType | str = Field(..., description="Тип контент блока (строго из доступных enum)")
+    data: dict[str, Any] = Field(
+        default_factory=dict,
+        description="""Примеры data для разных типов:
+        - block_type="text": {"content": "Markdown текст", "generated_by_ai": true}
+        - block_type="video": {"url": "youtube.com/...", "platform": "youtube"}
+        - block_type="interactive": {"widget_type": "quiz", "questions": [...]}
+        - block_type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
+        - block_type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
+        """  # noqa: E501
+    )
 
 
 class Assessment(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    assessment_type: AssessmentType
-    title: str
-    description: str
+    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
+    assessment_type: AssessmentType = Field(..., description="Тип ассессмента")
+    title: str = Field(..., description="Название ассессмента")
+    description: str = Field(..., description="Краткое описание (1-2 предложения)")
     verification_rules: dict[str, Any] = Field(
         default_factory=dict,
         description="Правила проверки и создания ассессмента",
         examples=[
             {"question_count": 10, "time_limit": 1800},  # Для теста
-            {"test_framework": "pytest", "repository_required": True},  # Для кода
+            {"programming_language": "C#", "repository_required": True},  # Для кода
             {"min_words": 500, "max_words": 1000},  # Для эссе
         ],
     )
