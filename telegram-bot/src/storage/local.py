@@ -2,12 +2,12 @@ import logging
 
 import aiofiles
 
-from .core.schemas import File
+from ..core import schemas
 
 logger = logging.getLogger(__name__)
 
 
-async def upload_file(file: File) -> None:
+async def upload(file: schemas.File) -> None:
     async with aiofiles.open(file.path, mode="wb") as opened_file:
         await opened_file.write(file.data)
     logger.info("File `%s` uploaded successfully", file.path)

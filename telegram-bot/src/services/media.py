@@ -5,7 +5,7 @@ import magic
 from src.core import schemas
 from src.database import crud, models
 from src.settings import MEDIA_DIR
-from src.storage import upload_file
+from src.storage import local as local_storage
 
 
 async def upload(user_id: int, filename: str, data: bytes) -> schemas.Attachment:
@@ -28,6 +28,6 @@ async def upload(user_id: int, filename: str, data: bytes) -> schemas.Attachment
         data=data,
         uploaded_at=attachment.uploaded_at
     )
-    await upload_file(file)
+    await local_storage.upload(file)
     await crud.create(attachment, model_class=models.Attachment)
     return attachment

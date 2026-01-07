@@ -33,20 +33,8 @@ async def main() -> None:
         attachments=[UUID("1f27cdba-95ae-43e7-bf9f-aaf742c6c88f")],
     )
     course_structure_plan = await plan_course_structure(teacher_inputs)
-    modules = []
-    for module_note in course_structure_plan.module_notes:
-        try:
-            module = await generate_module(teacher_inputs.discipline, module_note)
-            print(module)
-            modules.append(module)
-        except OutputParserException:
-            logger.exception("Parsing error in module %s {e}", module_note.order)
-    with open("course_plan.json", "w", encoding="utf-8") as f:
+    with open("course_plan_1.json", "w", encoding="utf-8") as f:
         json.dump(course_structure_plan.model_dump_json(), f, ensure_ascii=False, indent=4)
-    with open("modules.json", "w", encoding="utf-8") as f:
-        json.dump(
-            [module.model_dump_json() for module in modules], f, ensure_ascii=False, indent=4
-        )
 
 
 if __name__ == "__main__":

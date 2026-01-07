@@ -83,7 +83,9 @@ class ContentBlock(BaseModel):
     """
 
     id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
-    block_type: BlockType | str = Field(..., description="Тип контент блока (строго из доступных enum)")
+    block_type: BlockType | str = Field(
+        ..., description="Тип контент блока (строго из доступных enum)"
+    )
     data: dict[str, Any] = Field(
         default_factory=dict,
         description="""Примеры data для разных типов:

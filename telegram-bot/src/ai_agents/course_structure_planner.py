@@ -11,7 +11,7 @@ from langchain_core.runnables import RunnableSerializable
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 
-from ..core import schemas
+from ..core import enums, schemas
 from ..database import crud, models
 from ..settings import PROMPTS_DIR, settings
 from ..utils import convert_document_to_md
@@ -47,7 +47,7 @@ async def load_attached_materials(attachment_ids: list[UUID]) -> list[HumanMessa
             {md_text}
             """
         ))
-        logger.info("`%s` file loaded in agent conversation memory", attachment.original_filename)
+        logger.info("`%s` file loaded in agent messages chat", attachment.original_filename)
     logger.info("Successfully loaded %s attached materials", len(messages))
     return messages
 
@@ -59,14 +59,16 @@ class CourseStructurePlan(BaseModel):
         description="""Оптимальное количество модулей
         (в зависимости от объема и сложности материала)"""
     )
-    topics_to_study: set[str] = Field(
-        ..., min_length=5, description="Обязательные темы для изучения (минимум 5)"
+    module_plans: list[ModulePlan] = Field(
+        ..., description="Твои заметки/планы по каждому из модулей"
     )
-    module_notes: list[ModuleNote] = Field(..., description="Твои заметки по каждому из модулей")
 
 
-class ModuleNote(BaseModel):
-    title: str = Field(..., description="Примерное название модуля")
+class ModulePlan(BaseModel):
+    title: str = Field(..., description="Название модуля")
+    description: str = Field(
+        ..., description="Краткий обзор тем и технологий с которыми ознакомится студент"
+    )
     order: NonNegativeInt = Field(
         ..., description="Порядковый номер модуля (нумерация начинается с нуля)"
     )
@@ -78,10 +80,25 @@ class ModuleNote(BaseModel):
     learning_objectives: list[str] = Field(
         ...,
         min_length=2, max_length=6,
-        description="Цели обучения для этого модуля"
+        description="Цели обучения для этого модуля (минимум 2 в модуле)"
     )
     academic_hours: PositiveInt = Field(
         ..., description="Примерное количество академических часов"
+    )
+    content_blocks_strategy: dict[enums.BlockType, str] = Field(
+        ...,
+        description="""Список-план по каждому из контент блоков внутри модуля,
+        подробно опиши содержание каждого из блоков
+        (минимум 2 в каждом модуле, оптимальное количество 3-4)
+        """
+    )
+    assessments_strategy: dict[enums.AssessmentType, str] = Field(
+        ...,
+        min_length=1, max_length=5,
+        description="""Список-план по каждому из ассессментов внутри модуля,
+        подробно опиши что должен включать себя каждый из ассессментов
+        (обязательно включи минимум 1 ассессмент в каждый модуле)
+        """
     )
     thoughts: str = Field(
         ...,
@@ -89,7 +106,7 @@ class ModuleNote(BaseModel):
         какие уровни таксономии Блума использовать, какие методы преподавания
         будут максимально эффективны, определи стратегии оценивания знаний будь это тесты или
         итоговый проект и.т.д, продумай сложность и когнитивную нагрузку, как и где использовать
-        материалы преподавателя ...
+        материалы преподавателя ... (твоё видение по каждому модулю)
         """
     )
 
