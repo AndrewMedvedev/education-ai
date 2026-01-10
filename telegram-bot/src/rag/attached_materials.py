@@ -181,7 +181,7 @@ async def search_materials(course_id: UUID, query: str, top_k: int = 10) -> list
         f"""**Attachment-ID:** {document.metadata.get("attachment_id")}
         **Filename:** {document.metadata.get("original_filename")}
         **Num characters:** {document.metadata.get("num_characters")}
-        **Content:**
+        **Text content:**
         {document.page_content}
         """
         for document in documents
