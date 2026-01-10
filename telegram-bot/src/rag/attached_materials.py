@@ -2,14 +2,14 @@ from typing import Any
 
 import logging
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from uuid import UUID
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
 from langchain_core.documents import Document
-from langchain_elasticsearch import ElasticsearchRetriever, ElasticsearchStore
+from langchain_elasticsearch import ElasticsearchRetriever
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 TEXT_FIELD = "page_content"
 DENSE_VECTOR_FIELD = "embedding"
 NUM_CHARACTERS_FIELD = "num_characters"
+METADATA_FIELD = "metadata"
 TOP_K = 10
 
 es_client = Elasticsearch(hosts=[settings.elasticsearch.url])
@@ -38,7 +39,8 @@ def _create_index_if_not_exists(
         index_name: str,
         text_field: str = TEXT_FIELD,
         dense_vector_field: str = DENSE_VECTOR_FIELD,
-        num_characters_field: str = NUM_CHARACTERS_FIELD
+        num_characters_field: str = NUM_CHARACTERS_FIELD,
+        metadata_field: str = METADATA_FIELD,
 ) -> None:
     if es_client.indices.exists(index=index_name):
         return
@@ -48,7 +50,8 @@ def _create_index_if_not_exists(
             "properties": {
                 text_field: {"type": "text"},
                 dense_vector_field: {"type": "dense_vector"},
-                num_characters_field: {"type": "integer"}
+                num_characters_field: {"type": "integer"},
+                metadata_field: {"type": "object"},
             }
         }
     )
@@ -60,6 +63,7 @@ def _index_data(
         dense_vector_field: str,
         num_characters_field: str,
         texts: Iterable[str],
+        metadata: dict[str, Any],
         refresh: bool = True,
 ) -> None:
     _create_index_if_not_exists(
@@ -76,7 +80,8 @@ def _index_data(
             "_id": i,
             text_field: text,
             dense_vector_field: vector,
-            num_characters_field: len(text)
+            num_characters_field: len(text),
+            METADATA_FIELD: metadata,
         }
         for i, (text, vector) in enumerate(zip(texts, vectors, strict=False))
     ]
@@ -111,13 +116,15 @@ def _hybrid_query(search_query: str) -> dict[str, Any]:
     }
 
 
+def _document_mapper(hit: Mapping[str, Any]) -> Document:
+    metadata = hit["_source"][METADATA_FIELD]
+    num_characters = hit["_source"][NUM_CHARACTERS_FIELD]
+    metadata[NUM_CHARACTERS_FIELD] = num_characters
+    return Document(page_content=hit["_source"][TEXT_FIELD], metadata=metadata)
+
+
 async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None:
     index_name = f"attached-materials-{course_id}"
-    vectorstore = ElasticsearchStore(
-        es_url=settings.elasticsearch.url,
-        index_name=index_name,
-        embedding=embeddings,
-    )
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1200,
         chunk_overlap=50,
@@ -140,16 +147,20 @@ async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None
             "File %s loaded and converted to Markdown, characters length: %s",
             attachment.original_filename, len(md_text)
         )
-        chunks = splitter.split_documents([Document(
-            page_content=md_text,
+        chunks = splitter.split_text(md_text)
+        logger.info("Addition %s chunks to %s", len(chunks), index_name)
+        _index_data(
+            index_name=index_name,
+            text_field=TEXT_FIELD,
+            dense_vector_field=DENSE_VECTOR_FIELD,
+            num_characters_field=NUM_CHARACTERS_FIELD,
+            texts=chunks,
             metadata={
                 "course_id": course_id,
                 "attachment_id": attachment.id,
                 "original_filename": attachment.original_filename,
-            }
-        )])
-        logger.info("Addition %s chunks to %s", len(chunks), index_name)
-        await vectorstore.aadd_documents(chunks)
+            },
+        )
         execution_time = time.time() - start_time
         logger.info(
             "Successfully processed `%s` file, processing duration - %s seconds",
@@ -162,13 +173,14 @@ async def search_materials(course_id: UUID, query: str, top_k: int = 10) -> list
     hybrid_retriever = ElasticsearchRetriever(
         index_name=index_name,
         body_func=_hybrid_query,
-        content_field=TEXT_FIELD,
+        document_mapper=_document_mapper,
         es_url=settings.elasticsearch.url
     )
     documents = await hybrid_retriever.ainvoke(query, k=top_k)
     return [
         f"""**Attachment-ID:** {document.metadata.get("attachment_id")}
         **Filename:** {document.metadata.get("original_filename")}
+        **Num characters:** {document.metadata.get("num_characters")}
         **Content:**
         {document.page_content}
         """
