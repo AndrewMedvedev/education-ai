@@ -17,10 +17,9 @@ class TaskStatus(StrEnum):
 class BlockType(StrEnum):
     TEXT = "text"
     VIDEO = "video"
-    EXTERNAL_LINK = "external_link"
-    CODE = "code"
-    CODE_EXAMPLE = "code_example"
+    # EXTERNAL_LINK = "external_link"  # noqa: ERA001
     INTERACTIVE = "interactive"
+    CODE_EXAMPLE = "code_example"
     READING = "reading"
 
 

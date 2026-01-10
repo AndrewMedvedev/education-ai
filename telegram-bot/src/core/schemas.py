@@ -5,7 +5,14 @@ from typing import Any
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, NonNegativeInt, PositiveInt
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    NonNegativeInt,
+    PositiveInt,
+)
 
 from ..utils import current_datetime
 from .enums import AssessmentType, BlockType, DifficultyLevel, TaskStatus, UserRole
@@ -82,27 +89,70 @@ class Module(BaseModel):
     )
 
 
+class TheoryBlock(BaseModel):
+    """Теоретический блок"""
+
+    content: str = Field(..., description="Markdown текст")
+    generated_by_ai: bool = Field(default=True)
+
+
+class VideoBlock(BaseModel):
+    """Блок с видео контентом"""
+
+    url: str = Field(..., description="Ссылка на видео")
+    platform: str = Field(
+        ..., description="Платформа с которой взято видео", examples=["YouTube", "RuTube"]
+    )
+    title: str = Field(..., description="Название видео")
+    duration_seconds: PositiveInt = Field(..., description="Длительность в секундах")
+    key_moments: dict[int, str] = Field(
+        default_factory=dict, description="Тайм-коды ключевых моментов (секунда: описание)"
+    )
+    discussion_questions: list[str] = Field(
+        default_factory=list, description="Вопросы для обсуждения"
+    )
+
+
+class CodeExampleBlock(BaseModel):
+    """Пример кода"""
+
+    language: str = Field(..., description="Язык программирования")
+    code: str = Field(..., description="Программный код")
+    explanation: str = Field(..., description="Пояснения к коду")
+
+
+class ReadingBlock(BaseModel):
+    """Материал для чтения"""
+
+    title: str = Field(..., description="Название материала")
+    source_type: str = Field(..., description="Тип (книга, статья, исследование)")
+    pages: str | None = Field(default=None, description="", examples=["10-25"])
+    url: str | None = Field(default=None, description="Ссылка на материал")
+    reading_time_minutes: PositiveInt = Field(..., description="Примерное время чтения")
+
+
+AnyBlockData = TheoryBlock | VideoBlock | CodeExampleBlock | ReadingBlock
+
+
 class ContentBlock(BaseModel):
     """Универсальные блоки с контентом (LEGO-подобные блоки).
 
     Примеры data для разных типов:
      - type="text": {"content": "Markdown текст", "generated_by_ai": true}
      - type="video": {"url": "youtube.com/...", "platform": "youtube"}
-     - type="interactive": {"widget_type": "quiz", "questions": [...]}
      - type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
      - type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
     """
 
     id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
-    block_type: BlockType | str = Field(
+    block_type: BlockType = Field(
         ..., description="Тип контент блока (строго из доступных enum)"
     )
-    data: dict[str, Any] = Field(
-        default_factory=dict,
+    data: AnyBlockData = Field(
+        ...,
         description="""Примеры data для разных типов:
         - block_type="text": {"content": "Markdown текст", "generated_by_ai": true}
         - block_type="video": {"url": "youtube.com/...", "platform": "youtube"}
-        - block_type="interactive": {"widget_type": "quiz", "questions": [...]}
         - block_type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
         - block_type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
         """  # noqa: E501

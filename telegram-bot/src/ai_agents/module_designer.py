@@ -31,13 +31,14 @@ class DesignerContext(BaseModel):
     module_note: ModuleNote
 
 
-@tool(parse_docstring=True)
-async def attached_materials_search(runtime: ToolRuntime, query: str) -> list[str]:
-    """Выполняет поиск по прикреплённым материалам к курсу по запросу
-
-    Args:
-        query: Запрос для поиска.
-    """
+@tool(
+    "attached_materials_search",
+    description="Выполняет поиск по прикреплённым материалам преподавателя"
+)
+async def attached_materials_search(
+        runtime: ToolRuntime[DesignerContext], query: str
+) -> list[str]:
+    """Поиск по прикреплённым материалам"""
 
     logger.info("Calling `attached_materials_search` tool with query: `%s`", query)
     return await search_materials(course_id=runtime.context.course_id, query=query)
