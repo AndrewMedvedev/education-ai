@@ -2,6 +2,7 @@ from typing import Annotated, TypedDict
 
 import logging
 import operator
+import time
 from collections.abc import Callable
 
 from langchain.agents import create_agent
@@ -20,7 +21,7 @@ from pydantic import BaseModel, Field
 from ..core import enums, schemas
 from ..settings import PROMPTS_DIR, settings
 from .module_designer import ContentBlock, SequenceStep
-from .tools import content_block_generator_tools
+from .tools import response_compiler_tools, task_executor_tools
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ class PlannerContext(BaseModel):
 
 
 @dynamic_prompt
-def context_aware_prompt_for_planner(request: ModelRequest) -> str:
+def context_aware_planner_prompt(request: ModelRequest) -> str:
     prompt = (PROMPTS_DIR / "content_block_planner.md").read_text(encoding="utf-8")
     learning_sequence: list[SequenceStep] = request.runtime.context.learning_sequence
     content_block: ContentBlock = request.runtime.context.content_block
@@ -58,29 +59,11 @@ def context_aware_prompt_for_planner(request: ModelRequest) -> str:
     )
 
 
-@wrap_model_call
-def context_based_output(
-        request: ModelRequest,
-        handler: Callable[[ModelRequest], ModelResponse]
-) -> ModelResponse:
-    block_type: enums.BlockType = request.runtime.context.content_block.block_type
-    match block_type:
-        case enums.BlockType.READING:
-            request = request.override(response_format=schemas.ReadingBlock)
-        case block_type.VIDEO:
-            request = request.override(response_format=schemas.VideoBlock)
-        case block_type.CODE_EXAMPLE:
-            request = request.override(response_format=schemas.CodeExampleBlock)
-        case _:
-            request = request.override(response_format=schemas.TheoryBlock)
-    return handler(request)
-
-
 class PlanExecution(TypedDict):
     input: PlannerContext
     plan: list[str]
     past_steps: Annotated[list[tuple[str, str]], operator.add]
-    response: str
+    response: type[schemas.AnyBlockData]
 
 
 class Plan(BaseModel):
@@ -98,7 +81,7 @@ planner = create_agent(
         max_retries=3,
         max_tokens=3000,
     ),
-    middleware=[context_aware_prompt_for_planner],
+    middleware=[context_aware_planner_prompt],
     context_schema=PlannerContext,
     response_format=ToolStrategy(Plan)
 )
@@ -110,13 +93,13 @@ class TaskExecutorContext(BaseModel):
 
 
 @dynamic_prompt
-def context_aware_prompt_for_task_executor(request: ModelRequest) -> str:
+def context_aware_task_executor_prompt(request: ModelRequest) -> str:
     prompt = (PROMPTS_DIR / "task_executor.md").read_text(encoding="utf-8")
     past_steps: list[tuple[str, str]] = request.runtime.context.past_steps
     current_step: str = request.runtime.context.current_step
     return prompt.format(
         past_steps="\n".join([
-            f"({i + 1}) Задача: {task}. Результат выполнения: {result}"
+            f"({i + 1}) **Задача:** {task}. **Результат выполнения:** {result}"
             for i, (task, result) in enumerate(past_steps)
         ]),
         current_step=current_step,
@@ -131,9 +114,63 @@ task_executor = create_agent(
         temperature=0.3,
         max_retries=3
     ),
-    tools=content_block_generator_tools,
-    middleware=[context_aware_prompt_for_task_executor],
+    tools=task_executor_tools,
+    middleware=[context_aware_task_executor_prompt],
     context_schema=TaskExecutorContext,
+    checkpointer=InMemorySaver()
+)
+
+
+class ResponseCompilerContext(BaseModel):
+    """Контекст для агента составителя контента"""
+
+    block_type: enums.BlockType
+    past_steps: list[tuple[str, str]]
+
+
+@dynamic_prompt
+def context_aware_response_compiler_prompt(request: ModelRequest) -> str:
+    system_prompt = (PROMPTS_DIR / "response_compiler.md").read_text(encoding="utf-8")
+    block_type: enums.BlockType = request.runtime.context.block_type
+    past_steps: list[tuple[str, str]] = request.runtime.context.past_steps
+    return system_prompt.format(
+        block_type=block_type.value,
+        past_steps="\n".join([
+            f"({i + 1}) **Задача:** {task}. **Результат выполнения:** {result}"
+            for i, (task, result) in enumerate(past_steps)
+        ]),
+    )
+
+
+@wrap_model_call
+def context_based_response_compiler_output(
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], ModelResponse]
+) -> ModelResponse:
+    block_type: enums.BlockType = request.runtime.context.block_type
+    match block_type:
+        case enums.BlockType.READING:
+            request = request.override(response_format=schemas.ReadingBlock)
+        case enums.BlockType.VIDEO:
+            request = request.override(response_format=schemas.VideoBlock)
+        case enums.BlockType.CODE_EXAMPLE:
+            request = request.override(response_format=schemas.CodeExampleBlock)
+        case _:
+            request = request.override(response_format=schemas.TheoryBlock)
+    return handler(request)
+
+
+response_compiler = create_agent(
+    model=ChatOpenAI(
+        api_key=settings.yandexcloud.apikey,
+        model=settings.yandexcloud.yandexgpt_rc,
+        base_url=settings.yandexcloud.base_url,
+        temperature=0.3,
+        max_retries=3
+    ),
+    tools=response_compiler_tools,
+    middleware=[context_based_response_compiler_output, context_aware_response_compiler_prompt],
+    context_schema=ResponseCompilerContext,
     checkpointer=InMemorySaver()
 )
 
@@ -141,42 +178,61 @@ task_executor = create_agent(
 def plan_node(state: PlanExecution) -> dict[str, list[str]]:
     """Создаёт пошаговый план для генерации контента"""
 
-    logger.info("Compiling plan for content block generation ...")
+    logger.info("📝 Planing for content block generation ...")
     result = planner.invoke({"messages": []}, context=state["input"])
-    logger.info("Compiled plan: %s", result["structured_response"].steps)
+    logger.info("📌 Plan: %s", result["structured_response"].steps)
     return {"plan": result["structured_response"].steps}
 
 
 def execute_task_node(state: PlanExecution) -> dict[str, list[tuple[str, str]]]:
-    """Выполняет шаг из плана"""
+    """Выполнение задачи из плана"""
 
     past_steps = state["past_steps"]
     step_number = len(past_steps)
-    task = state["plan"][step_number]
-    logger.info("Start execute (%s) task: %s", step_number, task)
+    current_step = state["plan"][step_number]
+    logger.info("[Start execute (%s) task]: `%s`", step_number + 1, current_step)
+    start_time = time.time()
     result = task_executor.invoke({"messages": []}, context=TaskExecutorContext(
-        past_steps=past_steps, current_step=task
+        past_steps=past_steps, current_step=current_step
     ))
+    execution_time = round(time.time() - start_time, 2)
     last_message = result["messages"][-1].content
-    logger.info("(%s) task execution finished", step_number)
-    return {"past_steps": [(task, last_message)]}
+    logger.info("[(%s) task execution finished]: %s s", step_number + 1, execution_time)
+    return {"past_steps": [(current_step, last_message)]}
 
 
-def should_end(state: PlanExecution) -> bool:
+def should_continue_execution(state: PlanExecution) -> bool:
+    """Определяет нужно ли продолжать выполнение задач"""
+
     return len(state["past_steps"]) == len(state["plan"])
+
+
+def compile_response_node(state: PlanExecution) -> dict[str, schemas.AnyBlockData]:
+    """Составляет финальный ответ"""
+
+    logger.info("💡 Compiling task results to final response...")
+    result = response_compiler.invoke(context=ResponseCompilerContext(
+            block_type=state["input"].content_block.block_type,
+            past_steps=state["past_steps"],
+        )
+    )
+    print(result)
+    return {"response": result["structured_response"]}
 
 
 workflow = StateGraph(PlanExecution)
 
 workflow.add_node("planner", plan_node)
 workflow.add_node("task_executor", execute_task_node)
+workflow.add_node("response_compiler", compile_response_node)
 
 workflow.add_edge(START, "planner")
 workflow.add_edge("planner", "task_executor")
 workflow.add_conditional_edges(
     "task_executor",
-    should_end,
-    {True: END, False: "task_executor"},
+    should_continue_execution,
+    {True: "response_compiler", False: "task_executor"},
 )
+workflow.add_edge("response_compiler", END)
 
 agent = workflow.compile()

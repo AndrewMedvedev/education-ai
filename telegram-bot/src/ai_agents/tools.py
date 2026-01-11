@@ -2,88 +2,149 @@ from typing import Any
 
 import asyncio
 import logging
+import time
+from collections.abc import Callable
+from functools import wraps
 
-import aiohttp
 from langchain.tools import tool
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field, PositiveInt
 
-from ..intergrations import yandex_search_api
+from ..intergrations import rutube_api, yandex_search_api
 from ..services import crawler as crawler_service
 from ..settings import PROMPTS_DIR, settings
 
 logger = logging.getLogger(__name__)
 
-
-async def search_in_rutube(query: str, videos_count: int = 10) -> list[dict[str, Any]]:
-    logger.info("Calling `rutube_search` tool with query: `%s`", query)
-    async with (
-        aiohttp.ClientSession(base_url="https://rutube.ru/api/") as session,
-        session.get(url="search/video", params={"query": query}) as response,
-    ):
-        data = await response.json()
-    return [
-        {
-            "title": result["title"],
-            "description": result["description"],
-            "author_name": result["author"]["name"],
-            "video_url": result["video_url"],
-            "duration": result["duration"],
-            "published_at": result["publication_ts"],
-        }
-        for result in data["results"][:videos_count]
-    ]
+RESULT_PREVIEW_CHARS = 200
 
 
-@tool(parse_docstring=True)
-def rutube_search(query: str, videos_count: int = 10) -> list[dict[str, Any]]:
-    """Выполняет поиск видео в RuTube.
+def log_tool_call(tool_name: str | None = None):
+    """Декоратор для логирования вызовов инструментов"""
 
-    Args:
-        query: Запрос для поиска видео.
-        videos_count: Количество видео которое нужно вернуть.
-    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            tool_id = tool_name or func.__name__
+            start_time = time.time()
+            logger.info(
+                "🛠️ TOOL CALL START: %s", tool_id,
+                extra={
+                    "tool": tool_id,
+                    "input_args": args,
+                    "input_kwargs": kwargs,
+                    "timestamp": start_time,
+                },
+            )
+            try:
+                result = func(*args, **kwargs)
+                execution_time = round(time.time() - start_time, 2)
+                result_preview = (
+                    str(result)[:RESULT_PREVIEW_CHARS] + "..."
+                    if len(str(result)) > RESULT_PREVIEW_CHARS
+                    else str(result)
+                )
+                logger.info(
+                    "✅ TOOL CALL SUCCESS: %s (%s s)", tool_id, execution_time,
+                    extra={
+                        "tool": tool_id,
+                        "execution_time": execution_time,
+                        "result_preview": result_preview,
+                        "result_type": type(result).__name__,
+                        "result_length": len(str(result)) if hasattr(result, "__len__") else None,
+                    },
+                )
+            except Exception as e:
+                execution_time = round(time.time() - start_time, 2)
+                logger.exception(
+                    "❌ TOOL CALL FAILED: %s (%s s)", tool_id, execution_time,
+                    extra={
+                        "tool": tool_id,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                        "execution_time": execution_time,
+                    },
+                )
+                raise
+            else:
+                return result
+        return wrapper
+    return decorator
 
-    return asyncio.run(search_in_rutube(query, videos_count))
+
+class RuTubeSearchInput(BaseModel):
+    """Входные аргументы для поиска видео в RuTube"""
+
+    search_query: str = Field(description="Поисковый запрос")
+    videos_count: PositiveInt = Field(
+        default=10, description="Количество видео, которое нужно вернуть"
+    )
 
 
-@tool(parse_docstring=True)
-def web_search(query: str) -> list[dict[str, Any]]:
-    """Выполняет поиск информации в интернете.
+@tool(
+    "search_videos_in_rutube",
+    description="Выполняет поиск видео на платформе RuTube",
+    args_schema=RuTubeSearchInput
+)
+@log_tool_call("search_videos_in_rutube")
+def rutube_search(search_query: str, videos_count: int = 10) -> list[dict[str, Any]]:
+    """Выполняет поиск видео в RuTube."""
 
-    Args:
-        query: Поисковый запрос.
-    """
-
-    logger.info("Calling `web_search` tool with query: `%s`", query)
-    return asyncio.run(yandex_search_api.search_async(query))
+    return asyncio.run(rutube_api.search_videos(search_query, videos_count))
 
 
-@tool(parse_docstring=True)
+class WebSearchInput(BaseModel):
+    search_query: str = Field(description="Поисковый запрос")
+
+
+@tool(
+    "web_search",
+    description="""Выполняет поиск в Яндекс. Поисковик.
+    Возвращает список найденных страниц с заголовками, URL и кратким описанием.
+    Подходит для получения актуальной информации из интернета.""",
+    args_schema=WebSearchInput,
+)
+@log_tool_call("web_search")
+def web_search(search_query: str) -> list[dict[str, Any]]:
+    """Выполняет поиск информации в интернете"""
+
+    return asyncio.run(yandex_search_api.search_async(search_query))
+
+
+class BrowseLinkInput(BaseModel):
+    link: str = Field(description="Ссылка на страницу с которой нужно получить контент")
+
+
+@tool(
+    "browse_web_page",
+    description="Открывает WEB-страницу и получает её контент в формате Markdown",
+    args_schema=BrowseLinkInput,
+)
+@log_tool_call("browse_web_page")
 def browse_link(link: str) -> str:
-    """Просматривает WEB-страницу по ссылке.
+    """Просматривает WEB-страницу по ссылке"""
 
-    Args:
-        link: Ссылка на страницу.
-    """
-
-    logger.info("Calling `browse_link` tool with link: `%s`", link)
     try:
         return asyncio.run(crawler_service.crawl_web_page(link))
-    except Exception:
-        return "Не получилось загрузить страницу"
+    except Exception:  # noqa: BLE001
+        return "Не удалось открыть страницу"
 
 
-@tool(parse_docstring=True)
+class MermaidInput(BaseModel):
+    prompt: str = Field(description="ТЗ для генерации mermaid диаграммы")
+
+
+@tool(
+    "draw_mermaid_diagram",
+    description="Рисует mermaid диаграмму по описанию, возвращает Markdown с mermaid-блоком",
+    args_schema=MermaidInput,
+)
+@log_tool_call("draw_mermaid_diagram")
 def draw_mermaid_diagram(prompt: str) -> str:
-    """Рисует Mermaid диаграмму по твоему подробному запросу.
+    """Рисует Mermaid диаграмму по твоему подробному запросу"""
 
-    Args:
-        prompt: Твоё ТЗ для генерации диаграммы.
-    """
-
-    logger.info("Calling `draw_mermaid_diagram` tool with prompt: `%s`", prompt)
     model = ChatOpenAI(
         api_key=settings.yandexcloud.apikey,
         model=settings.yandexcloud.aliceai_llm,
@@ -100,19 +161,20 @@ def draw_mermaid_diagram(prompt: str) -> str:
     return chain.invoke({"messages": [("human", prompt)]})
 
 
-@tool(parse_docstring=True)
+class CodeWriterInput(BaseModel):
+    language: str = Field(description="Язык программирования на котором нужно написать код")
+    prompt: str = Field(description="Твоё техническое задание или запрос для написания кода")
+
+
+@tool(
+    "write_program_code",
+    description="Пишет качественный программный код",
+    args_schema=CodeWriterInput,
+)
+@log_tool_call("write_program_code")
 def write_code(language: str, prompt: str) -> str:
-    """Инструмент для написания программного кода.
+    """Инструмент для написания программного кода"""
 
-    Args:
-        language: Язык программирования, на котором нужно написать код.
-        prompt: Запрос для написания кода.
-    """
-
-    logger.info(
-        "Calling `write_code` tool with language `%s` by prompt: `%s`",
-        language, prompt
-    )
     model = ChatOpenAI(
         api_key=settings.yandexcloud.apikey,
         model=settings.yandexcloud.qwen3_235b,
@@ -126,6 +188,11 @@ def write_code(language: str, prompt: str) -> str:
     return chain.invoke({"language": language, "prompt": prompt})
 
 
-content_block_generator_tools = [
+# Инструменты для выполнения задач
+task_executor_tools = [
+    rutube_search, web_search, browse_link
+]
+# Инструменты для создания контент блока
+response_compiler_tools = [
     rutube_search, web_search, browse_link, draw_mermaid_diagram, write_code
 ]
