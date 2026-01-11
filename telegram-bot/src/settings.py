@@ -84,6 +84,10 @@ class YandexCloudSettings(BaseSettings):
     def qwen3_235b(self) -> str:
         return f"gpt://{self.folder_id}/qwen3-235b-a22b-fp8/latest"
 
+    @property
+    def yandexgpt_rc(self) -> str:
+        return f"gpt://{self.folder_id}/yandexgpt/rc"
+
 
 class RAGSettings(BaseSettings):
     chunk_size: int = 1000
