@@ -8,6 +8,7 @@ dependencies = [
     "aiogram>=3.23.0",
     "aiosqlite>=0.22.1",
     "alembic>=1.17.2",
+    "chromadb>=1.4.1",
     "fastapi[all]>=0.127.1",
     "fastmcp>=2.14.2",
     "html-to-markdown>=2.20.0",

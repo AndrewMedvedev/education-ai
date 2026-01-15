@@ -9,7 +9,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 
 from ..core import enums, schemas
-from ..rag.attached_materials import search_materials
+from ..rag.education_materials import search_materials
 from ..settings import PROMPTS_DIR, settings
 from .course_structure_planner import ModuleNote
 

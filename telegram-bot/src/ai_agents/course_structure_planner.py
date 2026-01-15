@@ -8,8 +8,8 @@ from langchain.tools import ToolRuntime, tool
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field, NonNegativeInt
 
-from ..core import schemas
-from ..rag.attached_materials import search_materials
+from ..core.schemas import TeacherInputs
+from ..rag.education_materials import retrieve_education_materials
 from ..settings import PROMPTS_DIR, settings
 
 logger = logging.getLogger(__name__)

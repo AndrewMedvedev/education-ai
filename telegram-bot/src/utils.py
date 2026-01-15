@@ -1,5 +1,5 @@
+import io
 from datetime import datetime
-from pathlib import Path
 
 from markitdown import MarkItDown
 
@@ -12,7 +12,14 @@ def current_datetime() -> datetime:
     return datetime.now(TIMEZONE)
 
 
-def convert_document_to_md(path: Path) -> str:
+def convert_document_to_markdown(file_data: bytes, file_extension: str) -> str:
+    """Конвертирует контент документа (.pptx, .pdf, .docx, .xlsx) в Markdown текст.
+
+    :param file_data: Байты исходного документа.
+    :param file_extension: Расширение документа, например: .pdf, .docx, .xlsx
+    :returns: Markdown текст.
+    """
+
     md = MarkItDown()
-    result = md.convert(path)
+    result = md.convert_stream(io.BytesIO(file_data), file_extension=file_extension)
     return result.text_content

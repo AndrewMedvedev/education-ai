@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from ..core import enums, schemas
 from ..database import crud, models
-from ..rag.attached_materials import index_attachments
+from ..rag.education_materials import index_attachments
 
 
 async def confirm_creation(teacher_inputs: schemas.TeacherInputs) -> schemas.Task:

@@ -19,17 +19,20 @@ from .enums import AssessmentType, BlockType, DifficultyLevel, TaskStatus, UserR
 
 
 class User(BaseModel):
-    id: PositiveInt
-    username: str
+    user_id: PositiveInt
+    username: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     role: UserRole
+    created_at: datetime = Field(default_factory=current_datetime)
 
 
 class File(BaseModel):
     path: str
     size: PositiveInt
     mime_type: str
+    extension: str
     data: bytes
-    uploaded_at: datetime
 
 
 class Attachment(BaseModel):
@@ -54,7 +57,7 @@ class Task(BaseModel):
     resource_id: UUID
 
 
-class Course(BaseModel):
+class EducationCourse(BaseModel):
     """Модель образовательного курса"""
 
     id: UUID = Field(default_factory=uuid4)

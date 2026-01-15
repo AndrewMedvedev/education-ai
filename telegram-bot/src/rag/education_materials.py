@@ -3,7 +3,6 @@ from typing import Any
 import logging
 import time
 from collections.abc import Iterable, Mapping
-from pathlib import Path
 from uuid import UUID
 
 from elasticsearch import Elasticsearch
@@ -22,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 TEXT_FIELD = "page_content"
 DENSE_VECTOR_FIELD = "embedding"
-NUM_CHARACTERS_FIELD = "num_characters"
 METADATA_FIELD = "metadata"
 TOP_K = 10
 
@@ -35,23 +33,16 @@ embeddings = HuggingFaceEmbeddings(
 )
 
 
-def _create_index_if_not_exists(
-        index_name: str,
-        text_field: str = TEXT_FIELD,
-        dense_vector_field: str = DENSE_VECTOR_FIELD,
-        num_characters_field: str = NUM_CHARACTERS_FIELD,
-        metadata_field: str = METADATA_FIELD,
-) -> None:
+def _create_index_if_not_exists(index_name: str) -> None:
     if es_client.indices.exists(index=index_name):
         return
     es_client.indices.create(
         index=index_name,
         mappings={
             "properties": {
-                text_field: {"type": "text"},
-                dense_vector_field: {"type": "dense_vector"},
-                num_characters_field: {"type": "integer"},
-                metadata_field: {"type": "object"},
+                TEXT_FIELD: {"type": "text"},
+                DENSE_VECTOR_FIELD: {"type": "dense_vector"},
+                METADATA_FIELD: {"type": "object"},
             }
         }
     )
@@ -59,28 +50,19 @@ def _create_index_if_not_exists(
 
 def _index_data(
         index_name: str,
-        text_field: str,
-        dense_vector_field: str,
-        num_characters_field: str,
         texts: Iterable[str],
         metadata: dict[str, Any],
         refresh: bool = True,
 ) -> None:
-    _create_index_if_not_exists(
-        index_name=index_name,
-        text_field=text_field,
-        dense_vector_field=dense_vector_field,
-        num_characters_field=num_characters_field
-    )
+    _create_index_if_not_exists(index_name)
     vectors = embeddings.embed_documents(list(texts))
     requests = [
         {
             "_op_type": "index",
             "_index": index_name,
             "_id": i,
-            text_field: text,
-            dense_vector_field: vector,
-            num_characters_field: len(text),
+            TEXT_FIELD: text,
+            DENSE_VECTOR_FIELD: vector,
             METADATA_FIELD: metadata,
         }
         for i, (text, vector) in enumerate(zip(texts, vectors, strict=False))
@@ -117,14 +99,13 @@ def _hybrid_query(search_query: str) -> dict[str, Any]:
 
 
 def _document_mapper(hit: Mapping[str, Any]) -> Document:
-    metadata = hit["_source"][METADATA_FIELD]
-    num_characters = hit["_source"][NUM_CHARACTERS_FIELD]
-    metadata[NUM_CHARACTERS_FIELD] = num_characters
-    return Document(page_content=hit["_source"][TEXT_FIELD], metadata=metadata)
+    return Document(
+        page_content=hit["_source"][TEXT_FIELD], metadata=hit["_source"][METADATA_FIELD]
+    )
 
 
-async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None:
-    index_name = f"attached-materials-{course_id}"
+async def index_attachments(teacher_id: int, attachment_ids: list[UUID]) -> None:
+    index_name = f"education-materials:{teacher_id}"
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1200,
         chunk_overlap=50,
@@ -142,7 +123,7 @@ async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None
         if attachment is None:
             logger.warning("File %s not attached or was removed, skip this", attachment_id)
             continue
-        md_text = convert_document_to_md(Path(attachment.filepath))
+        md_text = convert_document_to_md(attachment.filepath)
         logger.info(
             "File %s loaded and converted to Markdown, characters length: %s",
             attachment.original_filename, len(md_text)
@@ -151,12 +132,8 @@ async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None
         logger.info("Addition %s chunks to %s", len(chunks), index_name)
         _index_data(
             index_name=index_name,
-            text_field=TEXT_FIELD,
-            dense_vector_field=DENSE_VECTOR_FIELD,
-            num_characters_field=NUM_CHARACTERS_FIELD,
             texts=chunks,
             metadata={
-                "course_id": course_id,
                 "attachment_id": attachment.id,
                 "original_filename": attachment.original_filename,
             },
@@ -168,8 +145,16 @@ async def index_attachments(course_id: UUID, attachment_ids: list[UUID]) -> None
         )
 
 
-async def search_materials(course_id: UUID, query: str, top_k: int = 10) -> list[str]:
-    index_name = f"attached-materials-{course_id}"
+def _enrich_document_content(document: Document) -> str:
+    return f"""**Attachment-ID:** {document.metadata.get("attachment_id")}
+    **Filename:** {document.metadata.get("original_filename")}
+    **Page content:**
+    {document.page_content}
+    """
+
+
+async def retrieve_education_materials(teacher_id: int, query: str, top_k: int = 10) -> list[str]:
+    index_name = f"education-materials:{teacher_id}"
     hybrid_retriever = ElasticsearchRetriever(
         index_name=index_name,
         body_func=_hybrid_query,
@@ -177,12 +162,4 @@ async def search_materials(course_id: UUID, query: str, top_k: int = 10) -> list
         es_url=settings.elasticsearch.url
     )
     documents = await hybrid_retriever.ainvoke(query, k=top_k)
-    return [
-        f"""**Attachment-ID:** {document.metadata.get("attachment_id")}
-        **Filename:** {document.metadata.get("original_filename")}
-        **Num characters:** {document.metadata.get("num_characters")}
-        **Text content:**
-        {document.page_content}
-        """
-        for document in documents
-    ]
+    return [_enrich_document_content(document) for document in documents]

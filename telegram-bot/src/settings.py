@@ -11,8 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = PROJECT_ROOT / "prompts"
 MEDIA_DIR = PROJECT_ROOT / ".media"
 MEDIA_DIR.mkdir(exist_ok=True)
-QDRANT_PATH = PROJECT_ROOT / ".tmp" / "langchain_qdrant"
-QDRANT_PATH.mkdir(parents=True, exist_ok=True)
+CHROMA_PATH = PROJECT_ROOT / ".chroma"
 BASE_DIR = PROJECT_ROOT.parent
 ENV_PATH = BASE_DIR / ".env"
 
