@@ -6,12 +6,12 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
+BASE_URL = "https://rutube.ru/api/"
+
 
 async def search_videos(query: str, videos_count: int = 10) -> list[dict[str, Any]]:
-    async with (
-        aiohttp.ClientSession(base_url="https://rutube.ru/api/") as session,
-        session.get(url="search/video", params={"query": query}) as response,
-    ):
+    async with aiohttp.ClientSession(base_url=BASE_URL) as session, session.get(
+            url="search/video", params={"query": query}) as response:
         data = await response.json()
     return [
         {
