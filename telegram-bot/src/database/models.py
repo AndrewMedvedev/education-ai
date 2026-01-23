@@ -1,30 +1,30 @@
 from typing import Any
 
-from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import JSON, BigInteger, DateTime, ForeignKey, Text
+from sqlalchemy import JSON, BigInteger, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
 
 
-class Task(Base):
-    __tablename__ = "tasks"
+class User(Base):
+    __tablename__ = "users"
 
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    status: Mapped[str]
-    resource_id: Mapped[UUID]
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    username: Mapped[str | None] = mapped_column(nullable=True, unique=True)
+    role: Mapped[str]
 
 
-class Attachment(Base):
-    __tablename__ = "attachments"
+class Student(Base):
+    __tablename__ = "students"
 
-    original_filename: Mapped[str]
-    filepath: Mapped[str] = mapped_column(unique=True)
-    mime_type: Mapped[str]
-    size: Mapped[int]
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    user_id: Mapped[int | None]
+    course_id: Mapped[UUID] = mapped_column(ForeignKey("courses.id"), unique=False)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    login: Mapped[str] = mapped_column(unique=True)
+    password_hash: Mapped[str] = mapped_column(unique=True)
+    is_active: Mapped[bool]
 
 
 class Course(Base):

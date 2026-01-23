@@ -1,8 +1,7 @@
+import asyncio
 import logging
 
-import uvicorn
-
-from src.webapp.app import app
+from src.bot import bot, dp
 
 
 def configure_logging(level=logging.INFO):
@@ -13,6 +12,11 @@ def configure_logging(level=logging.INFO):
     )
 
 
+async def main() -> None:
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+
+
 if __name__ == "__main__":
     configure_logging()
-    uvicorn.run(app, host="0.0.0.0", port=8000)  # noqa: S104
+    asyncio.run(main())

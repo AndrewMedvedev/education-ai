@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Self
 
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -9,71 +9,59 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    HttpUrl,
     NonNegativeInt,
     PositiveInt,
+    ValidationError,
+    model_validator,
 )
 
 from ..utils import current_datetime
-from .enums import AssessmentType, BlockType, DifficultyLevel, TaskStatus, UserRole
+from .enums import AssessmentType, BlockType, UserRole
 
 
 class User(BaseModel):
-    user_id: PositiveInt
+    id: PositiveInt
     username: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
     role: UserRole
     created_at: datetime = Field(default_factory=current_datetime)
 
 
-class File(BaseModel):
-    path: str
-    size: PositiveInt
-    mime_type: str
-    extension: str
-    data: bytes
+class Student(BaseModel):
+    user_id: PositiveInt | None = None
+    course_id: UUID
+    created_by: PositiveInt
+    full_name: str
+    login: str
+    password_hash: str
+    is_active: bool = False
+
+    @model_validator(mode="after")
+    def validate_student(self) -> Self:
+        if (self.is_active and self.user_id is None) or \
+                (not self.is_active and self.user_id is not None):
+            raise ValidationError("Student can only be active after identification!")
+        return self
 
 
-class Attachment(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID = Field(default_factory=uuid4)
-    original_filename: str
-    filepath: str
-    mime_type: str
-    size: PositiveInt
-    uploaded_at: datetime = Field(default_factory=current_datetime)
+class CourseTask(BaseModel):
+    user_id: PositiveInt
+    title: str
+    file_ids: list[str] = Field(default_factory=list)
 
 
-class Task(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=current_datetime)
-    updated_at: datetime = Field(default_factory=current_datetime)
-    finished_at: datetime | None = None
-    status: TaskStatus
-    resource_id: UUID
-
-
-class EducationCourse(BaseModel):
+class Course(BaseModel):
     """Модель образовательного курса"""
 
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
+    creator_id: PositiveInt = Field(..., description="Telegram ID пользователя")
     title: str = Field(
         ...,
         description="Понятное название курса",
         examples=["Разработка веб-приложений на Python с использованием Django"]
     )
     description: str = Field(..., description="Общее описание и введение в курс")
-    discipline: str = Field(
-        ...,
-        description="Название дисциплины",
-        examples=["Базы данных", "Информационная безопасность", "История России"]
-    )
-    creator_id: PositiveInt = Field(..., description="Telegram ID пользователя")
+    modules: list[Module]
 
 
 class Module(BaseModel):
@@ -95,7 +83,7 @@ class Module(BaseModel):
 class TheoryBlock(BaseModel):
     """Теоретический блок"""
 
-    content: str = Field(..., description="Markdown текст")
+    md_content: str = Field(..., description="Markdown текст")
     generated_by_ai: bool = Field(default=True)
 
 
@@ -154,7 +142,7 @@ class ContentBlock(BaseModel):
     data: AnyBlockData = Field(
         ...,
         description="""Примеры data для разных типов:
-        - block_type="text": {"content": "Markdown текст", "generated_by_ai": true}
+        - block_type="text": {"md_content": "Markdown текст", "generated_by_ai": true}
         - block_type="video": {"url": "youtube.com/...", "platform": "youtube"}
         - block_type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
         - block_type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
@@ -176,43 +164,3 @@ class Assessment(BaseModel):
             {"min_words": 500, "max_words": 1000},  # Для эссе
         ],
     )
-
-
-class TeacherInputs(BaseModel):
-    """Входные данные от преподавателя для создания курса"""
-
-    user_id: PositiveInt
-    discipline: str = Field(
-        ...,
-        description="Название дисциплины курса",
-        examples=["Базы данных", "Информационная безопасность", "История России"],
-    )
-    target_audience: str = Field(
-        ...,
-        description="Для кого предназначен курс (образование, опыт, навыки)",
-        examples=[
-            "Студенты 2-3 курсов технических специальностей с базовым знанием Python",
-            "Начинающие дизайнеры, знакомые с основами композиции",
-            "Менеджеры проектов с опытом работы от 1 года",
-        ]
-    )
-    difficulty_level: DifficultyLevel
-    estimated_duration_hours: PositiveInt | None = Field(
-        default=None, ge=1, le=200, description="Ориентировочное количество академических-часов"
-    )
-    attachments: list[UUID]
-    external_links: list[HttpUrl] = Field(default_factory=list)
-    comment: str | None = Field(
-        default=None, description="Дополнительный комментарий от преподавателя"
-    )
-
-    def to_prompt(self) -> str:
-        return f"""**Дисциплина курса:** `{self.discipline}`.
-        **Целевая аудитория:** {self.target_audience}.
-        **Уровень сложности:** {self.difficulty_level.value}.
-        **Ориентировочная продолжительность курса:** {self.estimated_duration_hours} часов.
-        **Внешние ссылки и ресурсы:** {
-            "; ".join(str(external_link) for external_link in self.external_links)
-        }.
-        **Комментарий преподавателя:** {self.comment}
-        """

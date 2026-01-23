@@ -1,9 +1,9 @@
 import io
-
-import magic
 import mimetypes
 
-from ..bot.bot import bot
+import magic
+
+from ..bot import bot
 from ..core.schemas import File
 
 

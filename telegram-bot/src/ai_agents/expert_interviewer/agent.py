@@ -1,22 +1,23 @@
-from typing import Annotated, Any
+from typing import NotRequired
 
 import logging
-import operator
+from pathlib import Path
 
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
 from langchain.agents import AgentState, create_agent
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, dynamic_prompt
+from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain.tools import ToolRuntime, tool
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from langgraph.runtime import Runtime
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.graph import END
 from langgraph.types import Command
 from pydantic import BaseModel, Field, PositiveInt
 
-from ...services.rag import RAGPipeline
-from ...settings import settings
-from ...storage import telegram as telegram_storage
-from ...utils import convert_document_to_markdown
+from ...rag import get_rag_pipeline
+from ...settings import PROMPTS_DIR, settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,68 +29,28 @@ model = ChatOpenAI(
     max_retries=3
 )
 
-rag_pipeline = RAGPipeline(embeddings=..., index_prefix="interview")
+system_prompt = Path(PROMPTS_DIR / "expert_interviewer" / "system.md").read_text(encoding="utf-8")
+summary_prompt = Path(
+    PROMPTS_DIR / "expert_interviewer" / "summary.md"
+).read_text(encoding="utf-8")
 
 
 class Context(BaseModel):
     user_id: PositiveInt
+    course_title: str
 
 
 class State(AgentState):
-    interview: Annotated[list[tuple[str, str]], operator.add]
-    file_ids: Annotated[list[str], operator.add]
-    materials_summaries: Annotated[list[tuple[str, str]], operator.add]
-    is_finished: bool
-
-
-async def summarize_material(text: str, file_id: str, filename: str) -> str:
-    llm = ChatOpenAI(
-        api_key=settings.yandexcloud.apikey,
-        model=settings.yandexcloud.qwen3_235b,
-        base_url=settings.yandexcloud.base_url,
-        temperature=0.2,
-        max_retries=3
-    )
-    prompt = ChatPromptTemplate.from_template(...)
-    chain = prompt | llm | StrOutputParser()
-    summary = await chain.ainvoke({"text": text})
-    return f"""Краткое содержание для {filename} (File-ID: {file_id}):
-    {summary}
-    """
-
-
-class MaterialLoaderMiddleware(AgentMiddleware):
-    @staticmethod
-    async def _load_material(user_id: int, file_id: str) -> str:
-        file = await telegram_storage.download_file(file_id)
-        md_text = convert_document_to_markdown(file_data=file.data, file_extension=file.extension)
-        rag_pipeline.indexing(
-            index_name=f"materials-{user_id}",
-            text=md_text,
-            metadata={"filename": file.path},
-        )
-        return await summarize_material(md_text, file_id, file.path)
-
-    async def abefore_model(
-            self, state: State, runtime: Runtime[Context]
-    ) -> dict[str, Any] | None:
-        materials_summaries: list[tuple[str, str]] = []
-        for file_id, _ in state.get("materials_summaries", []):
-            if file_id not in state.get("file_ids", []):
-                summary = await self._load_material(runtime.context.user_id, file_id)
-                materials_summaries.append((file_id, summary))
-        return {"materials_summaries": materials_summaries}
-
-
-@dynamic_prompt
-def state_aware_system_prompt(request: ModelRequest) -> str: ...
+    interview_result: NotRequired[str]
 
 
 class MaterialsSearchInput(BaseModel):
     """Входные параметры для поиска по прикреплённым материалам"""
 
     search_query: str = Field(description="Запрос для поиска")
-    filename: str | None = Field(description="Имя файла для поиска в нём информации")
+    source: str | None = Field(
+        description="Источник (имя файла) в котором нужно искать информацию"
+    )
 
 
 @tool(
@@ -98,37 +59,50 @@ class MaterialsSearchInput(BaseModel):
     args_schema=MaterialsSearchInput,
 )
 def materials_search(
-        runtime: ToolRuntime[Context, State], search_query: str, filename: str | None = None
+        runtime: ToolRuntime[Context, State], search_query: str, source: str | None = None
 ) -> str:
-    metadata_filtering: dict[str, str] | None = None
-    if filename is not None:
-        metadata_filtering = {"filename": filename}
-    documents = rag_pipeline.retrieve(
-        index_name=f"materials-{runtime.context.user_id}",
-        query=search_query,
-        metadata_filtering=metadata_filtering,
-    )
+    index_name = f"materials-{runtime.context.user_id}-index"
+    rag_pipeline = get_rag_pipeline(index_name=index_name)
+    metadata_filter: dict[str, str] | None = None
+    if source is not None:
+        metadata_filter = {"source": source}
+    documents = rag_pipeline.retrieve(search_query, metadata_filter=metadata_filter)
     return "\n\n".join(documents)
 
 
-class SaveQAInput(BaseModel):
-    """Входные параметры для сохранения пары вопрос-ответ"""
-
-    question: str = Field(description="Вопрос который был задан эксперту")
-    answer: str = Field(description="Ответ эксперта на вопрос")
-
-
 @tool(
-    "save_question_answer_pair",
-    description="Сохраняет пару вопрос ответ в интервью",
-    args_schema=SaveQAInput,
+    "complete_interview",
+    description="Завершает интервью для передачи данных следующему агенту"
 )
-def save_qa(question: str, answer: str) -> Command:
-    return Command(update={"interview": [(question, answer)]})
+async def complete_interview(runtime: ToolRuntime[Context, State]) -> Command:
+    from ...bot import bot, storage  # noqa: PLC0415
+
+    storage_key = StorageKey(
+        bot_id=bot.id,
+        user_id=runtime.context.user_id,
+        chat_id=runtime.context.user_id,
+    )
+    context = FSMContext(storage=storage, key=storage_key)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", summary_prompt.format(course_title=runtime.context.course_title)),
+    ])
+    chain = prompt | model | StrOutputParser()
+    result = await chain.ainvoke({"messages": [*runtime.state["messages"]]})
+    await bot.send_message(chat_id=runtime.context.user_id, text="Спасибо за ответы")
+    await context.clear()
+    return Command(update={"interview_result": result}, goto=END)
+
+
+@dynamic_prompt
+def context_aware_prompt(request: ModelRequest) -> str:
+    return system_prompt.format(course_title=request.runtime.context.course_title)
 
 
 agent = create_agent(
     model=model,
-    tools=[materials_search, save_qa],
-    middleware=[MaterialLoaderMiddleware(), state_aware_system_prompt],
+    context_schema=Context,
+    state_schema=State,
+    tools=[materials_search, complete_interview],
+    middleware=[context_aware_prompt],
+    checkpointer=InMemorySaver(),
 )

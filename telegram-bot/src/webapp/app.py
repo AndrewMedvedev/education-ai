@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
-from ..bot.bot import bot, dp
+from ..bot import bot, dp
 from ..settings import PROJECT_ROOT, settings
 from .api.routers import router as api_router
 from .routers import router
@@ -51,7 +51,7 @@ app.add_middleware(
 
 
 @app.post("/hook")
-async def handle_telegram_bot_update(request: Request) -> None:
+async def handle_aiogram_bot_update(request: Request) -> None:
     data = await request.json()
     update = Update.model_validate(data, context={"bot": bot})
     await dp.feed_update(bot=bot, update=update)
