@@ -20,6 +20,8 @@ from .enums import AssessmentType, BlockType, UserRole
 
 
 class User(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: PositiveInt
     username: str | None = None
     role: UserRole
@@ -27,6 +29,8 @@ class User(BaseModel):
 
 
 class Student(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: PositiveInt | None = None
     course_id: UUID
     created_by: PositiveInt

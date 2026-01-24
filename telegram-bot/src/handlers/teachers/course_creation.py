@@ -23,9 +23,9 @@ SUPPORTED_DOCUMENT_FORMATS = {"docx", "pdf", "pptx", "xlsx"}
 class CourseForm(StatesGroup):
     """Форма для создания курса"""
 
-    in_title_typing = State()
-    waiting_for_document = State()
-    in_interview = State()
+    in_title_typing = State()  # Ввод названия курса
+    waiting_for_document = State()  # Загрузка материалов
+    in_interview = State()  # Интервью с AI - агентом
 
 
 class ConfirmCBData(CallbackData, prefix="creation_confirm"):
@@ -67,9 +67,9 @@ async def cb_confirm_course_creation(query: CallbackQuery, state: FSMContext) ->
     await state.set_state(CourseForm.in_title_typing)
 
 
-def get_documents_done_kb(btn_text: str) -> InlineKeyboardMarkup:
+def get_finalize_uploading_kb(btn_text: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text=btn_text, callback_data="documents_done")
+    builder.button(text=btn_text, callback_data="finalize_uploading")
     return builder.as_markup()
 
 
@@ -77,10 +77,13 @@ def get_documents_done_kb(btn_text: str) -> InlineKeyboardMarkup:
 async def process_title(message: Message, state: FSMContext) -> None:
     await state.update_data(title=message.text)
     await message.answer(
-        "Отлично! Теперь можете прикрепить материалы (DOCX, PDF, PPTX, ...)\n"
-        "Можно отправить сразу несколько файлов одним сообщением.\n\n"
-        "Когда закончите — нажмите кнопку ниже ↓",
-        reply_markup=get_documents_done_kb("⏩ Пропустить"),
+        text=f"""Отличное название {message.text}! Теперь можете прикрепить материалы
+        (DOCX, PDF, PPTX),
+        которые я буду использовать внутри курса.
+
+        Можно отправить сразу несколько файлов одним сообщением.
+        Если у вас нет материалов, можете пропустить этот шаг ↓""",
+        reply_markup=get_finalize_uploading_kb("⏩ Пропустить"),
     )
     await state.set_state(CourseForm.waiting_for_document)
 
@@ -89,32 +92,64 @@ async def process_title(message: Message, state: FSMContext) -> None:
 async def process_uploaded_document(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     documents = data.get("documents", [])
-    if message.document.file_name.split(".")[-1] not in SUPPORTED_DOCUMENT_FORMATS:
+    file_name = message.document.file_name
+    document_format = file_name.split(".")[-1]
+    if document_format not in SUPPORTED_DOCUMENT_FORMATS:
         await message.answer(
-            text=f"""⚠️ Неподдерживаемый документ: {message.document.file_name}
-                Всего собрано файлов: {len(documents)}
-                Можете отправить ещё или нажать кнопку «Готово»""",
-            reply_markup=get_documents_done_kb("✅ Всё, готово → следующий шаг"),
+            text=f"""🔗 <b>Файл:</b> <code>{file_name}</code>
+
+            🚫 <b>Неподдерживаемый формат</b>: <code>{document_format.upper()}</code>
+
+            📋 <b>Доступные форматы:</b> {', '.join(SUPPORTED_DOCUMENT_FORMATS)}
+
+            📁 <b>Текущее количество файлов:</b> {len(documents)}
+
+            📤 Отправьте подходящий файл или нажмите <b>«✅ Готово»</b>""",
+            reply_markup=get_finalize_uploading_kb("✅ Готово"),
         )
         return
     documents.append(message.document.file_id)
     await state.update_data(documents=documents)
     await message.answer(
-        text=f"""✅ Получен документ: {message.document.file_name}
-        Всего собрано файлов: {len(documents)}
-        Можете отправить ещё или нажать кнопку «Готово»""",
-        reply_markup=get_documents_done_kb("✅ Всё, готово → следующий шаг"),
+        text=f"""🔗 <b>Получен файл:</b> <code>{message.document.file_name}</code>
+
+        📁 <b>Всего файлов:</b> {len(documents)}
+
+        📤 Можете отправить ещё файлы или нажать <b>«✅ Готово»</b>""",
+        reply_markup=get_finalize_uploading_kb("✅ Готово"),
     )
 
 
-@router.callback_query(F.data == "documents_done")
-async def cb_document_done(query: CallbackQuery, state: FSMContext) -> None:
+async def start_interview(user_id: int, course_title: str) -> str:
+    """Начинает интервью с AI - агентом.
+
+    :param user_id: Идентификатор пользователя.
+    :param course_title: Название курса.
+    :returns: Сгенерированный первый вопрос.
+    """
+
+    prompt = "Проанализируй материалы, продумай интервью после чего задай первый вопрос"
+    result = await agent.ainvoke(
+        {"messages": [("human", prompt)]},
+        config={"configurable": {"thread_id": f"{user_id}"}},
+        context=Context(user_id=user_id, course_title=course_title),
+    )
+    return result["messages"][-1].content
+
+
+@router.callback_query(F.data == "finalize_uploading")
+async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None:
+    await query.answer()
     data = await state.get_data()
     documents = data.get("documents", [])
     if not documents:
         ...
+    await query.message.answer(
+        text="⏳ Начинаю обработку материалов, это может занять некоторое время ..."
+    )
     rag_pipeline = get_rag_pipeline(index_name=f"materials-{query.from_user.id}-index")
-    for file_id in documents:
+    message = await query.message.answer("🔄 Обработка материалов: <b>0%</b>")
+    for i, file_id in enumerate(documents):
         file_info = await query.bot.get_file(file_id)
         buffer = await query.bot.download_file(file_info.file_path, destination=io.BytesIO())
         file = buffer.getbuffer().tobytes()
@@ -122,23 +157,21 @@ async def cb_document_done(query: CallbackQuery, state: FSMContext) -> None:
             file, file_extension=f".{file_info.file_path.split('.')[-1]}"
         )
         rag_pipeline.indexing(md_content, metadata={"source": file_info.file_path})
-    await query.answer("Все материалы загружены")
-    prompt = "Давай начнём интервью, проанализируй мои материалы и продумай вопросы"
-    result = await agent.ainvoke(
-        {"messages": [("human", prompt)]},
-        config={"configurable": {"thread_id": f"{query.from_user.id}"}},
-        context=Context(user_id=query.from_user.id, course_title=data["title"]),
+        load_percent = round(i + 1 / len(documents), 2) * 100
+        await message.edit_text(f"🔄 Обработка материалов: <b>{load_percent}%</b>")
+    await message.edit_text("⚙️ Все материалы обработаны!")
+    first_question = await start_interview(
+        user_id=query.from_user.id, course_title=data["title"]
     )
-    await query.answer(result["messages"][-1].content)
+    await query.message.answer(first_question)
     await state.set_state(CourseForm.in_interview)
 
 
 @router.message(CourseForm.in_interview, F.text)
 async def process_interview(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
-    prompt = "Давай начнём интервью, проанализируй мои материалы и продумай вопросы"
     result = await agent.ainvoke(
-        {"messages": [("human", prompt)]},
+        {"messages": [("human", message.text)]},
         config={"configurable": {"thread_id": f"{message.from_user.id}"}},
         context=Context(user_id=message.from_user.id, course_title=data["title"]),
     )
