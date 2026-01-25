@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Self
+from typing import Any, Self, TypeVar
 
+from abc import ABC
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -16,7 +17,7 @@ from pydantic import (
 )
 
 from ..utils import current_datetime
-from .enums import AssessmentType, BlockType, UserRole
+from .enums import AssessmentType, ContentType, SubmissionFormat, UserRole
 
 
 class User(BaseModel):
@@ -47,53 +48,47 @@ class Student(BaseModel):
         return self
 
 
-class CourseTask(BaseModel):
-    user_id: PositiveInt
-    title: str
-    file_ids: list[str] = Field(default_factory=list)
-
-
 class Course(BaseModel):
     """Модель образовательного курса"""
 
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
-    creator_id: PositiveInt = Field(..., description="Telegram ID пользователя")
-    title: str = Field(
-        ...,
-        description="Понятное название курса",
-        examples=["Разработка веб-приложений на Python с использованием Django"]
-    )
-    description: str = Field(..., description="Общее описание и введение в курс")
-    modules: list[Module]
+    creator_id: PositiveInt
+    image_url: str | None = None
+    title: str
+    learning_objectives: list[str] = Field(default_factory=list)
+    modules: list[Module] = Field(default_factory=list)
+    assessment: Assessment
 
 
 class Module(BaseModel):
-    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
-    title: str = Field(..., description="Название модуля")
-    description: str = Field(
-        ..., description="Краткий обзор тем и технологий с которыми ознакомится студент"
-    )
-    order: NonNegativeInt = Field(..., description="Порядковый номер модуля")
-    content_blocks: list[ContentBlock] = Field(
-        default_factory=list,
-        description="Вместо жесткой структуры — LEGO-подобные блоки"
-    )
-    assessments: list[Assessment] = Field(
-        default_factory=list, description="Ассессменты для проверки знаний"
-    )
+    id: UUID = Field(default_factory=uuid4)
+    title: str
+    description: str
+    order: NonNegativeInt
+    content_blocks: list[AnyContentBlock] = Field(default_factory=list)
+    exercise: Exercise
 
 
-class TheoryBlock(BaseModel):
-    """Теоретический блок"""
+class ContentBlock(ABC, BaseModel):
+    """Универсальные блоки с контентом"""
 
-    md_content: str = Field(..., description="Markdown текст")
-    generated_by_ai: bool = Field(default=True)
+    content_type: ContentType
+    ai_generated: bool = Field(default=True)
 
 
-class VideoBlock(BaseModel):
+AnyContentBlock = TypeVar("AnyContentBlock", bound=ContentBlock)
+
+
+class TextBlock(ContentBlock):
+    content_type: ContentType = ContentType.TEXT
+    md_content: str = Field(..., description="Markdown текст теоретического материала")
+
+
+class VideoBlock(ContentBlock):
     """Блок с видео контентом"""
 
+    content_type: ContentType = ContentType.VIDEO
     url: str = Field(..., description="Ссылка на видео")
     platform: str = Field(
         ..., description="Платформа с которой взято видео", examples=["YouTube", "RuTube"]
@@ -108,62 +103,53 @@ class VideoBlock(BaseModel):
     )
 
 
-class CodeExampleBlock(BaseModel):
+class CodeBlock(ContentBlock):
     """Пример кода"""
 
+    content_type: ContentType = ContentType.CODE
     language: str = Field(..., description="Язык программирования")
     code: str = Field(..., description="Программный код")
     explanation: str = Field(..., description="Пояснения к коду")
 
 
-class ReadingBlock(BaseModel):
-    """Материал для чтения"""
+class QuizBlock(ContentBlock):
+    """Блок с вопросами для самопроверки"""
 
-    title: str = Field(..., description="Название материала")
-    source_type: str = Field(..., description="Тип (книга, статья, исследование)")
-    pages: str | None = Field(default=None, description="", examples=["10-25"])
-    url: str | None = Field(default=None, description="Ссылка на материал")
-    reading_time_minutes: PositiveInt = Field(..., description="Примерное время чтения")
-
-
-AnyBlockData = TheoryBlock | VideoBlock | CodeExampleBlock | ReadingBlock
-
-
-class ContentBlock(BaseModel):
-    """Универсальные блоки с контентом (LEGO-подобные блоки).
-
-    Примеры data для разных типов:
-     - type="text": {"content": "Markdown текст", "generated_by_ai": true}
-     - type="video": {"url": "youtube.com/...", "platform": "youtube"}
-     - type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
-     - type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
-    """
-
-    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
-    block_type: BlockType = Field(
-        ..., description="Тип контент блока (строго из доступных enum)"
+    content_type: ContentType = ContentType.QUIZ
+    questions: list[tuple[str, str]] = Field(
+        default_factory=list,
+        description="Список вопросов для самопроверки с ответами",
+        examples=[
+            [
+                ("Здесь должен быть первый вопрос", "Ответ на первый вопрос"),
+                ("Здесь должен быть второй вопрос", "Ответ на второй вопрос"),
+            ]
+        ],
     )
-    data: AnyBlockData = Field(
+
+
+class Exercise(BaseModel):
+    task: str = Field(..., description="Описание задания")
+    submission_format: SubmissionFormat = Field(
         ...,
-        description="""Примеры data для разных типов:
-        - block_type="text": {"md_content": "Markdown текст", "generated_by_ai": true}
-        - block_type="video": {"url": "youtube.com/...", "platform": "youtube"}
-        - block_type="code_example": {"language": "python", "code": "print('hello')", "explanation": "..."}
-        - block_type="reading": {"title": "Книга", "pages": "10-25", "link": "..."}
-        """  # noqa: E501
+        description="Формат сдачи задания",
+        examples=["text", "file", "github", "url"]
+    )
+    evaluation_criteria: list[str] = Field(
+        default_factory=list, description="Критерии проверки задания"
     )
 
 
 class Assessment(BaseModel):
-    id: UUID = Field(default_factory=uuid4, description="Не указывать, генерируется автоматически")
+    id: UUID = Field(default_factory=uuid4)
     assessment_type: AssessmentType = Field(..., description="Тип ассессмента")
     title: str = Field(..., description="Название ассессмента")
-    description: str = Field(..., description="Краткое описание (1-2 предложения)")
     verification_rules: dict[str, Any] = Field(
         default_factory=dict,
-        description="Правила проверки и создания ассессмента",
+        description="""Правила проверки и создания ассессмента,
+        для генерации индивидуального варианта для каждого студента""",
         examples=[
-            {"question_count": 10, "time_limit": 1800},  # Для теста
+            {"questions_count": 10, "time_limit": 1800},  # Для теста
             {"programming_language": "C#", "repository_required": True},  # Для кода
             {"min_words": 500, "max_words": 1000},  # Для эссе
         ],

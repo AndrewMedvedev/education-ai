@@ -225,7 +225,9 @@ def _extract_markdown_text(soup: BeautifulSoup) -> str:
     return "\n".join([html_to_markdown.convert(str(element)) for element in elements])
 
 
-async def crawl_web_page(url: str, headless: bool = False) -> str:
+async def crawl_page_content(url: str, headless: bool = False) -> str:
+    """Получает контент со страницы в формате Markdown"""
+
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=headless)
         page = await _get_current_page(browser)

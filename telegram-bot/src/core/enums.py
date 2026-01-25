@@ -7,31 +7,27 @@ class UserRole(StrEnum):
     STUDENT = "student"
 
 
-class TaskStatus(StrEnum):
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
-
-class BlockType(StrEnum):
+class ContentType(StrEnum):
     TEXT = "text"
     VIDEO = "video"
-    # EXTERNAL_LINK = "external_link"  # noqa: ERA001
-    INTERACTIVE = "interactive"
-    CODE_EXAMPLE = "code_example"
-    READING = "reading"
+    INFOGRAPHIC = "infographic"
+    CODE = "code"
+    QUIZ = "quiz"
+    TEST = "test"
+
+
+class SubmissionFormat(StrEnum):
+    """Формат сдачи задания"""
+
+    TEXT = "text"
+    FILE = "file"
+    CODE = "code"
+    GITHUB = "github"
+    URL = "url"
 
 
 class AssessmentType(StrEnum):
     TEST = "test"
     PROJECT = "project"
-    CODE = "code"
     ESSAY = "essay"
-
-
-class DifficultyLevel(StrEnum):
-    BEGINNER = "beginner"
-    INTERMEDIATE = "intermediate"
-    ADVANCED = "advanced"
-    EXPERT = "expert"
+    PRESENTATION = "presentation"

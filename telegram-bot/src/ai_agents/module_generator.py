@@ -13,7 +13,7 @@ from langchain_openai import ChatOpenAI
 
 from ..core import enums, schemas
 from ..intergrations import yandex_search_api
-from ..services import crawler
+from .. import crawler
 from ..settings import PROMPTS_DIR, settings
 from .course_structure_planner import ModulePlan
 

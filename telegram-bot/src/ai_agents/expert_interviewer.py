@@ -8,6 +8,7 @@ from aiogram.fsm.storage.base import StorageKey
 from langchain.agents import AgentState, create_agent
 from langchain.agents.middleware import ModelRequest, dynamic_prompt
 from langchain.tools import ToolRuntime, tool
+from langchain_core.messages import ToolMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
@@ -16,14 +17,14 @@ from langgraph.graph import END
 from langgraph.types import Command
 from pydantic import BaseModel, Field, PositiveInt
 
-from ...rag import get_rag_pipeline
-from ...settings import PROMPTS_DIR, settings
+from src.rag import get_rag_pipeline
+from src.settings import PROMPTS_DIR, settings
 
 logger = logging.getLogger(__name__)
 
 model = ChatOpenAI(
     api_key=settings.yandexcloud.apikey,
-    model=settings.yandexcloud.aliceai_llm,
+    model=settings.yandexcloud.qwen3_235b,
     base_url=settings.yandexcloud.base_url,
     temperature=0.3,
     max_retries=3
@@ -41,16 +42,13 @@ class Context(BaseModel):
 
 
 class State(AgentState):
-    interview_result: NotRequired[str]
+    interview_summary: NotRequired[str]
 
 
 class MaterialsSearchInput(BaseModel):
     """Входные параметры для поиска по прикреплённым материалам"""
 
     search_query: str = Field(description="Запрос для поиска")
-    source: str | None = Field(
-        description="Источник (имя файла) в котором нужно искать информацию"
-    )
 
 
 @tool(
@@ -58,15 +56,10 @@ class MaterialsSearchInput(BaseModel):
     description="Выполняет поиск по материалам эксперта",
     args_schema=MaterialsSearchInput,
 )
-def materials_search(
-        runtime: ToolRuntime[Context, State], search_query: str, source: str | None = None
-) -> str:
+def materials_search(runtime: ToolRuntime[Context, State], search_query: str) -> str:
     index_name = f"materials-{runtime.context.user_id}-index"
     rag_pipeline = get_rag_pipeline(index_name=index_name)
-    metadata_filter: dict[str, str] | None = None
-    if source is not None:
-        metadata_filter = {"source": source}
-    documents = rag_pipeline.retrieve(search_query, metadata_filter=metadata_filter)
+    documents = rag_pipeline.retrieve(search_query)
     return "\n\n".join(documents)
 
 
@@ -75,8 +68,9 @@ def materials_search(
     description="Завершает интервью для передачи данных следующему агенту"
 )
 async def complete_interview(runtime: ToolRuntime[Context, State]) -> Command:
-    from ...bot import bot, storage  # noqa: PLC0415
+    from ..bot import bot, storage  # noqa: PLC0415
 
+    logger.info("Starting completion of interview with expert `%s`", runtime.context.user_id)
     storage_key = StorageKey(
         bot_id=bot.id,
         user_id=runtime.context.user_id,
@@ -87,14 +81,19 @@ async def complete_interview(runtime: ToolRuntime[Context, State]) -> Command:
         ("system", summary_prompt.format(course_title=runtime.context.course_title)),
     ])
     chain = prompt | model | StrOutputParser()
-    result = await chain.ainvoke({"messages": [*runtime.state["messages"]]})
-    await bot.send_message(chat_id=runtime.context.user_id, text="Спасибо за ответы")
+    summary = await chain.ainvoke({"messages": [*runtime.state["messages"]]})
+    await bot.send_message(
+        chat_id=runtime.context.user_id,
+        text="🤖 Спасибо за уделённое время, передаю ответы AI методисту ..."
+    )
     await context.clear()
-    return Command(update={"interview_result": result}, goto=END)
+    tool_message = ToolMessage(content=summary, tool_call_id=runtime.tool_call_id)
+    logger.info("Interview complete successfully for expert `%s`", runtime.context.user_id)
+    return Command(update={"messages": [tool_message], "interview_summary": summary}, goto=END)
 
 
 @dynamic_prompt
-def context_aware_prompt(request: ModelRequest) -> str:
+def context_based_prompt(request: ModelRequest) -> str:
     return system_prompt.format(course_title=request.runtime.context.course_title)
 
 
@@ -103,6 +102,6 @@ agent = create_agent(
     context_schema=Context,
     state_schema=State,
     tools=[materials_search, complete_interview],
-    middleware=[context_aware_prompt],
+    middleware=[context_based_prompt],
     checkpointer=InMemorySaver(),
 )
