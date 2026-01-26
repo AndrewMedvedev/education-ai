@@ -97,7 +97,7 @@ def context_based_prompt(request: ModelRequest) -> str:
     return system_prompt.format(course_title=request.runtime.context.course_title)
 
 
-agent = create_agent(
+interviewer_agent = create_agent(
     model=model,
     context_schema=Context,
     state_schema=State,

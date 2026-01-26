@@ -2,6 +2,7 @@ from typing import Any
 
 import logging
 from collections.abc import Awaitable, Callable
+from uuid import uuid4
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
@@ -12,14 +13,50 @@ from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import BaseModel, Field
 
-from ...core.enums import ContentType
-from ...core.schemas import CodeBlock, QuizBlock, TextBlock, VideoBlock
-from ...settings import PROMPTS_DIR, settings
-from ..tools import tools
+from ...core.courses import (
+    CodeBlock,
+    ContentType,
+    ExerciseType,
+    QuizBlock,
+    TestExercise,
+    TextBlock,
+    VideoBlock,
+)
+from ...settings import settings
+from ..tools import browse_page, draw_mermaid, rutube_search, web_search, write_code
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPTS_DIR = PROMPTS_DIR / "course_architect" / "content_generator"
+SYSTEM_PROMPTS = {
+    "code": """
+    Ты полезный ассистент для создания примеров с кодом для студентов образовательного курса.
+    Твоя задача по запросу создать максимально качественный контент.
+
+    Используй инструмент `write_code` для генерации качественного кода.
+    """,
+    "text": """
+    Ты полезный ассистент для написания образовательного-теоретического материала.
+    Твоя задача написать максимально информативный и понятный материал по детальному запросу.
+
+    ### Доступные инструменты
+     - `web_search` - используя для проверки фактов или поиска необходимого материала
+     - `browse_page` - используя для получения контента со страницы по её URL
+     - `draw_mermaid` - используй для визуализации сложных процессов (построение диаграммы)
+    """,
+    "video": """
+    Ты полезный ассистент для поиска и подбора видео для образовательных курсов.
+    Твоя задача найти наиболее полезное видео по запросу/заданию,
+    которое наилучшим способом впишется в текущий образовательный модуль.
+
+    Используй инструмент `rutube_search` для поиска видео на платформе RuTube.
+    """,
+    "quiz": """
+    Ты полезный ассистент для создания вопросов/теста для самопроверки пройденных знаний.
+    Твоя задача создать тест, который затронет все ключевые темы и знания.
+
+    Используй инструмент `web_search` для поиска достоверной информации.
+    """
+}
 
 model = ChatOpenAI(
     api_key=settings.yandexcloud.apikey,
@@ -44,49 +81,59 @@ class ContentTypeMiddleware(AgentMiddleware):
         """Динамически определяет модель поведения агента в зависимости от типа контента"""
 
         content_type = request.runtime.context.content_type
-        match content_type:
-            case ContentType.CODE:
-                tools = [tool for tool in request.tools if tool.name == "write_code"]
-                response_format = CodeBlock
-                system_prompt_file = "code.md"
-            case ContentType.TEXT:
-                tools = [
-                    tool for tool in request.tools
-                    if tool.name in {"web_search", "browse_page", "draw_mermaid"}
-                ]
-                response_format = TextBlock
-                system_prompt_file = "text.md"
-            case ContentType.VIDEO:
-                tools = [tool for tool in request.tools if tool.name == "rutube_search"]
-                response_format = VideoBlock
-                system_prompt_file = "video.md"
-            case ContentType.QUIZ:
-                tools = [
-                    tool for tool in request.tools
-                    if tool.name in {"web_search", "browse_page"}
-                ]
-                response_format = QuizBlock
-                system_prompt_file = "quiz.md"
-            case _:
-                tools = request.tools
-                response_format = TextBlock
-                system_prompt_file = "text.md"
-        system_prompt = (SYSTEM_PROMPTS_DIR / system_prompt_file).read_text(encoding="utf-8")
-        return await handler(request.override(
-            tools=tools,
-            system_message=SystemMessage(content=system_prompt),
-            response_format=ToolStrategy(response_format),
-        ))
+        config = {
+            "code": {
+                "tools": [write_code],
+                "system_message": SystemMessage(content=SYSTEM_PROMPTS["code"]),
+                "response_format": ToolStrategy(CodeBlock)
+            },
+            "text": {
+                "tools": [web_search, browse_page, draw_mermaid],
+                "system_message": SystemMessage(content=SYSTEM_PROMPTS["text"]),
+                "response_format": ToolStrategy(TextBlock)
+            },
+            "video": {
+                "tools": [rutube_search],
+                "system_message": SystemMessage(content=SYSTEM_PROMPTS["video"]),
+                "response_format": ToolStrategy(VideoBlock)
+            },
+            "quiz": {
+                "tools": [web_search],
+                "system_message": SystemMessage(content=SYSTEM_PROMPTS["quiz"]),
+                "response_format": ToolStrategy(QuizBlock)
+            }
+        }
+        return await handler(request.override(**config.get(content_type.value, {})))
 
 
-content_generator = create_agent(
-    model=model,
-    tools=tools,
-    middleware=[ContentTypeMiddleware()],
-    context_schema=ContentContext,
-    response_format=ToolStrategy(TextBlock),
-    checkpointer=InMemorySaver(),
-)
+def create_content_generator(content_type: ContentType):
+    config = {
+        "code": {
+            "tools": [write_code],
+            "system_prompt": SYSTEM_PROMPTS["code"],
+            "response_format": ToolStrategy(CodeBlock),
+        },
+        "text": {
+            "tools": [web_search, browse_page, draw_mermaid],
+            "system_prompt": SYSTEM_PROMPTS["text"],
+            "response_format": ToolStrategy(TextBlock),
+        },
+        "video": {
+            "tools": [rutube_search],
+            "system_prompt": SYSTEM_PROMPTS["video"],
+            "response_format": ToolStrategy(VideoBlock),
+        },
+        "quiz": {
+            "tools": [web_search],
+            "system_prompt": SYSTEM_PROMPTS["quiz"],
+            "response_format": ToolStrategy(QuizBlock),
+        },
+    }
+    return create_agent(
+        model=model,
+        checkpointer=InMemorySaver(),
+        **config.get(content_type.value, {})
+    )
 
 
 class ContentGeneratorInput(BaseModel):
@@ -96,22 +143,59 @@ class ContentGeneratorInput(BaseModel):
         description="Тип контент блока который нужно сгенерировать",
         examples=["text", "quiz", "code", "video"]
     )
-    prompt: str = Field(
-        description="Детальный промпт для генерации контента"
-    )
+    prompt: str = Field(description="Детальный промпт для генерации контента")
 
 
 @tool(
     "generate_content",
-    description="",
+    description="Вызывает агента для генерации образовательного контента",
     args_schema=ContentGeneratorInput,
-    response_format="content_and_artifact"
 )
 async def call_content_generator(content_type: ContentType, prompt: str) -> dict[str, Any]:
     """Вызывает агента для генерации образовательного контента"""
 
+    thread_id = f"{content_type}-{uuid4()}"
+    content_generator = create_content_generator(content_type)
     result = await content_generator.ainvoke(
-        {"messages": [("human", prompt)]},
-        context=ContentContext(content_type=content_type)
+        {"messages": [{"role": "human", "content": prompt}]},
+        config={"configurable": {"thread_id": thread_id}}
+    )
+    return result["structured_response"]
+
+
+class ExerciseContext(BaseModel):
+    """Контекст агента для генерации заданий"""
+
+    exercise_type: ExerciseType
+
+
+exercise_generator = create_agent(
+    model=model,
+    context_schema=ExerciseContext,
+    response_format=ToolStrategy(TestExercise),
+)
+
+
+class ExerciseGeneratorInput(BaseModel):
+    """Входные параметры агента для генерации практических заданий"""
+
+    exercise_type: ExerciseType = Field(
+        description="Тип задания по его виду выполнения",
+        examples=["test", "file_upload", "github"]
+    )
+    prompt: str = Field(description="Детальный промпт для генерации задания")
+
+
+@tool(
+    "generate_exercise",
+    description="Генерирует практическое задание для модуля образовательного курса",
+    args_schema=ExerciseGeneratorInput,
+)
+async def call_exercise_generator(exercise_type: ExerciseType, prompt: str):
+    thread_id = f"{exercise_type}-{uuid4()}"
+    result = await exercise_generator.ainvoke(
+        {"messages": [{"role": "human", "content": prompt}]},
+        context=ExerciseContext(exercise_type=exercise_type),
+        config={"configurable": {"thread_id": thread_id}}
     )
     return result["structured_response"]

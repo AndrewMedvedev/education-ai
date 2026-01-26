@@ -26,7 +26,7 @@ model = ChatOpenAI(
 class ScenarioContext(BaseModel):
     """Контекст агента для написания сценария курса"""
 
-    interview_summary: str
+    teacher_insights: str  # Инсайты преподавателя полученные из интервью с ним
 
 
 class CourseScenario(BaseModel):
@@ -37,18 +37,22 @@ class CourseScenario(BaseModel):
     audience_description: str = Field(description="Описание целевой аудитории курса")
     learning_objectives: list[str] = Field(description="Цели обучения")
     modules: list[str] = Field(
-        description="""Описание каждого модуля по порядку, здесь должны быть
-        ключевые темы / подтемы (то, без чего курс невозможен)"""
+        description="""
+        Описание каждого модуля по порядку, здесь должно быть:
+         - ключевые темы / подтемы (то, без чего курс невозможен)
+         - цели обучения модуля
+         - план по достижению образовательных целей
+         """
     )
     assessment_description: str = Field(description="Описание финального ассессмента")
 
 
 @dynamic_prompt
 def context_based_prompt(request: ModelRequest) -> str:
-    return SYSTEM_PROMPT.format(interview_summary=request.runtime.context.interview_summary)
+    return SYSTEM_PROMPT.format(insights=request.runtime.context.teacher_insights)
 
 
-scenario_agent = create_agent(
+scenario_writer = create_agent(
     model=model,
     context_schema=ScenarioContext,
     middleware=[context_based_prompt],
