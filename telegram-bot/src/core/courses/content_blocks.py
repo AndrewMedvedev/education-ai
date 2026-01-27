@@ -1,5 +1,3 @@
-from typing import TypeVar
-
 from abc import ABC
 from enum import StrEnum
 
@@ -20,9 +18,6 @@ class ContentBlock(ABC, BaseModel):
 
     content_type: ContentType
     ai_generated: bool = Field(default=True)
-
-
-AnyContentBlock = TypeVar("AnyContentBlock", bound=ContentBlock)
 
 
 class TextBlock(ContentBlock):
@@ -71,3 +66,6 @@ class QuizBlock(ContentBlock):
             ]
         ],
     )
+
+
+AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock

@@ -154,6 +154,10 @@ class ContentGeneratorInput(BaseModel):
 async def call_content_generator(content_type: ContentType, prompt: str) -> dict[str, Any]:
     """Вызывает агента для генерации образовательного контента"""
 
+    logger.info(
+        "Call content generator agent with content type %s and prompt: '%s ...'",
+        content_type.value, prompt[:500]
+    )
     thread_id = f"{content_type}-{uuid4()}"
     content_generator = create_content_generator(content_type)
     result = await content_generator.ainvoke(
