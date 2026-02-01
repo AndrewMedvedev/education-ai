@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TIMEZONE = pytz.timezone("Europe/Moscow")
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-ENV_PATH = PROJECT_ROOT / ".env"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ENV_PATH = BASE_DIR / ".env"
 
 load_dotenv(ENV_PATH)
 

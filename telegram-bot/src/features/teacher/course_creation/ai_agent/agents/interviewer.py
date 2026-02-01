@@ -31,7 +31,7 @@ model = ChatOpenAI(
 )
 
 
-class Context(BaseModel):
+class UserContext(BaseModel):
     user_id: PositiveInt
 
 
@@ -53,7 +53,7 @@ class RAGSearchInput(BaseModel):
     description="Выполняет поиск по материалам преподавателя",
     args_schema=RAGSearchInput,
 )
-def rag_search(runtime: ToolRuntime[Context, State], search_query: str) -> str:
+def rag_search(runtime: ToolRuntime[UserContext, State], search_query: str) -> str:
     index_name = f"materials-{runtime.context.user_id}-index"
     rag_pipeline = get_rag_pipeline(index_name=index_name)
     documents = rag_pipeline.retrieve(search_query)
@@ -64,12 +64,12 @@ def rag_search(runtime: ToolRuntime[Context, State], search_query: str) -> str:
     "complete_interview",
     description="Завершает интервью для передачи данных следующему агенту"
 )
-async def finalize(runtime: ToolRuntime[Context, State]) -> Command:
-    logger.info("Finishing interview session for user `%s`", runtime.context.user_id)
+async def finalize(runtime: ToolRuntime[UserContext, State]) -> Command:
+    logger.info("Finishing interview session for teacher `%s`", runtime.context.user_id)
     prompt = ChatPromptTemplate.from_messages([("system", INTERVIEW_SUMMARY_PROMPT)])
     chain = prompt | model | StrOutputParser()
     logger.info(
-        "Starting to extract insights from interview dialog with user `%s`",
+        "Starting to summarize interview dialog with teacher `%s`",
         runtime.context.user_id
     )
     summary = await chain.ainvoke({"messages": [*runtime.state["messages"]]})
@@ -81,16 +81,16 @@ async def finalize(runtime: ToolRuntime[Context, State]) -> Command:
     return Command(update={"messages": [tool_message], "summary": summary}, goto=END)
 
 
-class InterviewerMiddleware(AgentMiddleware):
+class LogInterviewMiddleware(AgentMiddleware):
     state_schema = State
 
     def after_model(  # noqa: PLR6301
-            self, state: State, runtime: Runtime[Context]
+            self, state: State, runtime: Runtime[UserContext]
     ) -> dict[str, Any] | None:
         questions_count = state.get("questions_count", 0)
         questions_count += 1
         logger.info(
-            "[%s] Asking question to user `%s`, question: '%s ...'",
+            "[%s] Asking question to teacher `%s`, question: '%s ...'",
             questions_count, runtime.context.user_id, state["messages"][1].content[:100]
         )
         return {"questions_count": questions_count}
@@ -98,8 +98,8 @@ class InterviewerMiddleware(AgentMiddleware):
 
 interviewer_agent = create_agent(
     model=model,
-    context_schema=Context,
+    context_schema=UserContext,
     system_prompt=INTERVIEWER_PROMPT,
-    middleware=[InterviewerMiddleware()],
+    middleware=[LogInterviewMiddleware()],
     checkpointer=InMemorySaver(),
 )

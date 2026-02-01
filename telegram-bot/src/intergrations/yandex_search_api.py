@@ -47,6 +47,7 @@ def _build_payload(
 
 def _clean_xml_tags(text: str) -> str:
     """Очищает текст от XML тегов и лишних пробелов"""
+
     if not text:
         return ""
     text = re.sub(r"<[^>]+>", "", text)

@@ -136,7 +136,7 @@ async def process_uploaded_document(message: Message, state: FSMContext) -> None
             reply_markup=get_finalize_uploading_kb("✅ Готово"),
         )
         return
-    documents.append(message.document.file_id)
+    documents.append({"file_name": file_name, "file_id": message.document.file_id})
     await state.update_data(documents=documents)
     logger.info("User `%s` uploaded document `%s`", message.from_user.username, file_name)
     await message.answer(
@@ -149,23 +149,33 @@ async def process_uploaded_document(message: Message, state: FSMContext) -> None
     )
 
 
-async def start_interview(user_id: int, course_title: str) -> str:
+async def start_interview(
+        user_id: int, course_title: str, uploaded_documents: list[str] | None = None
+) -> str:
     """Начинает интервью с AI - агентом.
 
     :param user_id: Идентификатор пользователя.
     :param course_title: Название курса.
+    :param uploaded_documents: Названия загруженных документов пользователя.
     :returns: Сгенерированный первый вопрос.
     """
 
+    uploaded_materials_string = (
+        "; ".join(uploaded_documents)
+        if uploaded_documents
+        else "Пользователь не загрузил материалы"
+    )
     prompt = f"""
     **Название курса:** {course_title}
+    **Загруженные материалы:** {uploaded_materials_string}
 
-    Проанализируй материалы, продумай интервью после чего задай первый вопрос,
+    Проанализируй материалы, продумай интервью, после чего задай первый вопрос,
     чтобы начать интервью
     """
+    thread_id = f"interview-{user_id}"
     result = await interviewer_agent.ainvoke(
         {"messages": [("human", prompt)]},
-        config={"configurable": {"thread_id": f"interview-{user_id}"}},
+        config={"configurable": {"thread_id": thread_id}},
         context=Context(user_id=user_id),
     )
     return result["messages"][-1].content
@@ -187,9 +197,9 @@ async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None
         rag_pipeline = get_rag_pipeline(index_name=f"materials-{query.from_user.id}-index")
         message = await query.message.answer("🔄 Обработка материалов: <b>0%</b>")
         start_time = time.time()
-        for i, file_id in enumerate(documents):
+        for i, document in enumerate(documents):
             logger.info("Start processing %s/%s document", i + 1, len(documents))
-            file_info = await query.bot.get_file(file_id)
+            file_info = await query.bot.get_file(document["file_id"])
             buffer = await query.bot.download_file(file_info.file_path, destination=io.BytesIO())
             file = buffer.getbuffer().tobytes()
             file_extension = f".{file_info.file_path.split('.')[-1]}"
@@ -205,7 +215,9 @@ async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None
     async with ChatActionSender.typing(chat_id=query.from_user.id, bot=query.bot):
         logger.info("Starting interview session with user `%s`", query.from_user.username)
         first_question = await start_interview(
-            user_id=query.from_user.id, course_title=data["title"]
+            user_id=query.from_user.id,
+            course_title=data["title"],
+            uploaded_documents=[document["file_name"] for document in documents],
         )
     logger.info(
         "User `%s` must answer the first question in interview: '%s'",
@@ -218,9 +230,10 @@ async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None
 @router.message(CourseCreationForm.in_interview, F.text)
 async def process_interview(message: Message, state: FSMContext) -> None:
     async with ChatActionSender.typing(chat_id=message.chat.id, bot=message.bot):
+        thread_id = f"interview-{message.from_user.id}"
         result = await interviewer_agent.ainvoke(
             {"messages": [("human", message.text)]},
-            config={"configurable": {"thread_id": f"interview-{message.from_user.id}"}},
+            config={"configurable": {"thread_id": thread_id}},
             context=Context(user_id=message.from_user.id),
         )
     summary = result.get("summary")

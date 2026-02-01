@@ -3,7 +3,7 @@ from typing import NotRequired, TypedDict
 import logging
 import time
 
-from src.database.base import session_factory
+from src.core.database import session_factory
 
 from ....course import repository
 from ....course.schemas import Course
@@ -62,7 +62,6 @@ async def generate_modules(state: AgentState) -> dict[str, Course]:
                 module_description=module_description,
             )
         )
-        print(module)
         course.modules.append(module)
         progress_percent = order + 1 / total_modules * 100
         logger.info("Modules generation progress %.1f%%", progress_percent)

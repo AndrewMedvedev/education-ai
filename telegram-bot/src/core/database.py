@@ -1,5 +1,3 @@
-from typing import Final
-
 from collections.abc import AsyncIterator
 from datetime import datetime
 from uuid import UUID, uuid4
@@ -7,19 +5,16 @@ from uuid import UUID, uuid4
 from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import (
     AsyncAttrs,
-    AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from ..settings import settings
+from .config import settings
 
-engine: Final[AsyncEngine] = create_async_engine(
-    url=settings.sqlite.sqlalchemy_url, echo=True
-)
-sessionmaker: Final[async_sessionmaker[AsyncSession]] = async_sessionmaker(
+engine = create_async_engine(url=settings.postgres.sqlalchemy_url, echo=True)
+sessionmaker = async_sessionmaker(
     engine, class_=AsyncSession, autoflush=False, expire_on_commit=False
 )
 

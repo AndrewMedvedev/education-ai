@@ -6,7 +6,7 @@ from sqlalchemy import ARRAY, TEXT, BigInteger, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from ...database.base import Base
+from ...core.database import Base
 
 
 class Course(Base):

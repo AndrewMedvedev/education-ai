@@ -54,12 +54,7 @@ INTERVIEW_SUMMARY = """
 
 
 async def main() -> None:
-    """result = await scenario_agent.ainvoke(
-        {"messages": []}, context=ScenarioContext(interview_summary=INTERVIEW_SUMMARY)
-    )
-    print(result)
-    print(result["structured_response"])"""
-    from src.features.teacher.course_creation.ai_agent.workflow import agent
+    from src.features.teacher.course_creation.ai_agent.workflow import agent  # noqa: PLC0415
 
     result = await agent.ainvoke({
         "user_id": 1,

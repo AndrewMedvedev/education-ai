@@ -22,6 +22,7 @@ dependencies = [
     "langchain-qdrant>=1.1.0",
     "langchain-text-splitters>=1.1.0",
     "langgraph>=1.0.5",
+    "langgraph-checkpoint-redis==0.3.2",
     "markitdown[all]>=0.1.4",
     "mypy>=1.19.1",
     "passlib>=1.7.4",

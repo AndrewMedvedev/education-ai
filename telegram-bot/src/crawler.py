@@ -225,7 +225,7 @@ def _extract_markdown_text(soup: BeautifulSoup) -> str:
     return "\n".join([html_to_markdown.convert(str(element)) for element in elements])
 
 
-async def crawl_page_content(url: str, headless: bool = False) -> str:
+async def parse_page_content(url: str, headless: bool = False) -> str:
     """Получает контент со страницы в формате Markdown"""
 
     async with async_playwright() as playwright:

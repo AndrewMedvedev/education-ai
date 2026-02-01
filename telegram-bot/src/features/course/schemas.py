@@ -26,6 +26,7 @@ class ContentBlock(ABC, BaseModel):
 
 class TextBlock(ContentBlock):
     content_type: ContentType = ContentType.TEXT
+
     md_content: str = Field(..., description="Markdown текст теоретического материала")
 
 
@@ -33,14 +34,17 @@ class VideoBlock(ContentBlock):
     """Блок с видео контентом"""
 
     content_type: ContentType = ContentType.VIDEO
+
     url: str = Field(..., description="Ссылка на видео")
     platform: str = Field(
         ..., description="Платформа с которой взято видео", examples=["YouTube", "RuTube"]
     )
     title: str = Field(..., description="Название видео")
     duration_seconds: PositiveInt = Field(..., description="Длительность в секундах")
-    key_moments: dict[int, str] = Field(
-        default_factory=dict, description="Тайм-коды ключевых моментов (секунда: описание)"
+    key_moments: list[tuple[str, str]] = Field(
+        default_factory=list,
+        description="Тайм-коды ключевых моментов",
+        examples=[[("1:05", "Вступление"), ("5:23", "Начало лекции")]]
     )
     discussion_questions: list[str] = Field(
         default_factory=list, description="Вопросы для обсуждения"
@@ -51,6 +55,7 @@ class CodeBlock(ContentBlock):
     """Пример кода"""
 
     content_type: ContentType = ContentType.CODE
+
     language: str = Field(..., description="Язык программирования")
     code: str = Field(..., description="Программный код")
     explanation: str = Field(..., description="Пояснения к коду")
@@ -60,6 +65,7 @@ class QuizBlock(ContentBlock):
     """Блок с вопросами для самопроверки"""
 
     content_type: ContentType = ContentType.QUIZ
+
     questions: list[tuple[str, str]] = Field(
         default_factory=list,
         description="Список вопросов для самопроверки с ответами",
@@ -107,10 +113,13 @@ class TestQuestion(BaseModel):
 
     text: str = Field(..., description="Формулировка вопроса")
     options: list[str] = Field(
-        default_factory=list, description="Варианты ответов (порядок имеет значение)"
+        default_factory=list,
+        min_length=2,
+        description="Варианты ответов (порядок имеет значение)"
     )
     correct_answers: list[int] = Field(
         default_factory=list,
+        min_length=1,
         description="Индексы правильных ответов начиная с 0",
         examples=[{0, 3, 4}, {1}, {2, 5}]
     )
@@ -176,13 +185,6 @@ class Module(BaseModel):
     assignment: AnyAssignment = Field(..., description="Задание для закрепления материала")
 
 
-class CourseStatus(StrEnum):
-    GENERATED = "generated"  # Курс сгенерирован
-    IN_VALIDATION = "in_validation"  # На проверке преподавателя
-    ACTIVE = "active"  # Курс открыт для изучения
-    CLOSED = "closed"  # Курс закрыт
-
-
 class FinalAssessment(BaseModel):
     """Финальный ассессмент в конце курса"""
 
@@ -202,6 +204,14 @@ class FinalAssessment(BaseModel):
     evaluation_criteria: list[str] = Field(..., description="Критерии для оценки")
 
 
+class CourseStatus(StrEnum):
+    IN_PROGRESS = "in_progress"
+    REVIEW = "review"
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    ARCHIVED = "archived"
+
+
 class Course(BaseModel):
     """Модель образовательного курса"""
 
@@ -210,7 +220,7 @@ class Course(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
     creator_id: PositiveInt
-    status: CourseStatus = Field(default=CourseStatus.GENERATED)
+    status: CourseStatus = Field(default=CourseStatus.IN_PROGRESS)
     image_url: str | None = None
     title: str
     description: str
