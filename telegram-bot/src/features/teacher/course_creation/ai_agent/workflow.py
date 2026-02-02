@@ -13,4 +13,4 @@ graph.add_edge("plan_course_structure", "generate_modules")
 graph.add_edge("generate_modules", "save_course")
 graph.add_edge("save_course", END)
 
-agent = graph.compile(debug=True)
+agent = graph.compile()

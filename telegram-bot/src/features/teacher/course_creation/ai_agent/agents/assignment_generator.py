@@ -1,18 +1,15 @@
-from typing import Any
-
 import logging
 from uuid import uuid4
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
-from langchain.tools import tool
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.redis import AsyncRedisSaver
-from pydantic import BaseModel, Field
+from langgraph.checkpoint.memory import InMemorySaver
 
 from src.core.config import settings
 from src.features.course.schemas import (
+    AnyAssignment,
     AssignmentType,
     FileUploadAssignment,
     GitHubAssignment,
@@ -66,41 +63,26 @@ config = {
 }
 
 
-class AssignmentGenerationInput(BaseModel):
-    """Входные параметры для вызова агента - генератора практических заданий"""
+async def call_assignment_generator(assignment_type: AssignmentType, prompt: str) -> AnyAssignment:
+    """Вызывает агента - генератора практических заданий для модуля
 
-    assignment_type: AssignmentType = Field(
-        description="Тип задания, которое нужно сгенерировать",
-        examples=["test", "file_upload", "github"],
-    )
-    prompt: str = Field(description="Детальный промпт для генерации задания")
+    :param assignment_type: Тип практического задания.
+    :param prompt: Детальный промпт для генерации задания.
+    """
 
-
-@tool(
-    "generate_assignment",
-    description="Вызывает агента для генерации практических заданий",
-    args_schema=AssignmentGenerationInput
-)
-async def call_assignment_generator(
-        assignment_type: AssignmentType, prompt: str
-) -> dict[str, Any]:
     logger.info(
         "Call assignment generator agent with assignment type `%s` and prompt: '%s ...'",
         assignment_type.value, prompt[:500],
     )
-    async with AsyncRedisSaver.from_conn_string(
-        settings.redis.url, ttl={"default_ttl": 20, "refresh_on_read": True}
-    ) as checkpointer:
-        await checkpointer.setup()
-        agent = create_agent(
-            model=model,
-            middleware=[
-                ToolCallLimitMiddleware(
-                    tool_name="web_search", run_limit=3, thread_limit=4
-                )
-            ],
-            checkpointer=checkpointer,
-            **config.get(assignment_type, {})
+    agent = create_agent(
+        model=model,
+        middleware=[
+            ToolCallLimitMiddleware(
+                tool_name="web_search", run_limit=5, thread_limit=7
+            )
+        ],
+        checkpointer=InMemorySaver(),
+        **config.get(assignment_type, {})
         )
     result = await agent.ainvoke(
         {"messages": [("human", prompt)]},

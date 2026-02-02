@@ -13,7 +13,7 @@ class ContentType(StrEnum):
 
     TEXT = "text"
     VIDEO = "video"
-    CODE = "code"
+    PROGRAM_CODE = "program_code"
     QUIZ = "quiz"
 
 
@@ -54,7 +54,7 @@ class VideoBlock(ContentBlock):
 class CodeBlock(ContentBlock):
     """Пример кода"""
 
-    content_type: ContentType = ContentType.CODE
+    content_type: ContentType = ContentType.PROGRAM_CODE
 
     language: str = Field(..., description="Язык программирования")
     code: str = Field(..., description="Программный код")
@@ -182,7 +182,9 @@ class Module(BaseModel):
         min_length=1,
         description="Контент блоки с материалом для изучения"
     )
-    assignment: AnyAssignment = Field(..., description="Задание для закрепления материала")
+    assignment: AnyAssignment | None = Field(
+        default=None, description="Задание для закрепления материала"
+    )
 
 
 class FinalAssessment(BaseModel):

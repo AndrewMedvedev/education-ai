@@ -1,68 +1,70 @@
 import asyncio
-import json
 import logging
-from uuid import UUID
 
-import aiofiles
+from src.features.teacher.course_creation.ai_agent.workflow import agent
 
-from src.ai_agents.course_structure_planner import CourseStructurePlan
-from src.ai_agents.module_designer import DesignerContext, agent
-from src.core import enums, schemas
-from src.services import courses as courses_service
-from src.services import media as media_service
+INTERVIEW_SUMMARY = """
+### 🎯 Целевая аудитория:
+Студенты 3 курса IT-направлений, базовые навыки: программирование (на одном из языков), Git, простые проекты (например, веб-приложение с интерфейсом и БД).  
+**Главные боли:** не понимают, зачем нужна архитектура, как выбирать подход, боятся сложных систем, склонны к overengineering или, наоборот, к "главное — чтобы работало".
 
-logger = logging.getLogger(__name__)
+---
+
+### Продолжительность курса:
+ - 3 - 4 небольших модуля (для тестирования курса)
+ - Если все темы не помещаются в 3 - 4 модуля, то оставь только ключевые
+
+### 🔑 Ключевые темы курса (5–6):
+1. **Основы инженерии ПО** — чем инженер отличается от программиста: предсказуемость, поддерживаемость, масштабируемость.
+2. **Виды архитектур (на базовом уровне):**
+   - Монолит (плюсы/минусы, когда уместен)
+   - Слоистая архитектура (presentation, service, data)
+   - Введение в микросервисы (когда оправданы, сложности)
+3. **Проектирование ПО:**
+   - Разделение ответственностей
+   - Управление зависимостями (DI, модульность)
+   - Простые принципы (SOLID — только ключевые примеры)
+4. **Качество кода:**
+   - Тестирование: unit, integration (на практике)
+   - Рефакторинг: когда и зачем
+   - Code review как практика
+5. **Жизненный цикл и процессы:**
+   - CI/CD (на уровне понимания пайплайна)
+   - Git-стратегии (feature branches, PR/MR)
+6. **API и взаимодействие компонентов:**
+   - REST, контракты, документация (OpenAPI)
+
+---
+
+### 🧠 Главные заблуждения:
+- "Архитектура — это сложно и не для меня"
+- "Если работает — значит, нормально"
+- "Лучше сразу сделать масштабируемо, как в Google"
+- Нет чувства баланса: простота vs гибкость
+
+---
+
+### 🛠️ Практические кейсы (предлагаемые):
+1. **Задача "Рефакторинг утилитарного монолита":**
+   Дано: веб-приложение, где всё в одном файле (контроллер, логика, БД).
+   Задача: разбить на слои, выделить сервисы, добавить тесты — и показать, как это упрощает добавление нового функционала.
+
+2. **Задача "Выбор архитектуры под задачу":**
+   Даны 3 сценария (маленький стартап, корпоративная система, высоконагруженный сервис).
+   Студенты обсуждают — какую архитектуру выбрать и почему, какие риски.
+
+3. **Практика CI/CD:**
+   Настроить простой пайплайн (GitHub Actions), который запускает тесты при PR.
+
+"""  # noqa: E501
 
 
 async def main() -> None:
-    user_id = 1779915071
-    """attachments: list[schemas.Attachment] = []
-    files = ["Лекция 1.pdf", "Лекция 2.pdf", "Лекция 3.pptx"]
-    for file in files:
-        async with aiofiles.open(file, mode="rb") as f:
-            data = await f.read()
-            attachment = await media_service.upload(user_id=user_id, filename=file, data=data)
-            attachments.append(attachment)
-    """
-    attachments = [
-        UUID("b2040a7b-8155-4b8a-83e8-1a4434f83337"),
-        UUID("f7bb7f8d-76df-4112-87bf-2364cd7924a7"),
-        UUID("f635c343-efe3-43df-b43c-07fcb1bb9a21"),
-    ]
-    teacher_inputs = schemas.TeacherInputs(
-        user_id=user_id,
-        discipline="Системы Искусственного интеллекта",
-        target_audience="Студенты 3 курса IT-направлений Тюменского Индустриального Университета",
-        difficulty_level=enums.DifficultyLevel.BEGINNER,
-        comment="Курс идёт 1 семестр, в качестве языка программирования используй Python",
-        attachments=attachments,
-    )
-    """task = await courses_service.confirm_creation(teacher_inputs)
-    result = await agent.ainvoke(
-        {"messages": []}, context=PlannerContext(
-            user_id=user_id, course_id=task.resource_id, teacher_inputs=teacher_inputs
-        )
-    )
-    print(result["structured_response"])
-    with open("new_plan.json", "w", encoding="utf-8") as f:
-        json.dump(result["structured_response"].model_dump_json(), f, indent=4, ensure_ascii=False)
-    """
-    with open("new_plan.json", "r", encoding="utf-8") as f:
-        course_structure_plan = CourseStructurePlan.model_validate_json(json.load(f))
-    course_id = UUID("6b073754254d44e593769af970356cb5")
-    result = await agent.ainvoke(
-        {"messages": []}, context=DesignerContext(
-            course_id=course_id,
-            teacher_inputs=teacher_inputs,
-            course_description=course_structure_plan.description,
-            module_note=course_structure_plan.module_notes[0]
-        )
-    )
-    print(result["structured_response"])
-    """
-    with open("module_design_example.json", "w", encoding="utf-8") as f:
-        json.dump(result["structured_response"].model_dump_json(), f, indent=4, ensure_ascii=False)
-    """
+    result = await agent.ainvoke({
+        "user_id": 1,
+        "interview_with_teacher": INTERVIEW_SUMMARY
+    })
+    print(result)
 
 
 if __name__ == "__main__":

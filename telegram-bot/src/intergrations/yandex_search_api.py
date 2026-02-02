@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET  # noqa: S405
 
 import aiohttp
 
-from ..settings import settings
+from src.core.config import settings
 
 BASE_URL = "https://searchapi.api.cloud.yandex.net/v2/"
 OPERATIONS_URL = "https://operation.api.cloud.yandex.net/operations/"

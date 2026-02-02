@@ -3,7 +3,7 @@ from datetime import datetime
 
 from markitdown import MarkItDown
 
-from .settings import TIMEZONE
+from .core.config import TIMEZONE
 
 
 def current_datetime() -> datetime:

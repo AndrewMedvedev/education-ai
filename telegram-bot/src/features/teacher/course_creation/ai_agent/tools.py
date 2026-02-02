@@ -21,7 +21,7 @@ class RuTubeSearchInput(BaseModel):
     """Входные аргументы для поиска видео в RuTube"""
 
     search_query: str = Field(description="Запрос для поиска видео")
-    videos_count: PositiveInt = Field(
+    max_results: PositiveInt = Field(
         default=10, description="Количество видео, которое нужно найти"
     )
 
@@ -31,8 +31,8 @@ class RuTubeSearchInput(BaseModel):
     description="Выполняет поиск видео на платформе RuTube",
     args_schema=RuTubeSearchInput
 )
-async def rutube_search(search_query: str, videos_count: int = 10) -> list[dict[str, Any]]:
-    return await rutube_api.search_video(search_query, videos_count)
+async def rutube_search(search_query: str, max_results: int = 10) -> list[dict[str, Any]]:
+    return await rutube_api.search_video(search_query, max_results)
 
 
 class WebSearchInput(BaseModel):
@@ -44,7 +44,9 @@ class WebSearchInput(BaseModel):
     description="""
     Выполняет поиск в Яндекс.
     Возвращает список найденных страниц с заголовками, URL и кратким описанием.
-    Подходит для получения актуальной информации из интернета.""",
+    Подходит для получения актуальной информации из интернета.
+    Используй этот инструмент экономно.
+    """,
     args_schema=WebSearchInput,
 )
 async def web_search(search_query: str) -> list[dict[str, Any]]:

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 BASE_URL = "https://rutube.ru/api/"
 
 
-async def search_video(query: str, video_count: int = 10) -> list[dict[str, Any]]:
+async def search_video(query: str, max_results: int = 10) -> list[dict[str, Any]]:
     headers = {"Content-Type": "application/json"}
     async with aiohttp.ClientSession(base_url=BASE_URL) as session, session.get(
             url="search/video", params={"query": query}, headers=headers
@@ -25,7 +25,7 @@ async def search_video(query: str, video_count: int = 10) -> list[dict[str, Any]
             "duration": result["duration"],
             "published_at": result["publication_ts"],
         }
-        for result in data["results"][:video_count]
+        for result in data["results"][:max_results]
     ]
 
 

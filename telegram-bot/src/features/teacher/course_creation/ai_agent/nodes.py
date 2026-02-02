@@ -7,7 +7,7 @@ from src.core.database import session_factory
 
 from ....course import repository
 from ....course.schemas import Course
-from .agents.module_creator import ModuleContext, module_creator_agent
+from .agents.module_creator import module_creator_agent
 from .agents.structure_planner import CourseStructure, structure_planner_agent
 
 logger = logging.getLogger(__name__)
@@ -54,15 +54,13 @@ async def generate_modules(state: AgentState) -> dict[str, Course]:
             "Generating module - %s, by description: '%s ...'",
             order, module_description[:300]
         )
-        module = await module_creator_agent.ainvoke(
-            {"messages": []}, context=ModuleContext(
-                audience_description=course_structure.audience_description,
-                learning_objectives=course_structure.learning_objectives,
-                order=order,
-                module_description=module_description,
-            )
-        )
-        course.modules.append(module)
+        result = await module_creator_agent.ainvoke({
+            "audience_description": course_structure.audience_description,
+            "learning_objectives": course_structure.learning_objectives,
+            "order": order,
+            "module_description": module_description,
+        })
+        course.modules.append(result["module"])
         progress_percent = order + 1 / total_modules * 100
         logger.info("Modules generation progress %.1f%%", progress_percent)
     logger.info(
