@@ -8,7 +8,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from .settings import CHROMA_PATH
+from .core.config import CHROMA_PATH
 
 logger = logging.getLogger(__name__)
 
