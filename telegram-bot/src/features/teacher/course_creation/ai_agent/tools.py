@@ -2,11 +2,12 @@ from typing import Any
 
 import logging
 
+from ddgs import DDGS
 from langchain.tools import tool
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, Field
 
 from src.core.config import settings
 from src.crawler import parse_page_content
@@ -17,39 +18,32 @@ from .prompts import CODER_PROMPT, MERMAID_PROMPT
 logger = logging.getLogger(__name__)
 
 
-class RuTubeSearchInput(BaseModel):
+class SearchInput(BaseModel):
     """Входные аргументы для поиска видео в RuTube"""
 
-    search_query: str = Field(description="Запрос для поиска видео")
-    max_results: PositiveInt = Field(
-        default=10, description="Количество видео, которое нужно найти"
-    )
+    search_query: str = Field(description="Запрос для поиска")
 
 
 @tool(
     "rutube_search",
     description="Выполняет поиск видео на платформе RuTube",
-    args_schema=RuTubeSearchInput
+    args_schema=SearchInput
 )
-async def rutube_search(search_query: str, max_results: int = 10) -> list[dict[str, Any]]:
-    return await rutube_api.search_video(search_query, max_results)
-
-
-class WebSearchInput(BaseModel):
-    search_query: str = Field(description="Поисковый запрос")
+async def rutube_search(search_query: str) -> list[dict[str, Any]]:
+    return await rutube_api.search_video(search_query)
 
 
 @tool(
-    "web_search",
+    "yandex_search",
     description="""
     Выполняет поиск в Яндекс.
     Возвращает список найденных страниц с заголовками, URL и кратким описанием.
     Подходит для получения актуальной информации из интернета.
     Используй этот инструмент экономно.
     """,
-    args_schema=WebSearchInput,
+    args_schema=SearchInput,
 )
-async def web_search(search_query: str) -> list[dict[str, Any]]:
+async def yandex_search(search_query: str) -> list[dict[str, Any]]:
     return await yandex_search_api.search_async(search_query)
 
 
@@ -111,3 +105,35 @@ async def write_code(language: str, prompt: str) -> str:
     )
     chain = ChatPromptTemplate.from_template(CODER_PROMPT) | model | StrOutputParser()
     return await chain.ainvoke({"language": language, "prompt": prompt})
+
+
+@tool(
+    "search_videos",
+    description="Выполняет поиск видео в интернете с разных платформ",
+    args_schema=SearchInput,
+)
+def search_videos(search_query: str) -> list[dict[str, Any]]:
+    return DDGS().videos(search_query, region="ru-ru", max_results=10)
+
+
+@tool(
+    "web_search",
+    description="""
+    Выполняет поиск в интернете.
+    Возвращает список найденных страниц с заголовками, URL и кратким описанием.
+    Подходит для получения актуальной информации из интернета.
+    Используй этот инструмент экономно.
+    """,
+    args_schema=SearchInput
+)
+def web_search(search_query: str) -> list[dict[str, Any]]:
+    return DDGS().text(search_query, region="ru-ru", max_results=10)
+
+
+@tool(
+    "search_books",
+    description="Выполняет поиск книг в интернете",
+    args_schema=SearchInput,
+)
+def search_books(search_query: str) -> list[dict[str, Any]]:
+    return DDGS().books(search_query, region="ru-ru", max_results=10)

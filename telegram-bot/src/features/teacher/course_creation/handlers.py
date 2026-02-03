@@ -15,8 +15,8 @@ from src.core.broker import broker
 from src.rag import get_rag_pipeline
 from src.utils import convert_document_to_md
 
-from ..keyboards import TeacherMenuAction, TeacherMenuCBData, get_teacher_menu_kb
-from .ai_agent.agents.interviewer import Context, interviewer_agent
+from ..keyboards import MenuAction, MenuCBData, get_menu_kb
+from .ai_agent.agents.interviewer import UserContext, interviewer_agent
 from .tasks import CourseCreationTask
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def get_confirmation_kb() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-@router.callback_query(TeacherMenuCBData.filter(F.action == TeacherMenuAction.CREATE_COURSE))
+@router.callback_query(MenuCBData.filter(F.action == MenuAction.CREATE_COURSE))
 async def cb_create_course(query: CallbackQuery) -> None:
     await query.answer()
     await query.message.answer(
@@ -74,7 +74,7 @@ async def cb_create_course(query: CallbackQuery) -> None:
 @router.callback_query(ConfirmationCBData.filter(F.action == ConfirmationAction.CANCEL))
 async def cb_cancel_course_creation(query: CallbackQuery) -> None:
     await query.answer()
-    await query.message.edit_text(text="Привет", reply_markup=get_teacher_menu_kb())
+    await query.message.edit_text(text="Привет", reply_markup=get_menu_kb())
 
 
 @router.callback_query(ConfirmationCBData.filter(F.action == ConfirmationAction.CONFIRM))
@@ -176,7 +176,7 @@ async def start_interview(
     result = await interviewer_agent.ainvoke(
         {"messages": [("human", prompt)]},
         config={"configurable": {"thread_id": thread_id}},
-        context=Context(user_id=user_id),
+        context=UserContext(user_id=user_id),
     )
     return result["messages"][-1].content
 
@@ -234,7 +234,7 @@ async def process_interview(message: Message, state: FSMContext) -> None:
         result = await interviewer_agent.ainvoke(
             {"messages": [("human", message.text)]},
             config={"configurable": {"thread_id": thread_id}},
-            context=Context(user_id=message.from_user.id),
+            context=UserContext(user_id=message.from_user.id),
         )
     summary = result.get("summary")
     if summary is not None:

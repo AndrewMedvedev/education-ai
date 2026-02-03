@@ -6,11 +6,11 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
 class MenuAction(StrEnum):
-    LIST_COURSES = "list_courses"
-    CREATE_COURSE = "create_course"
+    LIST_COURSES = "list_courses"  # Посмотреть список курсов
+    SIGNUP_FOR_COURSE = "signup_for_course"  # Записаться на курс
 
 
-class MenuCBData(CallbackData, prefix="tchr_menu"):
+class MenuCBData(CallbackData, prefix="std_menu"):
     action: MenuAction
 
 
@@ -21,8 +21,8 @@ def get_menu_kb() -> InlineKeyboardMarkup:
         callback_data=MenuCBData(action=MenuAction.LIST_COURSES).pack(),
     )
     builder.button(
-        text="➕ Создать курс",
-        callback_data=MenuCBData(action=MenuAction.CREATE_COURSE).pack(),
+        text="🔑 Регистрация на курс",
+        callback_data=MenuCBData(action=MenuAction.SIGNUP_FOR_COURSE).pack(),
     )
     builder.adjust(1)
     return builder.as_markup()

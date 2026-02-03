@@ -21,6 +21,8 @@ from ..tools import (
     browse_page,
     draw_mermaid,
     rutube_search,
+    search_books,
+    search_videos,
     web_search,
     write_code,
 )
@@ -40,6 +42,7 @@ SYSTEM_PROMPTS = {
 
     ### Доступные инструменты
      - web_search - используй для проверки фактов или поиска необходимого материала
+     - search_books - используй для поиска книг
      - browse_page - используй для получения контента со страницы по её URL
      - draw_mermaid - используй для визуализации сложных процессов (построение диаграммы)
     """,
@@ -48,7 +51,7 @@ SYSTEM_PROMPTS = {
     Твоя задача найти наиболее полезное видео по запросу/заданию,
     которое наилучшим способом впишется в текущий образовательный модуль.
 
-    Используй инструмент rutube_search для поиска видео на платформе RuTube.
+    Используй инструменты rutube_search и search_videos для поиска видео на различных платформах.
     """,
     ContentType.QUIZ: """
     Ты полезный ассистент для создания вопросов/теста для самопроверки пройденных знаний.
@@ -72,12 +75,12 @@ config = {
         "response_format": ProviderStrategy(CodeBlock),
     },
     ContentType.TEXT: {
-        "tools": [web_search, browse_page, draw_mermaid],
+        "tools": [web_search, search_books, browse_page, draw_mermaid],
         "system_prompt": SYSTEM_PROMPTS[ContentType.TEXT],
         "response_format": ProviderStrategy(TextBlock),
     },
     ContentType.VIDEO: {
-        "tools": [rutube_search],
+        "tools": [rutube_search, search_videos],
         "system_prompt": SYSTEM_PROMPTS[ContentType.VIDEO],
         "response_format": ProviderStrategy(VideoBlock),
     },

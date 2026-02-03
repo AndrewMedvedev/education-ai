@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -35,6 +36,7 @@ class Base(AsyncAttrs, DeclarativeBase):
     )
 
 
+@asynccontextmanager
 async def session_factory() -> AsyncIterator[AsyncSession]:
     async with sessionmaker() as session:
         yield session
