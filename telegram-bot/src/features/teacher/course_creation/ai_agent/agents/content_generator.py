@@ -6,6 +6,7 @@ from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
+from pydantic import BaseModel
 
 from src.core.config import settings
 from src.features.course.schemas import (
@@ -36,7 +37,8 @@ SYSTEM_PROMPTS = {
     """,
     ContentType.TEXT: """
     Ты полезный ассистент для написания образовательного-теоретического материала.
-    Твоя задача написать максимально информативный и понятный материал по детальному запросу.
+    Твоя задача написать максимально информативный и понятный материал по запросу,
+    используя контекст модуля.
 
     ### Доступные инструменты
      - web_search - используй для проверки фактов или поиска необходимого материала
@@ -140,7 +142,16 @@ config = {
 }
 
 
-async def call_content_generator(content_type: ContentType, prompt: str) -> AnyContentBlock:
+class ModuleContext(BaseModel):
+    """Контекст текущего модуля"""
+
+    title: str
+    description: str
+
+
+async def call_content_generator(
+        content_type: ContentType, prompt: str, context: ModuleContext
+) -> AnyContentBlock:
     """Вызывает агента для генерации образовательного контента
 
     :param content_type: Тип контент блока, который нужно сгенерировать.
@@ -161,8 +172,16 @@ async def call_content_generator(content_type: ContentType, prompt: str) -> AnyC
         checkpointer=InMemorySaver(),
         **config.get(content_type, {})
     )
+    prompt_template = f"""\
+    ## Текущий контекст модуля:
+     - **Название:** {context.title}
+     - **Описание:** {context.description}
+
+    ## Промпт для создания контента:
+    {prompt}
+    """
     result = await agent.ainvoke(
-        {"messages": [("human", prompt)]},
+        {"messages": [("human", prompt_template)]},
         config={"configurable": {"thread_id": f"{uuid4()}"}}
     )
     return result["structured_response"]

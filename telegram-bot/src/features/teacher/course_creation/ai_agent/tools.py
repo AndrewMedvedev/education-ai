@@ -5,7 +5,7 @@ import logging
 from ddgs import DDGS
 from langchain.tools import tool
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -77,7 +77,9 @@ async def draw_mermaid(prompt: str) -> str:
         temperature=0.3,
      )
     chain = (
-        ChatPromptTemplate.from_messages([("system", MERMAID_PROMPT)])
+        ChatPromptTemplate.from_messages([
+            ("system", MERMAID_PROMPT), MessagesPlaceholder("messages")
+        ])
         | model
         | StrOutputParser()
     )

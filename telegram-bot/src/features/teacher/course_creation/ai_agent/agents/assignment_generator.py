@@ -5,7 +5,6 @@ from langchain.agents import create_agent
 from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
-from langgraph.checkpoint.memory import InMemorySaver
 
 from src.core.config import settings
 from src.features.course.schemas import (
@@ -81,7 +80,6 @@ async def call_assignment_generator(assignment_type: AssignmentType, prompt: str
                 tool_name="web_search", run_limit=5, thread_limit=7
             )
         ],
-        checkpointer=InMemorySaver(),
         **config.get(assignment_type, {})
         )
     result = await agent.ainvoke(

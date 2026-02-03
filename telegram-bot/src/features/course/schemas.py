@@ -89,7 +89,7 @@ class QuizBlock(ContentBlock):
     )
 
 
-AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock
+AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock | MermaidBlock
 
 
 class AssignmentType(StrEnum):

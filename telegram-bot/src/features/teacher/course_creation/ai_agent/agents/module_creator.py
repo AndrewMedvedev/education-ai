@@ -10,7 +10,7 @@ from src.core.config import settings
 from src.features.course.schemas import AssignmentType, ContentType, Module
 
 from .assignment_generator import call_assignment_generator
-from .content_generator import call_content_generator
+from .content_generator import ModuleContext, call_content_generator
 
 model = ChatOpenAI(
     api_key=settings.yandexcloud.api_key,
@@ -35,6 +35,13 @@ class ModuleStructure(BaseModel):
          3. Указывает стиль изложения
          4. Задаёт структуру контента
          5. Включает примеры если необходимо
+
+        Виды контент блоков:
+         - text - теоретический материал/лекция
+         - program_code - пример с кодом и объяснением
+         - mermaid - mermaid диаграмма (напиши только промпт для её генерации)
+         - video - подходящее видео, которое нужно найти в интернете
+         - quiz - вопросы для самопроверки
         """,
         min_length=3,
         examples=[
@@ -98,7 +105,11 @@ async def generate_content_blocks(state: AgentState) -> dict[str, Module]:
 
     module_structure, module = state["module_structure"], state["module"]
     for content_type, prompt in module_structure.content_scenario:
-        content_block = await call_content_generator(content_type, prompt)
+        content_block = await call_content_generator(
+            content_type, prompt, context=ModuleContext(
+                title=module_structure.title, description=module_structure.description
+            )
+        )
         module.content_blocks.append(content_block)
     return {"module": module}
 
