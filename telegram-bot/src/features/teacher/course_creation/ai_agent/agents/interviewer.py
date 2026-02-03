@@ -6,7 +6,7 @@ from langchain.agents import AgentState, create_agent
 from langchain.tools import ToolRuntime, tool
 from langchain_core.messages import ToolMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END
@@ -26,7 +26,7 @@ model = ChatOpenAI(
     max_retries=3
 )
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = """\
 Ты — профессиональный агент интервьюер для создания современных образовательных курсов.
 Твоя главная цель провести короткое и максимально полезное интервью, после которого у других
 агентов будет достаточно структурированной информации для создания курса.
@@ -43,6 +43,7 @@ SYSTEM_PROMPT = """
 и задавай меньше вопросов
 3. Структурируй интервью вокруг 4–5 ключевых блоков (не обязательно все):
     • Целевая аудитория и её реальный уровень
+    • Продолжительность и размер курса
     • Самые важные 5–8 тем / блоков / навыков, которые должны остаться после курса
     • Последовательность и логика подачи (что должно идти строго перед чем)
     • Самые частые заблуждения / ошибки учеников
@@ -57,7 +58,7 @@ SYSTEM_PROMPT = """
 через search_materials и адаптируй вопросы.
 """
 
-SUMMARY_PROMPT = """
+SUMMARY_PROMPT = """\
 Ты — агент-экстрактор ключевой информации для создания образовательного курса.
 Твоя единственная задача — проанализировать историю интервью с экспертом и извлечь **только самые важные, конкретные и полезные факты**, которые напрямую помогут следующим агентам построить сильный курс.
 
@@ -79,45 +80,48 @@ SUMMARY_PROMPT = """
 - Что уже умеют (реальный стартовый уровень):
 - Что категорически НЕ умеют / не понимают:
 
-## 3. Главные учебные цели курса (5–8 самых важных)
+## 3. Продолжительность и примерный размер курса
+ - Количество академических часов или количество модулей
+
+## 4. Главные учебные цели курса (5–8 самых важных)
 Нумерованный список в формате:
 1. Уметь … (конкретный навык / результат)
 2. Понять … (ключевое понятие / принцип)
 ...
 
-## 4. Рекомендуемая структура курса (блоки / модули)
+## 5. Рекомендуемая структура курса (блоки / модули)
 Пронумерованный список модулей в той последовательности, которую назвал эксперт.
 Если эксперт дал чёткую логику «что перед чем должно идти» — обязательно укажи это.
 
-## 5. Ключевые темы / подтемы (то, без чего курс невозможен)
+## 6. Ключевые темы / подтемы (то, без чего курс невозможен)
 - Модуль 1: …
   • подтема А
   • подтема Б
 - Модуль 2: …
 
-## 6. Самые частые заблуждения / типичные ошибки учеников
+## 7. Самые частые заблуждения / типичные ошибки учеников
 (список, каждый пункт — одно заблуждение + короткое объяснение, почему оно возникает)
 
-## 7. Лучшие практические примеры / кейсы / задачи
+## 8. Лучшие практические примеры / кейсы / задачи
 (конкретные примеры, которые эксперт назвал удачными / «заходят» ученикам)
 
-## 8. Способы проверки понимания (если упоминались)
+## 9. Способы проверки понимания (если упоминались)
 - Задачи / тесты / вопросы / практические задания, которые эксперт считает показательными
 
-## 9. Важные акценты / подводные камни / «ловушки» материала
+## 10. Важные акценты / подводные камни / «ловушки» материала
 (список того, на чём эксперт особенно настаивал)
 
-## 10. Пропущенные важные блоки (чего не хватило в интервью)
+## 11. Пропущенные важные блоки (чего не хватило в интервью)
 Перечисли темы/вопросы, которые логично должны были быть, но эксперт о них почти ничего не сказал или сказал слишком общо.
 
-## 11. Краткая выжимка «одним абзацем»
+## 12. Краткая выжимка «одним абзацем»
 2–4 предложения — самое главное, что должен запомнить следующий агент.
 
 Выводи результат **только** в указанной структуре.
 Не пиши никаких предисловий, послесловий, пояснений «я думаю» или «по моему мнению».
 Если какой-то раздел пустой или почти пустой — пиши «не получено от эксперта» или «эксперт не дал конкретики».
 
-Начинай сразу с заголовка ## 1. Дисциплина
+Начинай сразу с заголовка ## 1. Название курса
 """  # noqa: E501
 
 
@@ -142,8 +146,8 @@ class SearchInput(BaseModel):
     description="Выполняет поиск по материалам преподавателя",
     args_schema=SearchInput,
 )
-def rag_search(runtime: ToolRuntime[UserContext, State], search_query: str) -> str:
-    index_name = f"course-{runtime.context.user_id}-index"
+def search_materials(runtime: ToolRuntime[UserContext, State], search_query: str) -> str:
+    index_name = f"materials-{runtime.context.user_id}-index"
     rag_pipeline = get_rag_pipeline(index_name=index_name)
     documents = rag_pipeline.retrieve(search_query)
     return "\n\n".join(documents)
@@ -153,9 +157,11 @@ def rag_search(runtime: ToolRuntime[UserContext, State], search_query: str) -> s
     "complete_interview",
     description="Завершает интервью для передачи данных следующему агенту"
 )
-async def finalize(runtime: ToolRuntime[UserContext, State]) -> Command:
+async def complete_interview(runtime: ToolRuntime[UserContext, State]) -> Command:
     logger.info("Finishing interview session for teacher `%s`", runtime.context.user_id)
-    prompt = ChatPromptTemplate.from_messages([("system", SUMMARY_PROMPT)])
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SUMMARY_PROMPT), MessagesPlaceholder("messages"),
+    ])
     chain = prompt | model | StrOutputParser()
     logger.info(
         "Starting to summarize interview dialog with teacher `%s`",
@@ -172,6 +178,7 @@ async def finalize(runtime: ToolRuntime[UserContext, State]) -> Command:
 
 interviewer_agent = create_agent(
     model=model,
+    tools=[search_materials, complete_interview],
     context_schema=UserContext,
     state_schema=State,
     system_prompt=SYSTEM_PROMPT,

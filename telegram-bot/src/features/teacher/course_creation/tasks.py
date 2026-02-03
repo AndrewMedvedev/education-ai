@@ -17,6 +17,7 @@ class CourseCreationTask(BaseModel):
 async def handle_course_creation_task(task: CourseCreationTask):
     from src.core.bot import bot  # noqa: PLC0415
 
+    await bot.send_message("🤖 Начинаю создание курса, это займёт некоторое время ...")
     await agent.ainvoke({
         "user_id": task.user_id, "interview_with_teacher": task.interview_with_teacher
     })

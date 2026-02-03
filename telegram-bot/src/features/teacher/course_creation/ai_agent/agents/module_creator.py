@@ -39,8 +39,9 @@ class ModuleStructure(BaseModel):
         min_length=3,
         examples=[
             [
-                (ContentType.VIDEO, "Твой детальный промпт для поиска видео на RuTube"),
-                (ContentType.TEXT, "Здесь должен быть промпт для написания теоретического блока")
+                (ContentType.VIDEO, "Твой детальный промпт для поиска подходящего видео"),
+                (ContentType.TEXT, "Здесь должен быть промпт для написания теоретического блока"),
+                (ContentType.PROGRAM_CODE, "Детальное описание блока с программным кодом"),
             ]
         ]
     )
@@ -69,13 +70,14 @@ async def plan_module_structure(state: AgentState) -> dict[str, ModuleStructure 
     module_structure_planner = create_agent(
         model=model,
         system_prompt="""Ты полезный ассистент для планирования структуры образовательного модуля
-        по его описанию. Ты пишешь задание для агентов, которые будет наполнять модуль контентом
+        по его описанию. Ты пишешь задание для агентов, которые будут наполнять модуль контентом
         и заданиями. Учти что у агентов будут инструменты для web поиска,
-        рисования mermaid диаграмм, поиска видео в RuTube и.т.д
+        рисования mermaid диаграмм, поиска видео, книг и.т.д
         """,
         response_format=ProviderStrategy(ModuleStructure),
     )
-    prompt_template = f"""Сгенерируй структуру модуля:
+    prompt_template = f"""
+    Сгенерируй структуру модуля используя следующую информацию:
      - **Целевая аудитория курса:** {state['audience_description']}
      - **Цели обучения курса:** {state['learning_objectives']}
      - **Порядковый номер модуля:** {state['order']}

@@ -14,6 +14,7 @@ class ContentType(StrEnum):
     TEXT = "text"
     VIDEO = "video"
     PROGRAM_CODE = "program_code"
+    MERMAID = "mermaid"
     QUIZ = "quiz"
 
 
@@ -59,6 +60,16 @@ class CodeBlock(ContentBlock):
     language: str = Field(..., description="Язык программирования")
     code: str = Field(..., description="Программный код")
     explanation: str = Field(..., description="Пояснения к коду")
+
+
+class MermaidBlock(ContentBlock):
+    """Блок с mermaid диаграммой"""
+
+    content_type: ContentType = ContentType.MERMAID
+
+    title: str = Field(..., description="Название диаграммы")
+    mermaid_code: str = Field(..., description="Mermaid код в Markdown формате")
+    explanation: str = Field(..., description="Пояснение диаграммы")
 
 
 class QuizBlock(ContentBlock):

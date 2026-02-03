@@ -59,7 +59,7 @@ async def cb_select_teacher_role(query: CallbackQuery, callback_data: RoleSelect
     from src.features.teacher.keyboards import get_menu_kb  # noqa: PLC0415
 
     await query.message.answer(
-        text="""
+        text="""\
         Добро пожаловать в панель управления! Вы можете:
 
         • 🤖 Создать курс с помощью AI
@@ -78,7 +78,7 @@ async def cb_select_student_role(query: CallbackQuery, callback_data: RoleSelect
     from src.features.student.keyboards import get_menu_kb  # noqa: PLC0415
 
     await query.message.answer(
-        text="""
+        text="""\
         Добро пожаловать в панель управления! Вы можете:
 
         • 🤖 Создать курс с помощью AI

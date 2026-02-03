@@ -34,26 +34,26 @@ class CourseCreationForm(StatesGroup):
     in_interview = State()  # Интервью с AI - агентом
 
 
-class ConfirmationAction(StrEnum):
-    CONFIRM = "confirm"
+class ConfirmAction(StrEnum):
+    CONTINUE = "continue"
     CANCEL = "cancel"
 
 
-class ConfirmationCBData(CallbackData, prefix="creation_confirm"):
-    action: ConfirmationAction
+class ConfirmCbData(CallbackData, prefix="confirm_creation"):
+    action: ConfirmAction
 
 
-def get_confirmation_kb() -> InlineKeyboardMarkup:
+def get_confirm_kb() -> InlineKeyboardMarkup:
     """Клавиатура для подтверждения процедуры создания курса"""
 
     builder = InlineKeyboardBuilder()
     builder.button(
         text="▶️ Продолжить",
-        callback_data=ConfirmationCBData(action=ConfirmationAction.CONFIRM).pack()
+        callback_data=ConfirmCbData(action=ConfirmAction.CONTINUE).pack()
     )
     builder.button(
         text="❌ Отмена",
-        callback_data=ConfirmationCBData(action=ConfirmationAction.CANCEL).pack()
+        callback_data=ConfirmCbData(action=ConfirmAction.CANCEL).pack()
     )
     return builder.as_markup()
 
@@ -67,17 +67,17 @@ async def cb_create_course(query: CallbackQuery) -> None:
         2. Можете прикрепить образовательные материалы
         3. После чего я задам вам вопросы для уточнения деталей.
         """,
-        reply_markup=get_confirmation_kb()
+        reply_markup=get_confirm_kb()
     )
 
 
-@router.callback_query(ConfirmationCBData.filter(F.action == ConfirmationAction.CANCEL))
+@router.callback_query(ConfirmCbData.filter(F.action == ConfirmAction.CANCEL))
 async def cb_cancel_course_creation(query: CallbackQuery) -> None:
     await query.answer()
     await query.message.edit_text(text="Привет", reply_markup=get_menu_kb())
 
 
-@router.callback_query(ConfirmationCBData.filter(F.action == ConfirmationAction.CONFIRM))
+@router.callback_query(ConfirmCbData.filter(F.action == ConfirmAction.CONTINUE))
 async def cb_confirm_course_creation(query: CallbackQuery, state: FSMContext) -> None:
     await query.answer()
     logger.info(
@@ -88,9 +88,9 @@ async def cb_confirm_course_creation(query: CallbackQuery, state: FSMContext) ->
     await state.set_state(CourseCreationForm.in_title_typing)
 
 
-def get_finalize_uploading_kb(btn_text: str) -> InlineKeyboardMarkup:
+def get_complete_uploading_kb(btn_text: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text=btn_text, callback_data="finalize_uploading")
+    builder.button(text=btn_text, callback_data="complete_uploading")
     return builder.as_markup()
 
 
@@ -107,7 +107,7 @@ async def process_title(message: Message, state: FSMContext) -> None:
 
         Можно отправить сразу несколько файлов одним сообщением.
         Если у вас нет материалов, можете пропустить этот шаг ↓""",
-        reply_markup=get_finalize_uploading_kb("⏩ Пропустить"),
+        reply_markup=get_complete_uploading_kb("⏩ Пропустить"),
     )
     await state.set_state(CourseCreationForm.waiting_for_document)
 
@@ -124,28 +124,24 @@ async def process_uploaded_document(message: Message, state: FSMContext) -> None
             message.from_user.username, file_name
         )
         await message.answer(
-            text=f"""🔗 <b>Файл:</b> <code>{file_name}</code>
-
+            text=f"""
+            🔗 <b>Файл:</b> <code>{file_name}</code>
             🚫 <b>Неподдерживаемый формат</b>: <code>{document_format.upper()}</code>
-
             📋 <b>Доступные форматы:</b> {', '.join(SUPPORTED_DOCUMENT_FORMATS)}
-
             📁 <b>Текущее количество файлов:</b> {len(documents)}
-
-            📤 Отправьте подходящий файл или нажмите <b>«✅ Готово»</b>""",
-            reply_markup=get_finalize_uploading_kb("✅ Готово"),
+            📤 Отправьте подходящий файл или нажмите <b>«✔️ Завершить»</b>""",
+            reply_markup=get_complete_uploading_kb("✔️ Завершить"),
         )
         return
     documents.append({"file_name": file_name, "file_id": message.document.file_id})
     await state.update_data(documents=documents)
     logger.info("User `%s` uploaded document `%s`", message.from_user.username, file_name)
     await message.answer(
-        text=f"""🔗 <b>Получен файл:</b> <code>{message.document.file_name}</code>
-
-        📁 <b>Всего файлов:</b> {len(documents)}
-
-        📤 Можете отправить ещё файлы или нажать <b>«✅ Готово»</b>""",
-        reply_markup=get_finalize_uploading_kb("✅ Готово"),
+        text=f"""
+        🔗 <b>Получен файл:</b> <code>{message.document.file_name}</code>
+        📁 <b>Файлов отправлено:</b> {len(documents)}
+        📤 Можете отправить ещё файлы или нажать <b>«✔️ Завершить»</b>""",
+        reply_markup=get_complete_uploading_kb("✔️ Завершить"),
     )
 
 
@@ -163,26 +159,26 @@ async def start_interview(
     uploaded_materials_string = (
         "; ".join(uploaded_documents)
         if uploaded_documents
-        else "Пользователь не загрузил материалы"
+        else "Преподаватель не загрузил материалы"
     )
-    prompt = f"""
+    prompt_template = f"""\
     **Название курса:** {course_title}
     **Загруженные материалы:** {uploaded_materials_string}
 
-    Проанализируй материалы, продумай интервью, после чего задай первый вопрос,
+    Проанализируй материалы (если они есть), продумай интервью, после чего задай первый вопрос,
     чтобы начать интервью
     """
     thread_id = f"interview-{user_id}"
     result = await interviewer_agent.ainvoke(
-        {"messages": [("human", prompt)]},
+        {"messages": [("human", prompt_template)]},
         config={"configurable": {"thread_id": thread_id}},
         context=UserContext(user_id=user_id),
     )
     return result["messages"][-1].content
 
 
-@router.callback_query(F.data == "finalize_uploading")
-async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None:
+@router.callback_query(F.data == "complete_uploading")
+async def cb_complete_uploading(query: CallbackQuery, state: FSMContext) -> None:
     await query.answer()
     data = await state.get_data()
     documents = data.get("documents", [])
@@ -194,7 +190,8 @@ async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None
         await query.message.answer(
             text="⏳ Начинаю обработку материалов, это может занять некоторое время ..."
         )
-        rag_pipeline = get_rag_pipeline(index_name=f"materials-{query.from_user.id}-index")
+        index_name = f"materials-{query.from_user.id}-index"
+        rag_pipeline = get_rag_pipeline(index_name=index_name)
         message = await query.message.answer("🔄 Обработка материалов: <b>0%</b>")
         start_time = time.time()
         for i, document in enumerate(documents):
@@ -206,12 +203,13 @@ async def cb_finalize_uploading(query: CallbackQuery, state: FSMContext) -> None
             md_content = convert_document_to_md(file, file_extension=file_extension)
             rag_pipeline.indexing(md_content, metadata={"source": file_info.file_path})
             load_percent = round(i + 1 / len(documents), 2) * 100
-            await message.edit_text(f"🔄 Обработка материалов: <b>{load_percent}%</b>")
+            await message.edit_text(f"⏳ Обработано материалов: <b>{load_percent}%</b>")
         processing_time = time.time() - start_time
         logger.info(
             "All documents processed, processing time %s seconds", round(processing_time, 2)
         )
         await message.edit_text("⚙️ Все материалы обработаны!")
+    await query.message.answer("🔎 Начинаю анализ материалов ...")
     async with ChatActionSender.typing(chat_id=query.from_user.id, bot=query.bot):
         logger.info("Starting interview session with user `%s`", query.from_user.username)
         first_question = await start_interview(
@@ -239,8 +237,10 @@ async def process_interview(message: Message, state: FSMContext) -> None:
     summary = result.get("summary")
     if summary is not None:
         await state.clear()
-        await message.answer("🤖 Спасибо за уделённое время, передаю ответы AI методисту ...")
+        await message.answer(
+            text="🤖 Спасибо за уделённое время, передаю ваши ответы AI агенту ..."
+        )
         task = CourseCreationTask(user_id=message.from_user.id, interview_with_teacher=summary)
-        await broker.publish(task, channel="course:create")
+        await broker.publish(task, channel="course:creation")
         return
     await message.answer(result["messages"][-1].content)
