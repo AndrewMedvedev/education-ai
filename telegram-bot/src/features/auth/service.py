@@ -6,10 +6,9 @@ from uuid import UUID
 from passlib.context import CryptContext
 from pydantic import BaseModel, SecretStr
 
-from ..core.exceptions import ForbiddenError
-from ..core.schemas import Student
-from ..database.base import session_factory
-from ..database.repository import student as student_repo
+from src.core.database import session_factory
+from src.features.student import repository as student_repo
+from src.features.student.schemas import Student
 
 # Хеширование паролей
 MEMORY_COST = 100  # Размер выделяемой памяти в mb
@@ -32,7 +31,11 @@ pwd_context = CryptContext(
 )
 
 
-def _make_student_login(full_name: str, serial_number: int) -> str:
+class ForbiddenError(Exception):
+    pass
+
+
+def _build_student_login(full_name: str, serial_number: int) -> str:
     """Создаёт логин для студента по его ФИО и порядковы номер.
 
     :param ФИО студента.
@@ -54,7 +57,7 @@ class Credentials(BaseModel):
     password: SecretStr
 
 
-async def generate_student_credentials(
+async def create_student_credentials(
         course_id: UUID, teacher_id: int, full_name: str
 ) -> Credentials:
     """Генерирует пару логин + пароль для студента, чтобы получить доступ к курсу.
@@ -65,18 +68,18 @@ async def generate_student_credentials(
     """
 
     async with session_factory() as session:
-        students_count = await student_repo.get_count(session, course_id)
-        login = _make_student_login(full_name, students_count)
+        students_count = await student_repo.get_count_on_course(session, course_id)
+        login = _build_student_login(full_name, students_count)
         password = generate_password()
         password_hash = pwd_context.hash(password)
         student = Student(
             course_id=course_id,
-            created_by=teacher_id,
+            invited_by=teacher_id,
             full_name=full_name,
             login=login,
-            password_hash=password_hash,
+            password_hash=SecretStr(password_hash),
         )
-        await student_repo.save(session, student)
+        student_repo.save(session, student)
         await session.commit()
     return Credentials(login=login, password=SecretStr(password))
 
@@ -101,12 +104,12 @@ async def authenticate_student(user_id: int, login: str, password: str) -> Stude
             raise ForbiddenError(
                 f"Student `{user_id}` is not registered, login `{login}` does not exist!"
             )
-        if not pwd_context.verify(password, student.password_hash):
+        if not pwd_context.verify(password, student.password_hash.get_secret_value()):
             logger.warning("Student `%s` entered wrong password!", user_id)
             raise ForbiddenError(f"Student `{user_id}` entered wrong password!")
         if not student.is_active:
             logger.info("Student `%s` is not active, starting activation")
-            student = await student_repo.activate(session, user_id)
+            student = await student_repo.activate(session, student.id)
             await session.commit()
             logger.info("Student `%s` activated", user_id)
     logger.info("Student `%s` authenticated successfully", user_id)

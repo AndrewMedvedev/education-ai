@@ -19,5 +19,6 @@ def register_handlers(dispatcher: Dispatcher) -> None:
     from src.features.teacher.course_creation.handlers import (  # noqa: PLC0415
         router as course_creation_router,
     )
+    from src.features.teacher.handlers import router as teacher_router  # noqa: PLC0415
 
-    dispatcher.include_routers(common_router, course_creation_router)
+    dispatcher.include_routers(common_router, teacher_router, course_creation_router)

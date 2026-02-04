@@ -30,6 +30,6 @@ class Module(Base):
     description: Mapped[str] = mapped_column(TEXT)
     order: Mapped[int]
     content_blocks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
-    assignment: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    assignment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     course: Mapped["Course"] = relationship(back_populates="modules")

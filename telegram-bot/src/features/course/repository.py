@@ -12,6 +12,7 @@ def _to_orm(course: schemas.Course) -> models.Course:
     return models.Course(
         id=course.id,
         created_at=course.created_at,
+        creator_id=course.creator_id,
         status=course.status,
         image_url=course.image_url,
         title=course.title,
@@ -20,16 +21,23 @@ def _to_orm(course: schemas.Course) -> models.Course:
         modules=[
             models.Module(
                 course_id=course.id,
+                order=module.order,
                 title=module.title,
                 description=module.description,
                 content_blocks=[
                     content_block.model_dump() for content_block in module.content_blocks
                 ],
-                assignment=module.assignment.model_dump(),
+                assignment=(
+                    None if module.assignment is not None else
+                    module.assignment.model_dump()
+                ),
             )
             for module in course.modules
         ],
-        final_assessment=course.final_assessment.model_dump()
+        final_assessment=(
+            None if course.final_assessment is None else
+            course.final_assessment.model_dump()
+        )
     )
 
 

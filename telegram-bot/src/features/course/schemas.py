@@ -21,6 +21,8 @@ class ContentType(StrEnum):
 class ContentBlock(ABC, BaseModel):
     """Универсальные блоки с контентом"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     content_type: ContentType
     ai_generated: bool = Field(default=True)
 
@@ -103,6 +105,8 @@ class AssignmentType(StrEnum):
 class Assignment(ABC, BaseModel):
     """Базовая модель для создания упражнений/заданий"""
 
+    model_config = ConfigDict(from_attributes=True)
+
     assignment_type: AssignmentType
     version: NonNegativeInt = Field(
         default=0,
@@ -182,6 +186,8 @@ AnyAssignment = TestAssignment | FileUploadAssignment | GitHubAssignment
 
 class Module(BaseModel):
     """Модуль - часть образовательного курса"""
+
+    model_config = ConfigDict(from_attributes=True)
 
     title: str = Field(..., description="Название модуля")
     description: str = Field(..., description="Описание модуля для студента")
