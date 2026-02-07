@@ -79,7 +79,7 @@ async def save_course(state: AgentState) -> dict[str, Course]:
 
     course = state["course"]
     async with session_factory() as session:
-        repository.save(session, course)
+        repository.add(session, course)
         await session.commit()
     logger.info("Course `%s` saves successfully", course.title)
     return {"course": course}

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import models, schemas
 
 
-def _to_orm(course: schemas.Course) -> models.Course:
+def _map_schema_to_model(course: schemas.Course) -> models.Course:
     """Преобразует pydantic схему к sqlalchemy модели"""
 
     return models.Course(
@@ -20,6 +20,7 @@ def _to_orm(course: schemas.Course) -> models.Course:
         learning_objectives=course.learning_objectives,
         modules=[
             models.Module(
+                id=module.id,
                 course_id=course.id,
                 order=module.order,
                 title=module.title,
@@ -41,8 +42,8 @@ def _to_orm(course: schemas.Course) -> models.Course:
     )
 
 
-def save(session: AsyncSession, course: schemas.Course) -> None:
-    model = _to_orm(course)
+def add(session: AsyncSession, course: schemas.Course) -> None:
+    model = _map_schema_to_model(course)
     session.add(model)
 
 
@@ -57,3 +58,10 @@ async def get_by_creator(session: AsyncSession, creator_id: int) -> list[schemas
     stmt = select(models.Course).where(models.Course.creator_id == creator_id)
     results = await session.execute(stmt)
     return [schemas.Course.model_validate(model) for model in results.scalars().all()]
+
+
+async def get_module(session: AsyncSession, module_id: UUID) -> schemas.Module | None:
+    stmt = select(models.Module).where(models.Module.id == module_id)
+    result = await session.execute(stmt)
+    model = result.scalar_one_or_none()
+    return None if model is None else schemas.Module.model_validate(model)

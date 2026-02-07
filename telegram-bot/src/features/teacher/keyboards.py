@@ -2,10 +2,10 @@ from enum import StrEnum
 from uuid import UUID
 
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.features.course.schemas import Course
+from src.features.course.schemas import Course, Module
 
 
 class MenuAction(StrEnum):
@@ -41,5 +41,45 @@ def get_list_courses_kb(courses: list[Course]) -> InlineKeyboardMarkup:
         builder.button(
             text=course.title, callback_data=CourseCbData(course_id=course.id).pack()
         )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+class ModuleCbData(CallbackData, prefix="tchr_module"):
+    module_id: UUID
+
+
+def get_modules_kb(modules: list[Module]) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    for module in modules:
+        builder.button(
+            text=module.title, callback_data=ModuleCbData(module_id=module.id).pack()
+        )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+class ModuleComponent(StrEnum):
+    CONTENT_BLOCKS = "content_blocks"
+    ASSIGNMENT = "assignment"
+
+
+class ModuleMenuCbData(CallbackData, prefix="tchr_module_menu"):
+    module_id: UUID
+    component: ModuleComponent
+
+
+def get_module_menu_kb(module: Module) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="📖 Теоретический материал", web_app=WebAppInfo(
+            url=f"https://domain-example/course/module/content-blocks/{module.id}"
+        )
+    )
+    builder.button(
+        text="🎯 Практическое задание", web_app=WebAppInfo(
+            url=f"https://domain-example/course/module/practice/{module.id}"
+        )
+    )
     builder.adjust(1)
     return builder.as_markup()

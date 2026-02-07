@@ -11,11 +11,12 @@ from ...utils import current_datetime
 class ContentType(StrEnum):
     """Тип контента внутри блока"""
 
-    TEXT = "text"
-    VIDEO = "video"
-    PROGRAM_CODE = "program_code"
-    MERMAID = "mermaid"
-    QUIZ = "quiz"
+    TEXT = "text"  # Текстовый контент / лекция
+    VIDEO = "video"  # Видео из стороннего источника
+    PROGRAM_CODE = "program_code"  # Пример кода
+    MERMAID = "mermaid"  # Mermaid диаграмма
+    QUIZ = "quiz"  # Вопросы для самопроверки
+    LINK = "link"  # Внешняя ссылка на источник
 
 
 class ContentBlock(ABC, BaseModel):
@@ -91,7 +92,17 @@ class QuizBlock(ContentBlock):
     )
 
 
-AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock | MermaidBlock
+class LinkBlock(ContentBlock):
+    """Блок для прикрепления внешней ссылки, например на Яндекс диск, Google drive, ..."""
+
+    content_type: ContentType = ContentType.LINK
+
+    title: str = Field(..., description="Название прикреплённого материала")
+    url: str = Field(..., description="Ссылка на внешний источник")
+    ai_generated: bool = Field(default=False)
+
+
+AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock | MermaidBlock | LinkBlock
 
 
 class AssignmentType(StrEnum):
@@ -149,7 +160,7 @@ class TestAssignment(Assignment):
     questions: list[TestQuestion] = Field(
         default_factory=list,
         min_length=1,
-        description="список тестовых вопросов"
+        description="Список тестовых вопросов"
     )
 
 
@@ -189,6 +200,7 @@ class Module(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    id: UUID = Field(default_factory=uuid4)
     title: str = Field(..., description="Название модуля")
     description: str = Field(..., description="Описание модуля для студента")
     order: NonNegativeInt = Field(
