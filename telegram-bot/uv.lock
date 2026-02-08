@@ -2191,6 +2191,15 @@ wheels = [
 ]
 
 [[package]]
+name = "markdown"
+version = "3.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b7/b1/af95bcae8549f1f3fd70faacb29075826a0d689a27f232e8cee315efa053/markdown-3.10.1.tar.gz", hash = "sha256:1c19c10bd5c14ac948c53d0d762a04e2fa35a6d58a6b7b1e6bfcbe6fefc0001a", size = 365402 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/1b/6ef961f543593969d25b2afe57a3564200280528caa9bd1082eecdd7b3bc/markdown-3.10.1-py3-none-any.whl", hash = "sha256:867d788939fe33e4b736426f5b9f651ad0c0ae0ecf89df0ca5d1176c70812fe3", size = 107684 },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3805,6 +3814,18 @@ wheels = [
 ]
 
 [[package]]
+name = "python-markdown-math"
+version = "0.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "markdown" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4c/68/fbea05ec6fb318bdcf56ea47596605614554f51d77bfd14f6fb481139ad8/python_markdown_math-0.9.tar.gz", hash = "sha256:567395553dc4941e79b3789a1096dcabb3fda9539d150d558ef3507948b264a3", size = 8680 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/eb/68/ecf3535c40845de2efd8ac2d092dd5fca0868219fa3684d9e58ef7abeece/python_markdown_math-0.9-py3-none-any.whl", hash = "sha256:ac9932df517a5c0f6d01c56e7a44d065eca4a420893ac45f7a6937c67cb41e86", size = 6046 },
+]
+
+[[package]]
 name = "python-multipart"
 version = "0.0.21"
 source = { registry = "https://pypi.org/simple" }
@@ -4678,6 +4699,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "faststream", extra = ["redis"] },
     { name = "html-to-markdown" },
+    { name = "jinja2" },
     { name = "langchain" },
     { name = "langchain-community" },
     { name = "langchain-elasticsearch" },
@@ -4687,12 +4709,14 @@ dependencies = [
     { name = "langchain-text-splitters" },
     { name = "langgraph" },
     { name = "langgraph-checkpoint-redis" },
+    { name = "markdown" },
     { name = "markitdown", extra = ["all"] },
     { name = "mypy" },
     { name = "passlib" },
     { name = "playwright" },
     { name = "pydantic" },
     { name = "python-magic-bin" },
+    { name = "python-markdown-math" },
     { name = "pytz" },
     { name = "ruff" },
     { name = "sentence-transformers" },
@@ -4713,6 +4737,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=2.14.2" },
     { name = "faststream", extras = ["redis"], specifier = ">=0.6.5" },
     { name = "html-to-markdown", specifier = ">=2.20.0" },
+    { name = "jinja2", specifier = ">=3.1.6" },
     { name = "langchain", specifier = ">=1.2.0" },
     { name = "langchain-community", specifier = ">=0.4.1" },
     { name = "langchain-elasticsearch", specifier = ">=1.0.0" },
@@ -4722,12 +4747,14 @@ requires-dist = [
     { name = "langchain-text-splitters", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.5" },
     { name = "langgraph-checkpoint-redis", specifier = "==0.3.2" },
+    { name = "markdown", specifier = ">=3.10.1" },
     { name = "markitdown", extras = ["all"], specifier = ">=0.1.4" },
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "passlib", specifier = ">=1.7.4" },
     { name = "playwright", specifier = ">=1.57.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "python-magic-bin", specifier = ">=0.4.14" },
+    { name = "python-markdown-math", specifier = ">=0.9" },
     { name = "pytz", specifier = ">=2025.2" },
     { name = "ruff", specifier = ">=0.14.10" },
     { name = "sentence-transformers", specifier = ">=5.2.0" },

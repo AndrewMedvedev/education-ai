@@ -17,7 +17,7 @@ from src.utils import convert_document_to_md
 
 from ..keyboards import MenuAction, MenuCBData, get_menu_kb
 from .ai_agent.agents.interviewer import UserContext, interviewer_agent
-from .tasks import CourseCreationTask
+from .broker import CourseCreationTask
 
 logger = logging.getLogger(__name__)
 

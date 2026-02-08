@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.database import session_factory
 from src.features.course import repository, schemas
 
-router = APIRouter(prefix="/courses", tags=["Courses"])
+router = APIRouter(prefix="/courses", tags=["🎓 Courses"])
 
 
 @router.get(
@@ -25,6 +25,18 @@ async def get_course(
             status_code=status.HTTP_404_NOT_FOUND, detail=f"Course not found by ID {course_id}"
         )
     return course
+
+
+@router.put(
+    path="",
+    status_code=status.HTTP_200_OK,
+    response_model=schemas.Course,
+    summary="Редактирование курса"
+)
+async def update_course(
+        course: schemas.Course, session: AsyncSession = Depends(session_factory)
+) -> schemas.Course:
+    return await repository.refresh(session, course)
 
 
 @router.get(

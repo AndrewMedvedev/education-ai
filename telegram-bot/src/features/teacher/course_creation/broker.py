@@ -15,7 +15,7 @@ class CourseCreationTask(BaseModel):
 
 @router.subscriber("course:creation")
 async def handle_course_creation_task(task: CourseCreationTask):
-    from src.core.bot import bot  # noqa: PLC0415
+    from src.core.bot import bot
 
     await bot.send_message("🤖 Начинаю создание курса, это займёт некоторое время ...")
     await agent.ainvoke({

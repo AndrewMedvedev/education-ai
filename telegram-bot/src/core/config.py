@@ -18,6 +18,7 @@ class TelegramSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="TELEGRAM_")
 
     bot_token: str = "<BOT TOKEN>"
+    webhook_path: str = "/hook"
 
 
 class YandexCloudSettings(BaseSettings):
@@ -70,11 +71,18 @@ class RedisSettings(BaseSettings):
         return f"redis://{self.host}:{self.port}/0"
 
 
+class AppSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="APP_")
+
+    url: str = "http://localhost:8000"
+
+
 class Settings(BaseSettings):
     telegram: TelegramSettings = TelegramSettings()
     yandexcloud: YandexCloudSettings = YandexCloudSettings()
     postgres: PostgresSettings = PostgresSettings()
     redis: RedisSettings = RedisSettings()
+    app: AppSettings = AppSettings()
 
 
 settings = Settings()

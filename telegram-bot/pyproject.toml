@@ -15,6 +15,7 @@ dependencies = [
     "fastmcp>=2.14.2",
     "faststream[redis]>=0.6.5",
     "html-to-markdown>=2.20.0",
+    "jinja2>=3.1.6",
     "langchain>=1.2.0",
     "langchain-community>=0.4.1",
     "langchain-elasticsearch>=1.0.0",
@@ -24,12 +25,14 @@ dependencies = [
     "langchain-text-splitters>=1.1.0",
     "langgraph>=1.0.5",
     "langgraph-checkpoint-redis==0.3.2",
+    "markdown>=3.10.1",
     "markitdown[all]>=0.1.4",
     "mypy>=1.19.1",
     "passlib>=1.7.4",
     "playwright>=1.57.0",
     "pydantic>=2.12.5",
     "python-magic-bin>=0.4.14",
+    "python-markdown-math>=0.9",
     "pytz>=2025.2",
     "ruff>=0.14.10",
     "sentence-transformers>=5.2.0",
@@ -120,6 +123,7 @@ ignore = [
     "RUF002",
     "RUF003",
     "ASYNC109",
+    "PLC0415"
 ]
 
 [tool.ruff.lint.isort]

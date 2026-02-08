@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, schemas
@@ -52,6 +52,18 @@ async def get(session: AsyncSession, course_id: UUID) -> schemas.Course | None:
     result = await session.execute(stmt)
     model = result.scalar_one_or_none()
     return None if model is None else schemas.Course.model_validate(model)
+
+
+async def refresh(session: AsyncSession, course: schemas.Course) -> schemas.Course:
+    stmt = (
+        update(models.Course)
+        .where(models.Course.id == course.id)
+        .values(**course.model_dump())
+        .returning(models.Course)
+    )
+    result = await session.execute(stmt)
+    model = result.scalar_one()
+    return schemas.Course.model_validate(model)
 
 
 async def get_by_creator(session: AsyncSession, creator_id: int) -> list[schemas.Course]:

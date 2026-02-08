@@ -5,6 +5,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.core.config import settings
 from src.features.course.schemas import Course, Module
 
 
@@ -69,16 +70,16 @@ class ModuleMenuCbData(CallbackData, prefix="tchr_module_menu"):
     component: ModuleComponent
 
 
-def get_module_menu_kb(module: Module) -> InlineKeyboardMarkup:
+def get_module_menu_kb(module_id: UUID) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(
         text="📖 Теоретический материал", web_app=WebAppInfo(
-            url=f"https://domain-example/course/module/content-blocks/{module.id}"
+            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/content-blocks"
         )
     )
     builder.button(
         text="🎯 Практическое задание", web_app=WebAppInfo(
-            url=f"https://domain-example/course/module/practice/{module.id}"
+            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/assignment"
         )
     )
     builder.adjust(1)

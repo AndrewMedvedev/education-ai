@@ -59,5 +59,5 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData) -> None:
             f"<b>{module.title}</b>"
             f"<i>{module.description}</i>"
         ),
-        reply_markup=get_module_menu_kb(module)
+        reply_markup=get_module_menu_kb(module.id)
     )

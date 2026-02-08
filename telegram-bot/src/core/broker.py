@@ -1,18 +1,14 @@
-from faststream import FastStream
 from faststream.redis import RedisBroker
 
 from .config import settings
 
-broker = RedisBroker(settings.redis.url)
 
-
-def get_faststream_app() -> FastStream:
-    from src.features.teacher.course_creation.tasks import (  # noqa: PLC0415
-        router as course_creation_router,
-    )
+def register_routers(broker: RedisBroker) -> None:
+    from src.features.teacher.course_creation.broker import router as course_creation_router
 
     broker.include_router(course_creation_router)
-    return FastStream(broker)
 
 
-faststream_app = get_faststream_app()
+broker = RedisBroker(settings.redis.url)
+
+register_routers(broker)
