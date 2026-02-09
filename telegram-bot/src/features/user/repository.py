@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import models, schemas
 
 
-def save(session: AsyncSession, user: schemas.User) -> None:
+def add(session: AsyncSession, user: schemas.User) -> None:
     """Сохраняет пользователя в текущей сессии"""
 
     model = models.User(**user.model_dump())

@@ -4,7 +4,7 @@ from .config import settings
 
 
 def register_routers(broker: RedisBroker) -> None:
-    from src.features.teacher.course_creation.broker import router as course_creation_router
+    from src.features.teacher.course_creation.consumer import router as course_creation_router
 
     broker.include_router(course_creation_router)
 

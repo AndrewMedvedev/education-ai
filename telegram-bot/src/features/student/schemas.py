@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, PositiveInt, SecretStr
 
 from src.utils import current_datetime
 
@@ -20,3 +20,16 @@ class Student(BaseModel):
     login: str
     password_hash: SecretStr
     is_active: bool = False
+
+
+class StudentProgress(BaseModel):
+    """Прогресс студента на курсе"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    course_id: UUID
+    user_id: UUID
+    started_at: datetime
+    completed_at: datetime | None = None
+    current_module_id: UUID
+    overall_percentage: NonNegativeFloat = Field(default=0.0)

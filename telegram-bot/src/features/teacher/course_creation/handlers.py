@@ -17,7 +17,8 @@ from src.utils import convert_document_to_md
 
 from ..keyboards import MenuAction, MenuCBData, get_menu_kb
 from .ai_agent.agents.interviewer import UserContext, interviewer_agent
-from .broker import CourseCreationTask
+from .commands import CourseCreationCommand
+from .service import start_interview_with_teacher
 
 logger = logging.getLogger(__name__)
 
@@ -145,38 +146,6 @@ async def process_uploaded_document(message: Message, state: FSMContext) -> None
     )
 
 
-async def start_interview(
-        user_id: int, course_title: str, uploaded_documents: list[str] | None = None
-) -> str:
-    """Начинает интервью с AI - агентом.
-
-    :param user_id: Идентификатор пользователя.
-    :param course_title: Название курса.
-    :param uploaded_documents: Названия загруженных документов пользователя.
-    :returns: Сгенерированный первый вопрос.
-    """
-
-    uploaded_materials_string = (
-        "; ".join(uploaded_documents)
-        if uploaded_documents
-        else "Преподаватель не загрузил материалы"
-    )
-    prompt_template = f"""\
-    **Название курса:** {course_title}
-    **Загруженные материалы:** {uploaded_materials_string}
-
-    Проанализируй материалы (если они есть), продумай интервью, после чего задай первый вопрос,
-    чтобы начать интервью
-    """
-    thread_id = f"interview-{user_id}"
-    result = await interviewer_agent.ainvoke(
-        {"messages": [("human", prompt_template)]},
-        config={"configurable": {"thread_id": thread_id}},
-        context=UserContext(user_id=user_id),
-    )
-    return result["messages"][-1].content
-
-
 @router.callback_query(F.data == "complete_uploading")
 async def cb_complete_uploading(query: CallbackQuery, state: FSMContext) -> None:
     await query.answer()
@@ -212,7 +181,7 @@ async def cb_complete_uploading(query: CallbackQuery, state: FSMContext) -> None
     await query.message.answer("🔎 Начинаю анализ материалов ...")
     async with ChatActionSender.typing(chat_id=query.from_user.id, bot=query.bot):
         logger.info("Starting interview session with user `%s`", query.from_user.username)
-        first_question = await start_interview(
+        first_question = await start_interview_with_teacher(
             user_id=query.from_user.id,
             course_title=data["title"],
             uploaded_documents=[document["file_name"] for document in documents],
@@ -228,7 +197,7 @@ async def cb_complete_uploading(query: CallbackQuery, state: FSMContext) -> None
 @router.message(CourseCreationForm.in_interview, F.text)
 async def process_interview(message: Message, state: FSMContext) -> None:
     async with ChatActionSender.typing(chat_id=message.chat.id, bot=message.bot):
-        thread_id = f"interview-{message.from_user.id}"
+        thread_id = f"interview-with-teacher-{message.from_user.id}"
         result = await interviewer_agent.ainvoke(
             {"messages": [("human", message.text)]},
             config={"configurable": {"thread_id": thread_id}},
@@ -240,7 +209,11 @@ async def process_interview(message: Message, state: FSMContext) -> None:
         await message.answer(
             text="🤖 Спасибо за уделённое время, передаю ваши ответы AI агенту ..."
         )
-        task = CourseCreationTask(user_id=message.from_user.id, interview_with_teacher=summary)
-        await broker.publish(task, channel="course:creation")
+        await broker.publish(
+            CourseCreationCommand(
+                user_id=message.from_user.id, interview_with_teacher=summary
+            ),
+            channel="course:creation"
+        )
         return
     await message.answer(result["messages"][-1].content)

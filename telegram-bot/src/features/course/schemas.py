@@ -215,6 +215,12 @@ class Module(BaseModel):
         default=None, description="Задание для закрепления материала"
     )
 
+    def append_content_block(self, content_block: AnyContentBlock) -> None:
+        self.content_blocks.append(content_block)
+
+    def add_assignment(self, assignment: AnyAssignment) -> None:
+        self.assignment = assignment
+
 
 class FinalAssessment(BaseModel):
     """Финальный ассессмент в конце курса"""

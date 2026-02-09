@@ -15,5 +15,5 @@ async def create_from_message(message: CallbackQuery | Message, role: UserRole) 
 
     user = User.from_message(message, role)
     async with session_factory() as session:
-        repository.save(session, user)
+        repository.add(session, user)
         await session.commit()

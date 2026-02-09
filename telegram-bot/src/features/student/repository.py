@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from . import models, schemas
 
 
-def save(session: AsyncSession, student: schemas.Student) -> None:
-    """Сохраняет студента в текущую сессию"""
+def add(session: AsyncSession, student: schemas.Student) -> None:
+    """Добавляет студента в текущую сессию"""
 
     model = models.Student(**student.model_dump())
     session.add(model)

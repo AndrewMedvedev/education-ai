@@ -79,7 +79,7 @@ async def create_student_credentials(
             login=login,
             password_hash=SecretStr(password_hash),
         )
-        student_repo.save(session, student)
+        student_repo.add(session, student)
         await session.commit()
     return Credentials(login=login, password=SecretStr(password))
 

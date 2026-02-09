@@ -76,14 +76,15 @@ async def plan_module_structure(state: AgentState) -> dict[str, ModuleStructure 
 
     module_structure_planner = create_agent(
         model=model,
-        system_prompt="""Ты полезный ассистент для планирования структуры образовательного модуля
+        system_prompt="""\
+        Ты полезный ассистент для планирования структуры образовательного модуля
         по его описанию. Ты пишешь задание для агентов, которые будут наполнять модуль контентом
         и заданиями. Учти что у агентов будут инструменты для web поиска,
         рисования mermaid диаграмм, поиска видео, книг и.т.д
         """,
         response_format=ProviderStrategy(ModuleStructure),
     )
-    prompt_template = f"""
+    prompt_template = f"""\
     Сгенерируй структуру модуля используя следующую информацию:
      - **Целевая аудитория курса:** {state['audience_description']}
      - **Цели обучения курса:** {state['learning_objectives']}
@@ -110,7 +111,7 @@ async def generate_content_blocks(state: AgentState) -> dict[str, Module]:
                 title=module_structure.title, description=module_structure.description
             )
         )
-        module.content_blocks.append(content_block)
+        module.append_content_block(content_block)
     return {"module": module}
 
 
@@ -120,7 +121,7 @@ async def generate_assignment(state: AgentState) -> dict[str, Module]:
     module_structure, module = state["module_structure"], state["module"]
     assignment_type, prompt = module_structure.assignment_specification
     assignment = await call_assignment_generator(assignment_type, prompt)
-    module.assignment = assignment
+    module.add_assignment(assignment)
     return {"module": module}
 
 
