@@ -32,7 +32,7 @@ def get_menu_kb() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-class CourseCbData(CallbackData, prefix="tchr_course"):
+class CourseCbData(CallbackData, prefix="tchr_crs"):
     course_id: UUID
 
 
@@ -46,7 +46,7 @@ def get_list_courses_kb(courses: list[Course]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-class ModuleCbData(CallbackData, prefix="tchr_module"):
+class ModuleCbData(CallbackData, prefix="tchr_mdl"):
     module_id: UUID
 
 
@@ -65,7 +65,7 @@ class ModuleComponent(StrEnum):
     ASSIGNMENT = "assignment"
 
 
-class ModuleMenuCbData(CallbackData, prefix="tchr_module_menu"):
+class ModuleMenuCbData(CallbackData, prefix="tchr_mdl_menu"):
     module_id: UUID
     component: ModuleComponent
 
@@ -80,6 +80,44 @@ def get_module_menu_kb(module_id: UUID) -> InlineKeyboardMarkup:
     builder.button(
         text="🎯 Практическое задание", web_app=WebAppInfo(
             url=f"{settings.app.url}/teacher/courses/modules/{module_id}/assignment"
+        )
+    )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+class CourseMenuAction(StrEnum):
+    INVITE_STUDENTS = "invite_students"  # Пригласить студентов
+    DASHBOARDS = "dashboards"  # Админ панель
+    VIEW_COURSE = "view_course"  # Просмотр курса
+    BACK = "back"
+
+
+class CourseMenuCbData(CallbackData, prefix="tchr_crs_menu"):
+    course_id: UUID
+    action: CourseMenuAction
+
+
+def get_course_menu_kb(course_id: UUID) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.button(
+        text="📨 Пригласить студентов", callback_data=CourseMenuCbData(
+            course_id=course_id, action=CourseMenuAction.INVITE_STUDENTS
+        )
+    )
+    builder.button(
+        text="📊 Админ панель", web_app=WebAppInfo(
+            url=f"{settings.app.url}/teacher/courses/{course_id}/dashboards"
+        )
+    )
+    builder.button(
+        text="🗂️ Просмотр содержания", callback_data=CourseMenuCbData(
+            course_id=course_id, action=CourseMenuAction.VIEW_COURSE
+        )
+    )
+    builder.button(
+        text="🔙 Назад", callback_data=CourseMenuCbData(
+            course_id=course_id, action=CourseMenuAction.BACK
         )
     )
     builder.adjust(1)

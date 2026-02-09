@@ -1,7 +1,20 @@
-from .schemas import AssignmentType, ContentType, Module
+from .schemas import AnyAssignment, AssignmentType, ContentType, Module
 
 
-def get_module_context(module: Module) -> str:  # noqa: C901
+def get_assignment_context(assignment: AnyAssignment) -> str:
+    context = f"## Практическое задание\n**Тип задания**: {assignment.assignment_type}\n"
+    match assignment.assignment_type:
+        case AssignmentType.TEST:
+            context += "Список вопросов\n"
+            for question in assignment.questions:
+                context += f"Вопрос: {question.text}"
+                for i, option in enumerate(question.options):
+                    context += f" - {i}. {option}\n"
+    context += "\n"
+    return context
+
+
+def get_module_context(module: Module) -> str:
     """Получение LLM-friendly контекста текущего модуля в Markdown формате."""
 
     context = (
@@ -43,17 +56,5 @@ def get_module_context(module: Module) -> str:  # noqa: C901
                 )
         context += "\n\n"
     if module.assignment is not None:
-        assignment = module.assignment
-        context += (
-            "## Практическое задание\n"
-            f"**Тип задания**: {assignment.assignment_type}\n"
-        )
-        match assignment.assignment_type:
-            case AssignmentType.TEST:
-                context += "Список вопросов\n"
-                for question in assignment.questions:
-                    context += f"Вопрос: {question.text}"
-                    for i, option in enumerate(question.options):
-                        context += f" - {i}. {option}\n"
-        context += "\n"
+        context += get_assignment_context(module.assignment)
     return context
