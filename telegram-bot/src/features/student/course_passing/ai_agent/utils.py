@@ -4,7 +4,8 @@ from src.core.database import session_factory
 from src.features.course import repository
 from src.features.course.schemas import Assignment
 
-from src.features.student.course_passing.ai_agent import qa_agent
+from ..schemas import Feedback, StudentPractice
+from .agents.qa import qa_agent
 
 
 async def ask_edu_assistant(module_id: UUID, user_id: int, question: str) -> str:
@@ -27,13 +28,13 @@ async def ask_edu_assistant(module_id: UUID, user_id: int, question: str) -> str
     return result["messages"][-1].content
 
 
-async def give_feedback_on_assignment():
+async def give_feedback_on_assignment() -> Feedback:
     """Получение обратной связи по выполненному заданию от AI"""
 
 
 async def generate_student_practice(
         assignment_example: Assignment, user_id: int,
-) -> ...:
+) -> StudentPractice:
     """Генерация индивидуального варианта практики для студента"""
 
     async with session_factory() as session:

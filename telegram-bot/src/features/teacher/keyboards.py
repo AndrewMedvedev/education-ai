@@ -60,26 +60,26 @@ def get_modules_kb(modules: list[Module]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-class ModuleComponent(StrEnum):
-    CONTENT_BLOCKS = "content_blocks"
-    ASSIGNMENT = "assignment"
+class ModuleSection(StrEnum):
+    THEORY = "theory"
+    PRACTICE = "practice"
 
 
 class ModuleMenuCbData(CallbackData, prefix="tchr_mdl_menu"):
     module_id: UUID
-    component: ModuleComponent
+    section: ModuleSection
 
 
 def get_module_menu_kb(module_id: UUID) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(
         text="📖 Теоретический материал", web_app=WebAppInfo(
-            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/content-blocks"
+            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/theory"
         )
     )
     builder.button(
         text="🎯 Практическое задание", web_app=WebAppInfo(
-            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/assignment"
+            url=f"{settings.app.url}/teacher/courses/modules/{module_id}/practice"
         )
     )
     builder.adjust(1)

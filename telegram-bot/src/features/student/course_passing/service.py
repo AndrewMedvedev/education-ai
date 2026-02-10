@@ -1,9 +1,11 @@
 import logging
 from uuid import UUID
 
+from src.core.database import session_factory
 from src.features.course.schemas import TestAssignment
 
-from .schemas import AssignmentResult
+from . import repository
+from .schemas import Submission
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +19,27 @@ def _is_answers_correct(given_answers: list[int], correct_answers: list[int]) ->
     )
 
 
-async def take_test_assignment(
-        module_id: UUID,
+async def pass_test_assignment(
+        practice_id: UUID,
         user_id: int,
         test_answers: list[list[int]],
         assignment: TestAssignment,
-) -> AssignmentResult:
+) -> Submission:
     if len(test_answers) != len(assignment.questions):
         raise ValueError(
             "Test answers must have same length as the number of questions!"
         )
-    assignment_score = 0
+    score = 0
     for question_answers, question in zip(test_answers, assignment.questions, strict=False):
         if _is_answers_correct(question_answers, question.correct_answers):
-            assignment_score += question.points
-    is_passing = assignment_score >= assignment.passing_score
-    return AssignmentResult(score=assignment_score, is_passing=is_passing)
+            score += question.points
+    is_passed = score >= assignment.passing_score
+    async with session_factory() as session:
+        submission = Submission(
+            practice_id=practice_id,
+            user_id=user_id,
+            score=score,
+            is_passed=is_passed,
+        )
+        await repository.add_submission(session, submission)
+    return submission

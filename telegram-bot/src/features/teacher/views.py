@@ -11,7 +11,7 @@ from src.features.course import repository
 router = APIRouter(prefix="/teacher/courses")
 
 
-@router.get(path="/modules/{module_id}/content-blocks", response_class=HTMLResponse)
+@router.get(path="/modules/{module_id}/theory", response_class=HTMLResponse)
 async def get_module_content_blocks_page(
         request: Request,
         module_id: UUID,
