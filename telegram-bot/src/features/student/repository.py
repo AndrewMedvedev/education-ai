@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, schemas
@@ -41,3 +41,8 @@ async def activate(session: AsyncSession, student_id: UUID) -> schemas.Student:
     result = await session.execute(stmt)
     model = result.scalar_one()
     return schemas.Student.model_validate(model)
+
+
+async def add_group(session: AsyncSession, group: schemas.Group) -> None:
+    stmt = insert(models.Group).values(**group.model_dump())
+    await session.execute(stmt)

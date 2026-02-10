@@ -1,6 +1,5 @@
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
-from aiogram.utils.formatting import Bold, Italic, Text, as_line
 
 from src.core.database import session_factory
 from src.features.course import repository
@@ -18,7 +17,12 @@ from .keyboards import (
     get_module_menu_kb,
     get_modules_kb,
 )
-from .lexicon import get_course_detail_text, get_course_list_text, get_module_preview_text
+from .lexicon import (
+    get_course_details_text,
+    get_course_list_text,
+    get_course_preview_text,
+    get_module_preview_text,
+)
 
 router = Router(name=__name__)
 
@@ -40,11 +44,10 @@ async def cb_course(query: CallbackQuery, callback_data: CourseCbData) -> None:
     await query.answer()
     async with session_factory() as session:
         course = await repository.get(session, callback_data.course_id)
-    content = Text(
-        Bold(f"🎓 {course.title}"),
-        as_line(),
-        as_line(Bold("📌 Описание")),
-        as_line(Italic(f"{course.description}"))
+    content = get_course_preview_text(
+        title=course.title,
+        description=course.description,
+        learning_objectives=course.learning_objectives,
     )
     await query.message.edit_text(
         **content.as_kwargs(), reply_markup=get_course_menu_kb(course.id)
@@ -68,10 +71,11 @@ async def cb_view_course_action(query: CallbackQuery, callback_data: CourseCbDat
     await query.answer()
     async with session_factory() as session:
         course = await repository.get(session, callback_data.course_id)
-    content = get_course_detail_text(
+    content = get_course_details_text(
         title=course.title,
         description=course.description,
-        learning_objectives=course.learning_objectives
+        learning_objectives=course.learning_objectives,
+        module_titles=[module.title for module in course.modules]
     )
     await query.message.edit_text(
         **content.as_kwargs(), reply_markup=get_modules_kb(course.modules)

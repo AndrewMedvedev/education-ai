@@ -4,7 +4,6 @@ from uuid import UUID
 
 from sqlalchemy import BigInteger, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.database import Base

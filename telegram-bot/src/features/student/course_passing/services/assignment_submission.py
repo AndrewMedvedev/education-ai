@@ -46,6 +46,7 @@ async def pass_test_assignment(
             is_passed=is_passed,
         )
         await repository.add_submission(session, submission)
+        await session.commit()
     return submission
 
 

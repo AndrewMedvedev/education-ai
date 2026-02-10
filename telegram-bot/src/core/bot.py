@@ -20,11 +20,15 @@ def register_handlers(dispatcher: Dispatcher) -> None:
         router as course_creation_router,
     )
     from src.features.teacher.handlers import router as teacher_router
+    from src.features.teacher.students_management.handlers import (
+        router as students_management_router,
+    )
 
     dispatcher.include_routers(
         common_router,
         teacher_router,
-        course_creation_router
+        course_creation_router,
+        students_management_router,
     )
 
 

@@ -1,17 +1,29 @@
 from uuid import UUID
 
 from sqlalchemy import BigInteger, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.database import Base
+
+
+class Group(Base):
+    __tablename__ = "groups"
+
+    course_id: Mapped[UUID]
+    teacher_id: Mapped[int] = mapped_column(BigInteger)
+    title: Mapped[str]
+    is_active: Mapped[bool]
+
+    students: Mapped[list["Student"]] = mapped_column(back_populates="group")
 
 
 class Student(Base):
     __tablename__ = "students"
 
+    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id"))
     user_id: Mapped[int] = mapped_column(BigInteger)
-    course_id: Mapped[UUID] = mapped_column(ForeignKey("courses.id"), unique=False)
-    invited_by: Mapped[int] = mapped_column(BigInteger)
     login: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str] = mapped_column(unique=True)
     is_active: Mapped[bool]
+
+    group: Mapped["Group"] = relationship(back_populates="students")

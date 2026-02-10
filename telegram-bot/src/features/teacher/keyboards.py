@@ -87,6 +87,7 @@ def get_module_menu_kb(module_id: UUID) -> InlineKeyboardMarkup:
 
 
 class CourseMenuAction(StrEnum):
+    GET_GROUPS = "get_groups"  # Управление группами
     INVITE_STUDENTS = "invite_students"  # Пригласить студентов
     DASHBOARDS = "dashboards"  # Админ панель
     VIEW_COURSE = "view_course"  # Просмотр курса
@@ -100,6 +101,11 @@ class CourseMenuCbData(CallbackData, prefix="tchr_crs_menu"):
 
 def get_course_menu_kb(course_id: UUID) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    builder.button(
+        text="👥 Группы", callback_data=CourseMenuCbData(
+            course_id=course_id, action=CourseMenuAction.GET_GROUPS
+        ).pack()
+    )
     builder.button(
         text="📨 Пригласить студентов", callback_data=CourseMenuCbData(
             course_id=course_id, action=CourseMenuAction.INVITE_STUDENTS
