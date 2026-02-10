@@ -1,28 +1,16 @@
 from uuid import UUID
 
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import models, schemas
 
 
-def add(session: AsyncSession, student: schemas.Student) -> None:
+async def add(session: AsyncSession, student: schemas.Student) -> None:
     """Добавляет студента в текущую сессию"""
 
-    model = models.Student(**student.model_dump())
-    session.add(model)
-
-
-async def get_count_on_course(session: AsyncSession, course_id: UUID) -> int:
-    """Получает количество студентов на курсе"""
-
-    stmt = (
-        select(func.count())
-        .select_from(models.Student)
-        .where(models.Student.course_id == course_id)
-    )
-    result = await session.execute(stmt)
-    return result.scalar()
+    stmt = insert(models.Student).values(**student.model_dump())
+    await session.execute(stmt)
 
 
 async def get_by_login(session: AsyncSession, student_login: str) -> schemas.Student | None:
@@ -46,3 +34,11 @@ async def activate(session: AsyncSession, student_id: UUID) -> schemas.Student:
 async def add_group(session: AsyncSession, group: schemas.Group) -> None:
     stmt = insert(models.Group).values(**group.model_dump())
     await session.execute(stmt)
+
+
+async def get_by_group(session: AsyncSession, group_id: UUID) -> list[schemas.Student]:
+    stmt = select(models.Student).where(models.Student.group_id == group_id)
+    results = await session.execute(stmt)
+    return [
+        schemas.Student.model_validate(model) for model in results.scalars().all()
+    ]

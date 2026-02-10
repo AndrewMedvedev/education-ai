@@ -4,11 +4,13 @@ import string
 from uuid import UUID
 
 from passlib.context import CryptContext
-from pydantic import BaseModel, SecretStr
+from pydantic import SecretStr
 
 from src.core.database import session_factory
 from src.features.student import repository as student_repo
 from src.features.student.schemas import Student
+
+from .schemas import Credentials
 
 # Хеширование паролей
 MEMORY_COST = 100  # Размер выделяемой памяти в mb
@@ -52,36 +54,29 @@ def generate_password(chars_count: int = 8) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(chars_count))
 
 
-class Credentials(BaseModel):
-    login: str
-    password: SecretStr
-
-
-async def create_student_credentials(
-        course_id: UUID, teacher_id: int, full_name: str
-) -> Credentials:
-    """Генерирует пару логин + пароль для студента, чтобы получить доступ к курсу.
-
-    :param course_id: Идентификатор курса.
-    :param teacher_id: Идентификатор преподавателя.
-    :param full_name: ФИО студента.
-    """
-
+async def create_students_credentials(group_id: UUID, full_names: list[str]) -> list[Credentials]:
+    credentials_list = []
     async with session_factory() as session:
-        students_count = await student_repo.get_count_on_course(session, course_id)
-        login = _build_student_login(full_name, students_count)
-        password = generate_password()
-        password_hash = pwd_context.hash(password)
-        student = Student(
-            course_id=course_id,
-            invited_by=teacher_id,
-            full_name=full_name,
-            login=login,
-            password_hash=SecretStr(password_hash),
-        )
-        student_repo.add(session, student)
+        students = await student_repo.get_by_group(session, group_id)
+        students_count = len(students)
+        for full_name in full_names:
+            login = _build_student_login(full_name, students_count)
+            password = generate_password()
+            password_hash = pwd_context.hash(password)
+            student = Student(
+                group_id=group_id,
+                full_name=full_name,
+                login=login,
+                password_hash=SecretStr(password_hash),
+            )
+            await student_repo.add(session, student)
+            await session.flush()
+            credentials_list.append(Credentials(
+                full_name=full_name, login=login, password=SecretStr(password)
+            ))
+            students_count += 1
         await session.commit()
-    return Credentials(login=login, password=SecretStr(password))
+    return credentials_list
 
 
 async def authenticate_student(user_id: int, login: str, password: str) -> Student:

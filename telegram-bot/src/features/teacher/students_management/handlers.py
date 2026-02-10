@@ -1,10 +1,18 @@
+import io
+
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from src.core.database import session_factory
-from src.features.auth.utils import create_students_list_file_template
+from src.features.auth.service import create_students_credentials
+from src.features.auth.utils import (
+    create_student_credentials_list_file,
+    create_students_list_file_template,
+    parse_students_list_file,
+)
 from src.features.course import repository
+from src.features.student import repository as student_repo
 from src.features.student.schemas import Group
 
 from ..keyboards import CourseMenuAction, CourseMenuCbData, get_course_menu_kb
@@ -66,7 +74,7 @@ async def cb_continue_action(
         query: CallbackQuery, callback_data: ConfirmCbData, state: FSMContext
 ) -> None:
     await query.answer()
-    await query.answer("Введите название группы:")
+    await query.message.answer("Введите название группы:")
     await state.set_state(GroupCreationForm.in_title_typing)
     await state.update_data(course_id=callback_data.course_id)
 
@@ -94,3 +102,31 @@ async def process_group_title(message: Message, state: FSMContext) -> None:
         file=excel_file,
         filename=f"{course.title}_{message.text.strip()}_Шаблон.xlsx",
     ))
+    await state.update_data(course_title=course.title)
+    await state.set_state(GroupCreationForm.waiting_for_students_list)
+
+
+@router.message(GroupCreationForm.waiting_for_students_list, F.document)
+async def process_students_list(message: Message, state: FSMContext) -> None:
+    if message.document.file_name.split(".")[-1] != "xlsx":
+        await message.reply("Неподдерживаемый формат файла!")
+        return
+    data = await state.get_data()
+    group = data["group"]
+    async with session_factory() as session:
+        await student_repo.add_group(session, group)
+        await session.commit()
+    file_info = await message.bot.get_file(message.document.file_id)
+    buffer = await message.bot.download_file(file_info.file_path, destination=io.BytesIO())
+    input_file = buffer.getbuffer().tobytes()
+    full_names = parse_students_list_file(input_file)
+    credentials_list = await create_students_credentials(group.id, full_names)
+    output_file = create_student_credentials_list_file(credentials_list)
+    await message.bot.send_document(
+        message.chat.id,
+        document=BufferedInputFile(
+            file=output_file,
+            filename=f"{data['course_title']}_{group.title}_Доступы.xlsx",
+        ),
+    )
+    await state.set_state(GroupCreationForm.waiting_for_students_list)
