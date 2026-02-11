@@ -5,6 +5,8 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from src.features.course.schemas import Course
+
 
 class MenuAction(StrEnum):
     LIST_COURSES = "list_courses"  # Посмотреть список курсов
@@ -70,4 +72,19 @@ def get_course_menu_kb(group_id: UUID) -> InlineKeyboardMarkup:
         ).pack()
     )
     builder.adjust(1)
+    return builder.as_markup()
+
+
+class CourseCbData(CallbackData, prefix="std_crs"):
+    course_id: UUID
+
+
+def get_list_courses_kb(courses: list[Course]) -> InlineKeyboardMarkup:
+    """Клавиатура для получения списка курсов студента"""
+
+    builder = InlineKeyboardBuilder()
+    for course in courses:
+        builder.button(
+            text=f"{course.title}", callback_data=CourseCbData(course_id=course.id).pack()
+        )
     return builder.as_markup()

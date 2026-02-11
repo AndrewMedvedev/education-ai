@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from pydantic import SecretStr
 
 from src.core.database import session_factory
-from src.features.student import repository as student_repo
+from src.features.student import repository
 from src.features.student.schemas import Student
 
 from .schemas import Credentials
@@ -57,7 +57,7 @@ def generate_password(chars_count: int = 8) -> str:
 async def create_student_credentials(group_id: UUID, full_names: list[str]) -> list[Credentials]:
     credentials = []
     async with session_factory() as session:
-        students = await student_repo.get_all_by_group(session, group_id)
+        students = await repository.get_students_by_group(session, group_id)
         students_count = len(students)
         for full_name in full_names:
             login = _build_student_login(full_name, students_count)
@@ -69,7 +69,7 @@ async def create_student_credentials(group_id: UUID, full_names: list[str]) -> l
                 login=login,
                 password_hash=password_hash,
             )
-            await student_repo.add(session, student)
+            await repository.add_student(session, student)
             await session.flush()
             cred = Credentials(full_name=full_name, login=login, password=SecretStr(password))
             credentials.append(cred)
@@ -89,7 +89,7 @@ async def authenticate_student(user_id: int, login: str, password: str) -> Stude
 
     logger.info("Starting authenticate student `%s`", user_id)
     async with session_factory() as session:
-        student = await student_repo.get_by_login(session, login)
+        student = await repository.get_student_by_login(session, login)
         if student is None:
             logger.warning(
                 "Student `%s` is not registered, login `%s` does not exist!",
@@ -103,7 +103,7 @@ async def authenticate_student(user_id: int, login: str, password: str) -> Stude
             raise ForbiddenError(f"Student `{user_id}` entered wrong password!")
         if not student.is_active:
             logger.info("Student `%s` is not active, starting activation")
-            student = await student_repo.activate(session, student.id, user_id=user_id)
+            student = await repository.activate_student(session, student.id, user_id=user_id)
             await session.commit()
             logger.info("Student `%s` activated", user_id)
     logger.info("Student `%s` authenticated successfully", user_id)

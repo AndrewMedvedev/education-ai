@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, Message
 from src.features.auth.service import ForbiddenError, authenticate_student
 
 from ..keyboards import MenuAction, MenuCBData, get_course_menu_kb, get_main_menu_kb
-from ..lexicon import get_course_menu_text
+from ..lexicon import MAIN_MENU_TEXT, get_course_menu_text
 from ..service import get_group_course
 from .fsm import SignupForm
 from .keyboards import SignupConfirmCbData, get_signup_confirm_kb
@@ -43,7 +43,7 @@ async def process_password(message: Message, state: FSMContext) -> None:
 async def cb_cancel(query: CallbackQuery, state: FSMContext) -> None:
     await query.answer()
     await state.clear()
-    await query.message.answer("⚙️ Главное меню", reply_markup=get_main_menu_kb())
+    await query.message.answer(**MAIN_MENU_TEXT.as_kwargs(), reply_markup=get_main_menu_kb())
 
 
 @router.callback_query(SignupConfirmCbData.filter(F.action == "enter"))

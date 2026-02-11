@@ -16,6 +16,7 @@ dp = Dispatcher(storage=storage)
 
 def register_handlers(dispatcher: Dispatcher) -> None:
     from src.features.commons.handlers import router as common_router
+    from src.features.student.course_passing.handlers import router as course_passing_router
     from src.features.student.course_signup.handlers import router as course_signup_router
     from src.features.teacher.course_creation.handlers import (
         router as course_creation_router,
@@ -31,6 +32,7 @@ def register_handlers(dispatcher: Dispatcher) -> None:
         course_creation_router,
         students_management_router,
         course_signup_router,
+        course_passing_router,
     )
 
 
