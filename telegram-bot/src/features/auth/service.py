@@ -57,7 +57,7 @@ def generate_password(chars_count: int = 8) -> str:
 async def create_student_credentials(group_id: UUID, full_names: list[str]) -> list[Credentials]:
     credentials = []
     async with session_factory() as session:
-        students = await student_repo.get_by_group(session, group_id)
+        students = await student_repo.get_all_by_group(session, group_id)
         students_count = len(students)
         for full_name in full_names:
             login = _build_student_login(full_name, students_count)
@@ -103,7 +103,7 @@ async def authenticate_student(user_id: int, login: str, password: str) -> Stude
             raise ForbiddenError(f"Student `{user_id}` entered wrong password!")
         if not student.is_active:
             logger.info("Student `%s` is not active, starting activation")
-            student = await student_repo.activate(session, student.id)
+            student = await student_repo.activate(session, student.id, user_id=user_id)
             await session.commit()
             logger.info("Student `%s` activated", user_id)
     logger.info("Student `%s` authenticated successfully", user_id)

@@ -22,10 +22,15 @@ async def get_by_login(session: AsyncSession, student_login: str) -> schemas.Stu
     return None if model is None else schemas.Student.model_validate(model)
 
 
-async def activate(session: AsyncSession, student_id: UUID) -> schemas.Student:
+async def activate(session: AsyncSession, student_id: UUID, user_id: int) -> schemas.Student:
     """Изменение статуса студента на активный"""
 
-    stmt = update(models.Student).where(models.Student.id == student_id).values(is_active=True)
+    stmt = (
+        update(models.Student)
+        .where(models.Student.id == student_id)
+        .values(user_id=user_id, is_active=True)
+        .returning(models.Student)
+    )
     result = await session.execute(stmt)
     model = result.scalar_one()
     return schemas.Student.model_validate(model)
@@ -36,7 +41,14 @@ async def add_group(session: AsyncSession, group: schemas.Group) -> None:
     await session.execute(stmt)
 
 
-async def get_by_group(session: AsyncSession, group_id: UUID) -> list[schemas.Student]:
+async def get_group(session: AsyncSession, group_id: UUID) -> schemas.Group | None:
+    stmt = select(models.Group).where(models.Group.id == group_id)
+    result = await session.execute(stmt)
+    model = result.scalar_one_or_none()
+    return None if model is None else schemas.Group.model_validate(model)
+
+
+async def get_all_by_group(session: AsyncSession, group_id: UUID) -> list[schemas.Student]:
     stmt = select(models.Student).where(models.Student.group_id == group_id)
     results = await session.execute(stmt)
     return [

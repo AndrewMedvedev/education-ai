@@ -28,9 +28,9 @@ async def cmd_start(message: Message) -> None:
         await message.reply(**WELCOME_TEACHER_TEXT.as_kwargs(), reply_markup=get_menu_kb())
         return
     if user.role == UserRole.STUDENT:
-        from src.features.student.keyboards import get_menu_kb
+        from src.features.student.keyboards import get_main_menu_kb
 
-        await message.reply(**WELCOME_STUDENT_TEXT.as_kwargs(), reply_markup=get_menu_kb())
+        await message.reply(**WELCOME_STUDENT_TEXT.as_kwargs(), reply_markup=get_main_menu_kb())
         return
 
 
@@ -45,8 +45,10 @@ async def cb_select_teacher_role(query: CallbackQuery, callback_data: RoleSelect
 
 @router.callback_query(RoleSelectionCbData.filter(F.role == UserRole.TEACHER))
 async def cb_select_student_role(query: CallbackQuery, callback_data: RoleSelectionCbData) -> None:
-    from src.features.student.keyboards import get_menu_kb
+    from src.features.student.keyboards import get_main_menu_kb
 
     await query.answer()
     await service.create_from_message(query, callback_data.role)
-    await query.message.answer(**WELCOME_STUDENT_TEXT.as_kwargs(), reply_markup=get_menu_kb())
+    await query.message.answer(
+        **WELCOME_STUDENT_TEXT.as_kwargs(), reply_markup=get_main_menu_kb()
+    )
