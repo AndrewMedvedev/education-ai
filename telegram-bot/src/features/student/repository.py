@@ -96,3 +96,33 @@ async def find_group_by_course_and_user(
     result = await session.execute(stmt)
     model = result.scalar_one_or_none()
     return None if model is None else schemas.Group.model_validate(model)
+
+
+async def get_student_progress_in_group(
+        session: AsyncSession, group_id: UUID, user_id: int
+) -> schemas.StudentProgress | None:
+    stmt = (
+        select(models.StudentProgress)
+        .join(models.Student, models.Student.id == models.StudentProgress.student_id)
+        .where(
+            (models.Student.group_id == group_id) &
+            (models.Student.user_id == user_id)
+        )
+    )
+    result = await session.execute(stmt)
+    model = result.scalar_one_or_none()
+    return None if model is None else schemas.StudentProgress.model_validate(model)
+
+
+async def get_student_progress(
+        session: AsyncSession, student_id: UUID
+) -> schemas.StudentProgress | None:
+    stmt = select(models.StudentProgress).where(models.StudentProgress.student_id == student_id)
+    result = await session.execute(stmt)
+    model = result.scalar_one_or_none()
+    return None if model is None else schemas.StudentProgress.model_validate(model)
+
+
+async def save_student_progress(session: AsyncSession, progress: schemas.StudentProgress) -> None:
+    stmt = insert(models.StudentProgress).values(**progress.model_dump())
+    await session.execute(stmt)

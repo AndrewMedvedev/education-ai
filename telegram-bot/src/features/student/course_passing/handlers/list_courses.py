@@ -35,7 +35,7 @@ async def cb_course(query: CallbackQuery, callback_data: CourseCbData) -> None:
             session, course_id=callback_data.course_id, user_id=query.from_user.id
         )
         course = await course_repo.get(session, group.course_id)
-    content = get_course_menu_text(course.title)
+    content = get_course_menu_text(title=course.title, description=course.description)
     await query.message.edit_text(
         **content.as_kwargs(), reply_markup=get_course_menu_kb(group.id)
     )

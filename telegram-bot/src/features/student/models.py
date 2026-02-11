@@ -1,6 +1,7 @@
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import BigInteger, ForeignKey
+from sqlalchemy import BigInteger, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.database import Base
@@ -28,3 +29,17 @@ class Student(Base):
     is_active: Mapped[bool]
 
     group: Mapped["Group"] = relationship(back_populates="students")
+    progress: Mapped["StudentProgress"] = relationship(back_populates="student")
+
+
+class StudentProgress(Base):
+    __tablename__ = "students_progress"
+
+    student_id: Mapped[UUID] = mapped_column(ForeignKey("students.id"), unique=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    current_score: Mapped[float]
+    current_module_id: Mapped[UUID]
+    overall_percentage: Mapped[float]
+
+    student: Mapped["Student"] = relationship(back_populates="progress")

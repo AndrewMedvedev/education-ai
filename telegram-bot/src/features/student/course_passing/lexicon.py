@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from aiogram.utils.formatting import Bold, Italic, Spoiler, Text, Underline, as_marked_section
+from aiogram.utils.formatting import (
+    BlockQuote,
+    Bold,
+    Italic,
+    Spoiler,
+    Text,
+    Underline,
+    as_line,
+    as_marked_section,
+)
 
 
 def get_my_progress_text(
@@ -17,4 +26,25 @@ def get_my_progress_text(
             ],
             marker="• "
         )
+    )
+
+
+def get_current_module_text(title: str, description: str, order: int, total: int) -> Text:
+    return Text(
+        Bold("📗 Текущий модуль:"),
+        as_line(Underline(f"{title}")),
+        as_line(),
+        as_line(),
+        as_line(Italic("📌 Описание:")),
+        as_line(BlockQuote(f"{description}")),
+        as_line(),
+        as_line(),
+        as_line(Bold("📈 Пройдено:"), f"{order + 1}/{total}"),
+    )
+
+
+def get_module_menu_text(title: str) -> Text:
+    return Text(
+        Bold("☰ Меню:"),
+        as_line(Underline(f"{title}")),
     )

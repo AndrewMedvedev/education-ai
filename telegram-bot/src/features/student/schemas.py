@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, PositiveInt
 
+from src.features.course.schemas import Module
 from src.utils import current_datetime
 
 
@@ -39,9 +40,16 @@ class StudentProgress(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    course_id: UUID
-    user_id: UUID
+    student_id: UUID
     started_at: datetime
     completed_at: datetime | None = None
+    current_score: NonNegativeFloat = Field(default=0.0)
     current_module_id: UUID
     overall_percentage: NonNegativeFloat = Field(default=0.0)
+
+
+class CourseProgress(BaseModel):
+    student_id: UUID
+    current_module_id: UUID
+    total_modules: PositiveInt
+    accessible_modules: list[Module]
