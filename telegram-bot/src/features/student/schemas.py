@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, PositiveInt, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, PositiveInt
 
 from src.utils import current_datetime
 
@@ -30,7 +30,7 @@ class Student(BaseModel):
     group_id: UUID
     full_name: str
     login: str
-    password_hash: SecretStr
+    password_hash: str
     is_active: bool = False
 
 

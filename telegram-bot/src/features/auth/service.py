@@ -54,8 +54,8 @@ def generate_password(chars_count: int = 8) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(chars_count))
 
 
-async def create_students_credentials(group_id: UUID, full_names: list[str]) -> list[Credentials]:
-    credentials_list = []
+async def create_student_credentials(group_id: UUID, full_names: list[str]) -> list[Credentials]:
+    credentials = []
     async with session_factory() as session:
         students = await student_repo.get_by_group(session, group_id)
         students_count = len(students)
@@ -67,16 +67,15 @@ async def create_students_credentials(group_id: UUID, full_names: list[str]) -> 
                 group_id=group_id,
                 full_name=full_name,
                 login=login,
-                password_hash=SecretStr(password_hash),
+                password_hash=password_hash,
             )
             await student_repo.add(session, student)
             await session.flush()
-            credentials_list.append(Credentials(
-                full_name=full_name, login=login, password=SecretStr(password)
-            ))
+            cred = Credentials(full_name=full_name, login=login, password=SecretStr(password))
+            credentials.append(cred)
             students_count += 1
         await session.commit()
-    return credentials_list
+    return credentials
 
 
 async def authenticate_student(user_id: int, login: str, password: str) -> Student:
@@ -99,7 +98,7 @@ async def authenticate_student(user_id: int, login: str, password: str) -> Stude
             raise ForbiddenError(
                 f"Student `{user_id}` is not registered, login `{login}` does not exist!"
             )
-        if not pwd_context.verify(password, student.password_hash.get_secret_value()):
+        if not pwd_context.verify(password, student.password_hash):
             logger.warning("Student `%s` entered wrong password!", user_id)
             raise ForbiddenError(f"Student `{user_id}` entered wrong password!")
         if not student.is_active:

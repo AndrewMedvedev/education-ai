@@ -14,14 +14,15 @@ class Group(Base):
     title: Mapped[str]
     is_active: Mapped[bool]
 
-    students: Mapped[list["Student"]] = mapped_column(back_populates="group")
+    students: Mapped[list["Student"]] = relationship(back_populates="group")
 
 
 class Student(Base):
     __tablename__ = "students"
 
-    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id"))
-    user_id: Mapped[int] = mapped_column(BigInteger)
+    group_id: Mapped[UUID] = mapped_column(ForeignKey("groups.id"), unique=False)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=True)
+    full_name: Mapped[str]
     login: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str] = mapped_column(unique=True)
     is_active: Mapped[bool]

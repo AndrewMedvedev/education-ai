@@ -7,23 +7,23 @@ from src.utils import current_datetime
 from .schemas import Credentials
 
 
-def create_students_list_file_template(
-        course_title: str, group_title: str, add_instruction_sheet: bool = True
+def get_student_list_template(
+        course_title: str, group_title: str, include_instruction: bool = True
 ) -> bytes:
     """Создаёт шаблон Excel файла для заполнения списка студентов.
 
     :param course_title: Название курса.
     :param group_title: Название группы.
-    :param add_instruction_sheet: Добавить лист с инструкцией
+    :param include_instruction: Добавить лист с инструкцией
     """
 
-    df_template = pd.DataFrame(columns=["ФИО"])
+    df_empty = pd.DataFrame(columns=["ФИО"])
     buffer = io.BytesIO()
     with pd.ExcelWriter(
         buffer, engine="openpyxl", datetime_format="dd.mm.yyyy"
     ) as writer:
-        df_template.to_excel(writer, sheet_name="Список студентов", index=False)
-        if add_instruction_sheet:
+        df_empty.to_excel(writer, sheet_name="Список студентов", index=False)
+        if include_instruction:
             instructions = pd.DataFrame({
                 "Инструкция": [
                     "1. Заполните колонку «ФИО» для каждого студента",
@@ -36,12 +36,12 @@ def create_students_list_file_template(
                     f"Создан: {current_datetime().strftime('%d.%m.%Y %H:%M')}"
                 ]
             })
-            instructions.to_excel(writer, sheet_name="Инструкция", index=False)
+        instructions.to_excel(writer, sheet_name="Инструкция", index=False)
     buffer.seek(0)
     return buffer.getvalue()
 
 
-def parse_students_list_file(
+def extract_student_full_names(
         excel_file: bytes, sheet_name: str = "Список студентов"
 ) -> list[str]:
     """Парсит ФИО студентов из заполненного Excel файла.
@@ -53,7 +53,7 @@ def parse_students_list_file(
 
     buffer = io.BytesIO(excel_file)
     buffer.seek(0)
-    students_list_df = pd.read_excel(
+    data = pd.read_excel(
         buffer,
         sheet_name=sheet_name,
         engine="openpyxl",
@@ -61,7 +61,7 @@ def parse_students_list_file(
         keep_default_na=False,
     )
     return (
-        students_list_df["ФИО"]
+        data["ФИО"]
         .astype(str)
         .str.strip()
         .replace("", pd.NA)
@@ -71,14 +71,16 @@ def parse_students_list_file(
     )
 
 
-def create_student_credentials_list_file(credentials_list: list[Credentials]) -> bytes:
+def generate_student_credentials_file(credentials: list[Credentials]) -> bytes:
     data = pd.DataFrame({
-        "ФИО": [credential.full_name for credential in credentials_list],
-        "Логин": [credential.login for credential in credentials_list],
-        "Пароль": [credential.password for credential in credentials_list]
+        "ФИО": [cred.full_name for cred in credentials],
+        "Логин": [cred.login for cred in credentials],
+        "Пароль": [cred.password.get_secret_value() for cred in credentials]
     })
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl", datetime_format="dd.mm.yyyy") as writer:
+    with pd.ExcelWriter(
+            buffer, engine="openpyxl", datetime_format="dd.mm.yyyy"
+    ) as writer:
         data.to_excel(writer, sheet_name="Список студентов", index=False)
     buffer.seek(0)
     return buffer.getvalue()

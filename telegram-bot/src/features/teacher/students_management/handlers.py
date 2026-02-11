@@ -5,12 +5,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
 from src.core.database import session_factory
-from src.features.auth.service import create_students_credentials
-from src.features.auth.utils import (
-    create_student_credentials_list_file,
-    create_students_list_file_template,
-    parse_students_list_file,
-)
+from src.features.auth.utils import get_student_list_template
 from src.features.course import repository
 from src.features.student import repository as student_repo
 from src.features.student.schemas import Group
@@ -25,7 +20,8 @@ from .keyboards import (
     get_confirm_kb,
     get_groups_menu_kb,
 )
-from .lexicon import GROUP_CREATION_TEXT
+from .lexicon import GROUP_CREATION_INTRO_TEXT
+from .service import add_students_in_group
 
 router = Router(name=__name__)
 
@@ -57,7 +53,8 @@ async def cb_back_action(query: CallbackQuery, callback_data: GroupsMenuCbData) 
 async def cb_add_group_action(query: CallbackQuery, callback_data: GroupsMenuCbData) -> None:
     await query.answer()
     await query.message.edit_text(
-        **GROUP_CREATION_TEXT.as_kwargs(), reply_markup=get_confirm_kb(callback_data.course_id)
+        **GROUP_CREATION_INTRO_TEXT.as_kwargs(),
+        reply_markup=get_confirm_kb(callback_data.course_id)
     )
 
 
@@ -93,10 +90,10 @@ async def process_group_title(message: Message, state: FSMContext) -> None:
     await message.reply(
         "Теперь заполните шаблон списка группы согласно инструкции и отправьте его мне "
     )
-    excel_file = create_students_list_file_template(
+    excel_file = get_student_list_template(
         course_title=course.title,
         group_title=message.text.strip(),
-        add_instruction_sheet=True,
+        include_instruction=True,
     )
     await message.bot.send_document(message.chat.id, document=BufferedInputFile(
         file=excel_file,
@@ -119,9 +116,7 @@ async def process_students_list(message: Message, state: FSMContext) -> None:
     file_info = await message.bot.get_file(message.document.file_id)
     buffer = await message.bot.download_file(file_info.file_path, destination=io.BytesIO())
     input_file = buffer.getbuffer().tobytes()
-    full_names = parse_students_list_file(input_file)
-    credentials_list = await create_students_credentials(group.id, full_names)
-    output_file = create_student_credentials_list_file(credentials_list)
+    output_file = await add_students_in_group(group.id, input_file)
     await message.bot.send_document(
         message.chat.id,
         document=BufferedInputFile(
@@ -129,4 +124,4 @@ async def process_students_list(message: Message, state: FSMContext) -> None:
             filename=f"{data['course_title']}_{group.title}_Доступы.xlsx",
         ),
     )
-    await state.set_state(GroupCreationForm.waiting_for_students_list)
+    await state.clear()
