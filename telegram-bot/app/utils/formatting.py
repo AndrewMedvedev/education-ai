@@ -1,4 +1,10 @@
-from .schemas import AnyAssignment, AssignmentType, ContentType, Module
+from app.core.entities.course import (
+    AnyAssignment,
+    AnyContentBlock,
+    AssignmentType,
+    ContentType,
+    Module,
+)
 
 
 def get_assignment_context(assignment: AnyAssignment) -> str:
@@ -14,15 +20,9 @@ def get_assignment_context(assignment: AnyAssignment) -> str:
     return context
 
 
-def get_module_context(module: Module, include_assignment: bool = False) -> str:
-    """Получение LLM-friendly контекста текущего модуля в Markdown формате."""
-
-    context = (
-        f"# Модуль [{module.order}]: '{module.title}'\n"
-        f"**Описание**: {module.description}\n\n"
-    )
-    context += "## Теоретический материал\n\n"
-    for content_block in module.content_blocks:
+def get_content_blocks_context(content_blocks: list[AnyContentBlock]) -> str:
+    context = "## Теоретический материал\n\n"
+    for content_block in content_blocks:
         context += f"### {content_block.content_type.value}\n"
         match content_block.content_type:
             case ContentType.TEXT:
@@ -55,6 +55,21 @@ def get_module_context(module: Module, include_assignment: bool = False) -> str:
                     f"Объяснение: {content_block.explanation}"
                 )
         context += "\n\n"
+    return context
+
+
+def get_module_context(module: Module, include_assignment: bool = False) -> str:
+    """Получение LLM-friendly контекста текущего модуля в Markdown формате."""
+
+    context = (
+        f"# Модуль [{module.order}]: '{module.title}'\n"
+        f"**Описание**: {module.description}\n\n"
+        "**Цели обучения**:\n"
+        f" - {f'{module.learning_objectives}'}"
+        "\n\n"
+    )
+    if module.content_blocks:
+        context += get_content_blocks_context(module.content_blocks)
     if include_assignment and module.assignment is not None:
         context += get_assignment_context(module.assignment)
     return context

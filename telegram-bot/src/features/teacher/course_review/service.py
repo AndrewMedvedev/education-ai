@@ -1,6 +1,6 @@
 from src.features.course.schemas import AnyContentBlock
 
-from ..course_creation.ai_agent.agents.content_generator import (
+from ..course_creation.ai_agent.agents.theory_generator import (
     ModuleContext,
     call_content_generator,
 )

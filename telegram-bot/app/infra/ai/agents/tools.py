@@ -9,17 +9,13 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from src.core.config import settings
-from src.intergrations import rutube_api, yandex_search_api
-from src.intergrations.web_browser import parse_page_content
+from app.infra.intergrations import rutube, yandex_web_search
+from app.settings import settings
+from app.utils.browser_automation import get_page_text
 
 from .prompts import CODER_PROMPT, MERMAID_PROMPT
 
 logger = logging.getLogger(__name__)
-
-
-async def rag_search(runtime: ..., search_query: str) -> str:
-    ...
 
 
 class SearchInput(BaseModel):
@@ -34,12 +30,12 @@ class SearchInput(BaseModel):
     args_schema=SearchInput
 )
 async def rutube_search(search_query: str) -> list[dict[str, Any]]:
-    return await rutube_api.search_video(search_query)
+    return await rutube.search_videos(search_query)
 
 
 @tool(
     "yandex_search",
-    description="""
+    description="""\
     Выполняет поиск в Яндекс.
     Возвращает список найденных страниц с заголовками, URL и кратким описанием.
     Подходит для получения актуальной информации из интернета.
@@ -48,20 +44,20 @@ async def rutube_search(search_query: str) -> list[dict[str, Any]]:
     args_schema=SearchInput,
 )
 async def yandex_search(search_query: str) -> list[dict[str, Any]]:
-    return await yandex_search_api.search_async(search_query)
+    return await yandex_web_search.search_async(search_query)
 
 
-class BrowseLinkInput(BaseModel):
+class BrowsePageInput(BaseModel):
     link: str = Field(description="Ссылка на страницу с которой нужно получить контент")
 
 
 @tool(
     "browse_page",
     description="Открывает WEB-страницу и получает её контент в формате Markdown",
-    args_schema=BrowseLinkInput,
+    args_schema=BrowsePageInput,
 )
 async def browse_page(link: str) -> str:
-    return await parse_page_content(link)
+    return await get_page_text(link)
 
 
 class MermaidInput(BaseModel):
@@ -124,7 +120,7 @@ def search_videos(search_query: str) -> list[dict[str, Any]]:
 
 @tool(
     "web_search",
-    description="""
+    description="""\
     Выполняет поиск в интернете.
     Возвращает список найденных страниц с заголовками, URL и кратким описанием.
     Подходит для получения актуальной информации из интернета.

@@ -31,7 +31,7 @@ class User(BaseModel):
     role: UserRole
 
     @classmethod
-    def from_message(cls, message: Message | CallbackQuery, role: UserRole) -> Self:
+    def from_telegram(cls, message: Message | CallbackQuery, role: UserRole) -> Self:
         """Фабричный метод для создания пользователя, используя его сообщение"""
 
         return cls(

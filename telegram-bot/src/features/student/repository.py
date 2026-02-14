@@ -52,6 +52,13 @@ async def get_group(session: AsyncSession, group_id: UUID) -> schemas.Group | No
     return None if model is None else schemas.Group.model_validate(model)
 
 
+async def get_student(session: AsyncSession, student_id: UUID) -> schemas.Student | None:
+    stmt = select(models.Student).where(models.Student.id == student_id)
+    result = await session.execute(stmt)
+    model = result.scalar_one_or_none()
+    return None if model is None else schemas.Student.model_validate(model)
+
+
 async def get_students_by_group(session: AsyncSession, group_id: UUID) -> list[schemas.Student]:
     stmt = select(models.Student).where(models.Student.group_id == group_id)
     results = await session.execute(stmt)

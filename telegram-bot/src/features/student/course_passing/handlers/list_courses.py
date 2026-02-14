@@ -13,7 +13,7 @@ from ...keyboards import (
     get_list_courses_kb,
 )
 from ...lexicon import LIST_COURSES_TEXT, get_course_menu_text
-from ...service import get_student_courses
+from ...service import get_user_courses
 
 router = Router(name=__name__)
 
@@ -21,7 +21,7 @@ router = Router(name=__name__)
 @router.callback_query(MenuCBData.filter(F.action == MenuAction.LIST_COURSES))
 async def cb_list_courses(query: CallbackQuery) -> None:
     await query.answer()
-    courses = await get_student_courses(query.from_user.id)
+    courses = await get_user_courses(query.from_user.id)
     await query.message.answer(
         **LIST_COURSES_TEXT.as_kwargs(), reply_markup=get_list_courses_kb(courses)
     )

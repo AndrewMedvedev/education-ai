@@ -1,3 +1,5 @@
+# Суб агент - теоретик
+
 import logging
 from uuid import uuid4
 
@@ -6,10 +8,8 @@ from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic import BaseModel
 
-from src.core.config import settings
-from src.features.course.schemas import (
+from app.core.entities.course import (
     AnyContentBlock,
     CodeBlock,
     ContentType,
@@ -18,24 +18,26 @@ from src.features.course.schemas import (
     TextBlock,
     VideoBlock,
 )
+from app.settings import settings
 
-from ..tools import (
+from ...tools import (
     browse_page,
-    draw_mermaid,
     rutube_search,
     search_books,
     search_videos,
     web_search,
 )
+from ..schemas import TeacherContext
+from ..tools import rag_search
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPTS = {
-    ContentType.PROGRAM_CODE: """
+    ContentType.PROGRAM_CODE: """\
     Ты полезный ассистент-разработчик для написания примеров программного кода для студентов курса.
     Твоя задача по запросу создать максимально качественный код.
     """,
-    ContentType.TEXT: """
+    ContentType.TEXT: """\
     Ты полезный ассистент для написания образовательного-теоретического материала.
     Твоя задача написать максимально информативный и понятный материал по запросу,
     используя контекст модуля.
@@ -44,22 +46,22 @@ SYSTEM_PROMPTS = {
      - web_search - используй для проверки фактов или поиска необходимого материала
      - search_books - используй для поиска книг
      - browse_page - используй для получения контента со страницы по её URL
-     - draw_mermaid - используй для визуализации сложных процессов (построение диаграммы)
+     - materials_search - используй для поиска информации в материалах преподавателя
     """,
-    ContentType.VIDEO: """
+    ContentType.VIDEO: """\
     Ты полезный ассистент для поиска и подбора видео для образовательных курсов.
     Твоя задача найти наиболее полезное видео по запросу/заданию,
     которое наилучшим способом впишется в текущий образовательный модуль.
 
     Используй инструменты rutube_search и search_videos для поиска видео на различных платформах.
     """,
-    ContentType.QUIZ: """
+    ContentType.QUIZ: """\
     Ты полезный ассистент для создания вопросов/теста для самопроверки пройденных знаний.
     Твоя задача создать тест, который затронет все ключевые темы и знания.
 
     Используй инструмент web_search для поиска достоверной информации.
     """,
-    ContentType.MERMAID: """
+    ContentType.MERMAID: """\
     Ты — эксперт по визуализации данных и диаграммам Mermaid. Твоя задача — анализировать запрос
     пользователя и преобразовывать его в точную,
     корректную и готовую к использованию диаграмму на языке Mermaid внутри блока кода Markdown.
@@ -121,7 +123,7 @@ config = {
         "response_format": ProviderStrategy(CodeBlock),
     },
     ContentType.TEXT: {
-        "tools": [web_search, search_books, browse_page, draw_mermaid],
+        "tools": [web_search, search_books, browse_page, rag_search],
         "system_prompt": SYSTEM_PROMPTS[ContentType.TEXT],
         "response_format": ProviderStrategy(TextBlock),
     },
@@ -142,16 +144,7 @@ config = {
 }
 
 
-class ModuleContext(BaseModel):
-    """Контекст текущего модуля"""
-
-    title: str
-    description: str
-
-
-async def call_content_generator(
-        content_type: ContentType, prompt: str, context: ModuleContext
-) -> AnyContentBlock:
+async def call_theory_agent(content_type: ContentType, prompt: str) -> AnyContentBlock:
     """Вызывает агента для генерации образовательного контента
 
     :param content_type: Тип контент блока, который нужно сгенерировать.
@@ -159,7 +152,7 @@ async def call_content_generator(
     """
 
     logger.info(
-        "Call content generator agent with content type `%s` and prompt: '%s ...'",
+        "Calling theory agent for content type `%s` and prompt: '%s ...'",
         content_type.value, prompt[:500]
     )
     agent = create_agent(
@@ -169,19 +162,12 @@ async def call_content_generator(
                 tool_name="web_search", run_limit=5, thread_limit=7
             )
         ],
+        context_schema=TeacherContext,
         checkpointer=InMemorySaver(),
         **config.get(content_type, {})
     )
-    prompt_template = f"""\
-    ## Текущий контекст модуля:
-     - **Название:** {context.title}
-     - **Описание:** {context.description}
-
-    ## Промпт для создания контента:
-    {prompt}
-    """
     result = await agent.ainvoke(
-        {"messages": [("human", prompt_template)]},
+        {"messages": [("human", prompt)]},
         config={"configurable": {"thread_id": f"{uuid4()}"}}
     )
     return result["structured_response"]

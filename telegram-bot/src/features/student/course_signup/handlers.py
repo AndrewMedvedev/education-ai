@@ -36,7 +36,7 @@ async def process_login(message: Message, state: FSMContext) -> None:
 @router.message(SignupForm.in_password_typing, F.text)
 async def process_password(message: Message, state: FSMContext) -> None:
     await state.update_data(password=message.text.strip())
-    await message.answer("Подтвердите вход", reply_markup=get_signup_confirm_kb())
+    await message.answer(text="Подтвердите вход", reply_markup=get_signup_confirm_kb())
 
 
 @router.callback_query(SignupConfirmCbData.filter(F.action == "cancel"))
@@ -65,5 +65,5 @@ async def cb_enter(query: CallbackQuery, state: FSMContext) -> None:
     course = await get_group_course(student.group_id)
     content = get_course_menu_text(course.title)
     await query.message.answer(
-        **content.as_kwargs(), reply_markup=get_course_menu_kb(student.group_id)
+        **content.as_kwargs(), reply_markup=get_course_menu_kb(student.id)
     )

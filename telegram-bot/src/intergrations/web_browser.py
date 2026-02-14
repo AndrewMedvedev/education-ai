@@ -49,7 +49,7 @@ FINGERPRINT_SPOOFING_SCRIPT = """
         runtime: {},
         loadTimes: function() { return {}; },
         csi: function() { return {}; },
-        app: { isInstalled: false }
+        core: { isInstalled: false }
     };
 }
 """

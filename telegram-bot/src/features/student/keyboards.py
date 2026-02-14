@@ -41,34 +41,34 @@ class CourseMenuAction(StrEnum):
 
 
 class CourseMenuCbData(CallbackData, prefix="std_crs_menu"):
-    group_id: UUID
+    student_id: UUID
     action: CourseMenuAction
 
 
-def get_course_menu_kb(group_id: UUID) -> InlineKeyboardMarkup:
+def get_course_menu_kb(student_id: UUID) -> InlineKeyboardMarkup:
     """Клавиатура меню курса"""
 
     builder = InlineKeyboardBuilder()
     builder.button(
         text="🚀 Начать обучение", callback_data=CourseMenuCbData(
-            group_id=group_id, action=CourseMenuAction.START_STUDYING
+            student_id=student_id, action=CourseMenuAction.START_STUDYING
         ).pack()
     )
     builder.adjust(1)
     builder.button(
         text="📈 Успеваемость", callback_data=CourseMenuCbData(
-            group_id=group_id, action=CourseMenuAction.MY_PROGRESS
+            student_id=student_id, action=CourseMenuAction.MY_PROGRESS
         ).pack()
     )
     builder.button(
         text="📢 Обратная связь", callback_data=CourseMenuCbData(
-            group_id=group_id, action=CourseMenuAction.FEEDBACK
+            student_id=student_id, action=CourseMenuAction.FEEDBACK
         ).pack()
     )
     builder.adjust(2)
     builder.button(
         text="⚙️ В главное меню", callback_data=CourseMenuCbData(
-            group_id=group_id, action=CourseMenuAction.BACK_TO_MAIN_MENU
+            student_id=student_id, action=CourseMenuAction.BACK_TO_MAIN_MENU
         ).pack()
     )
     builder.adjust(1)
