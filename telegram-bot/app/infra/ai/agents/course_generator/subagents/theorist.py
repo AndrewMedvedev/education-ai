@@ -16,18 +16,11 @@ from app.core.entities.course import (
     MermaidBlock,
     QuizBlock,
     TextBlock,
-    VideoBlock,
 )
 from app.settings import settings
 
-from ...tools import (
-    browse_page,
-    rutube_search,
-    search_books,
-    search_videos,
-    web_search,
-)
-from ..schemas import TeacherContext
+from ...tools import browse_page, search_books, web_search
+from ..schemas import GeneratedContentType, TeacherContext
 from ..tools import rag_search
 
 logger = logging.getLogger(__name__)
@@ -47,13 +40,8 @@ SYSTEM_PROMPTS = {
      - search_books - используй для поиска книг
      - browse_page - используй для получения контента со страницы по её URL
      - materials_search - используй для поиска информации в материалах преподавателя
-    """,
-    ContentType.VIDEO: """\
-    Ты полезный ассистент для поиска и подбора видео для образовательных курсов.
-    Твоя задача найти наиболее полезное видео по запросу/заданию,
-    которое наилучшим способом впишется в текущий образовательный модуль.
 
-    Используй инструменты rutube_search и search_videos для поиска видео на различных платформах.
+    Используй инструменты в том случае, если тебе не хватает твоих знаний (не более 2 вызовов)
     """,
     ContentType.QUIZ: """\
     Ты полезный ассистент для создания вопросов/теста для самопроверки пройденных знаний.
@@ -118,48 +106,47 @@ model = ChatOpenAI(
 )
 
 config = {
-    ContentType.PROGRAM_CODE: {
+    GeneratedContentType.PROGRAM_CODE: {
         "system_prompt": SYSTEM_PROMPTS[ContentType.PROGRAM_CODE],
         "response_format": ProviderStrategy(CodeBlock),
     },
-    ContentType.TEXT: {
+    GeneratedContentType.TEXT: {
         "tools": [web_search, search_books, browse_page, rag_search],
         "system_prompt": SYSTEM_PROMPTS[ContentType.TEXT],
         "response_format": ProviderStrategy(TextBlock),
     },
-    ContentType.VIDEO: {
-        "tools": [rutube_search, search_videos],
-        "system_prompt": SYSTEM_PROMPTS[ContentType.VIDEO],
-        "response_format": ProviderStrategy(VideoBlock),
-    },
-    ContentType.QUIZ: {
-        "tools": [web_search],
+    GeneratedContentType.QUIZ: {
+        "tools": [rag_search],
         "system_prompt": SYSTEM_PROMPTS[ContentType.QUIZ],
         "response_format": ProviderStrategy(QuizBlock),
     },
-    ContentType.MERMAID: {
+    GeneratedContentType.MERMAID: {
         "system_prompt": SYSTEM_PROMPTS[ContentType.MERMAID],
         "response_format": ProviderStrategy(MermaidBlock)
     }
 }
 
 
-async def call_theory_agent(content_type: ContentType, prompt: str) -> AnyContentBlock:
+async def call_theory_agent(
+        content_type: GeneratedContentType, prompt: str, context: TeacherContext
+) -> AnyContentBlock:
     """Вызывает агента для генерации образовательного контента
 
     :param content_type: Тип контент блока, который нужно сгенерировать.
     :param prompt: Детальный промпт для генерации контента.
+    :param context: Контекстные данные преподавателя.
+    :returns: Сгенерированный контент блок заданного типа.
     """
 
-    logger.info(
-        "Calling theory agent for content type `%s` and prompt: '%s ...'",
-        content_type.value, prompt[:500]
-    )
+    logger.info("Calling theory agent for content type `%s`  ...'", content_type.value)
     agent = create_agent(
         model=model,
         middleware=[
             ToolCallLimitMiddleware(
-                tool_name="web_search", run_limit=5, thread_limit=7
+                tool_name="web_search", run_limit=2, thread_limit=4
+            ),
+            ToolCallLimitMiddleware(
+                tool_name="browse_page", run_limit=2, thread_limit=4
             )
         ],
         context_schema=TeacherContext,
@@ -168,6 +155,7 @@ async def call_theory_agent(content_type: ContentType, prompt: str) -> AnyConten
     )
     result = await agent.ainvoke(
         {"messages": [("human", prompt)]},
+        context=context,
         config={"configurable": {"thread_id": f"{uuid4()}"}}
     )
     return result["structured_response"]

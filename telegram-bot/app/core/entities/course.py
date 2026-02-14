@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt
 
-from ...utils import current_datetime
+from ..commons import current_datetime
 
 
 class ContentType(StrEnum):
@@ -121,7 +121,7 @@ class Assignment(ABC, BaseModel):
     assignment_type: AssignmentType
     version: NonNegativeInt = Field(
         default=0,
-        description="""
+        description="""\
         Версия задания. 0 - оригинальная версия преподавателя.
         >0 - сгенерированные варианты для предотвращения списывания"""
     )
@@ -267,3 +267,9 @@ class Course(BaseModel):
     learning_objectives: list[str] = Field(default_factory=list, min_length=2)
     modules: list[Module] = Field(default_factory=list, min_length=1)
     final_assessment: FinalAssessment | None = None
+
+    def append_module(self, module: Module) -> None:
+        self.modules.append(module)
+
+    def add_final_assessment(self, final_assessment: FinalAssessment) -> None:
+        self.final_assessment = final_assessment

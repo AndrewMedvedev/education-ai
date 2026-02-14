@@ -58,7 +58,11 @@ def get_content_blocks_context(content_blocks: list[AnyContentBlock]) -> str:
     return context
 
 
-def get_module_context(module: Module, include_assignment: bool = False) -> str:
+def get_module_context(
+        module: Module,
+        include_content_blocks: bool = True,
+        include_assignment: bool = False
+) -> str:
     """Получение LLM-friendly контекста текущего модуля в Markdown формате."""
 
     context = (
@@ -68,7 +72,7 @@ def get_module_context(module: Module, include_assignment: bool = False) -> str:
         f" - {f'{module.learning_objectives}'}"
         "\n\n"
     )
-    if module.content_blocks:
+    if module.content_blocks and include_content_blocks:
         context += get_content_blocks_context(module.content_blocks)
     if include_assignment and module.assignment is not None:
         context += get_assignment_context(module.assignment)

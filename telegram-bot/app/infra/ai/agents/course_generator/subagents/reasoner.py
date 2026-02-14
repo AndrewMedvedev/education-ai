@@ -55,6 +55,8 @@ REASONER_PROMPT = """\
    выдай **только финальный план** в указанном ниже формате.
    Никаких дополнительных пояснений, вопросов или служебной информации.
 
+Старайся за максимум два вызова агента исследователя получить финальный результат.
+
 ФОРМАТ ФИНАЛЬНОГО ОТВЕТА (используй Markdown для заголовков):
 
 ## 1. Название курса
@@ -131,7 +133,7 @@ RESEARCHER_PROMPT = """\
 - Определи, какие инструменты лучше всего подходят для её решения.
 - Сначала выполни rag_search по ключевым словам из задачи.
 - Проанализируй результаты. Если они неполные или отсутствуют, выполни web_search
-  с уточнёнными запросами.
+  если твоих знаний не хватает чтобы дать ответ.
 - При необходимости изучи одну-две страницы подробнее с помощью browse_page.
 - Собери все найденные факты, определения, примеры, статистику, методические рекомендации.
   Структурируй информацию: разбей на логические блоки, укажи источники (ссылку, если есть).
@@ -205,9 +207,14 @@ async def call_researcher_agent(runtime: ToolRuntime[TeacherContext], task: str)
         model=model,
         system_prompt=RESEARCHER_PROMPT,
         tools=[rag_search, web_search, browse_page],
-        middleware=[ToolCallLimitMiddleware(
-            tool_name="web_search", run_limit=5, thread_limit=7
-        )],
+        middleware=[
+            ToolCallLimitMiddleware(
+                tool_name="web_search", run_limit=2, thread_limit=4
+            ),
+            ToolCallLimitMiddleware(
+                tool_name="browse_page", run_limit=2, thread_limit=4
+            )
+        ],
         context_schema=TeacherContext,
         checkpointer=InMemorySaver(),
     )
@@ -226,7 +233,11 @@ def dynamic_reasoner_prompt(request: ModelRequest) -> str:
 
 reasoner_agent = create_agent(
     model=model,
-    middleware=[dynamic_reasoner_prompt],
+    middleware=[
+        dynamic_reasoner_prompt, ToolCallLimitMiddleware(
+            tool_name="call_researcher_agent", run_limit=2, thread_limit=4
+        )
+    ],
     tools=[call_researcher_agent, call_critique_agent],
     context_schema=TeacherContext,
     checkpointer=InMemorySaver(),

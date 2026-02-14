@@ -1,6 +1,7 @@
 from typing import Any
 
 import logging
+import time
 from uuid import uuid4
 
 import chromadb
@@ -31,6 +32,8 @@ def indexing(text: str, metadata: dict[str, Any] | None = None) -> list[str]:
     if not text.strip():
         logger.warning("Attempted to index empty text!")
         return []
+    start_time = time.monotonic()
+    logger.info("Starting index document text, length %s characters", len(text))
     collection = client.get_or_create_collection(INDEX_NAME)
     chunks = splitter.split_text(text)
     ids = [str(uuid4()) for _ in range(len(chunks))]
@@ -41,6 +44,8 @@ def indexing(text: str, metadata: dict[str, Any] | None = None) -> list[str]:
         embeddings=embeddings.tolist(),
         metadatas=[metadata.copy() for _ in range(len(chunks))],
     )
+    logger.info(
+        "Finished indexing text, time %s seconds", round(time.monotonic() - start_time, 2))
     return ids
 
 

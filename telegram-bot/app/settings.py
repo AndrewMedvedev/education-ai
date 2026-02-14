@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TIMEZONE = pytz.timezone("Europe/Moscow")
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
 CHROMA_PATH = BASE_DIR / ".chroma"
 

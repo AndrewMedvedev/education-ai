@@ -53,7 +53,8 @@ class CourseStructure(BaseModel):
          - ключевые темы / подтемы (то, без чего курс невозможен)
          - цели обучения модуля
          - план по достижению образовательных целей
-         """
+         """,
+        max_length=10,
     )
     final_assessment_description: str = Field(description="Описание финального ассессмента")
 

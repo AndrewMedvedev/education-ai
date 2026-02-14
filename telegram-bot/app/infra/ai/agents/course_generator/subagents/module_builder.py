@@ -15,6 +15,7 @@ from app.core.entities.course import AssignmentType, ContentType, Module
 from app.settings import settings
 from app.utils.formatting import get_module_context
 
+from ..schemas import GeneratedContentType, TeacherContext
 from .practician import call_practice_agent
 from .theorist import call_theory_agent
 
@@ -34,10 +35,12 @@ class ModuleStructure(BaseModel):
 
     title: str = Field(description="Название модуля для студента")
     description: str = Field(description="Описание модуля для студента")
-    content_plan: list[tuple[ContentType, str]] = Field(
-        description="""Детальные промпты для генерации контент блоков с образовательным материалом.
+    learning_objectives: list[str] = Field(description="Цели обучения модуля")
+    content_plan: list[tuple[GeneratedContentType, str]] = Field(
+        description="""\
+        Детальные промпты для генерации контент блоков с образовательным материалом.
         (должны быть в том порядке, в котором блоки будут идти внутри модуля)
-        Для каждого блока content_scenario создавай детальный промпт, который:
+        Для каждого блока content_plan создавай детальный промпт, который:
          1. Учитывает контекст курса и модуля
          2. Содержит конкретный указания по содержанию
          3. Указывает стиль изложения
@@ -48,13 +51,14 @@ class ModuleStructure(BaseModel):
          - text - теоретический материал/лекция
          - program_code - пример с кодом и объяснением
          - mermaid - mermaid диаграмма (напиши только промпт для её генерации)
-         - video - подходящее видео, которое нужно найти в интернете
          - quiz - вопросы для самопроверки
+
+        Идеальное количество контент блоков 4-5
         """,
         min_length=3,
+        max_length=10,
         examples=[
             [
-                (ContentType.VIDEO, "Твой детальный промпт для поиска подходящего видео"),
                 (ContentType.TEXT, "Здесь должен быть промпт для написания теоретического блока"),
                 (ContentType.PROGRAM_CODE, "Детальное описание блока с программным кодом"),
             ]
@@ -62,7 +66,8 @@ class ModuleStructure(BaseModel):
     )
     assignment_specification: tuple[AssignmentType, str] = Field(
         description="""
-        Детальный промпт для составления практического задания по пройденному материалу
+        Детальный промпт для составления практического задания по пройденному материал,
+        опиши прохождение и темы внури задания
         """,
         examples=[(AssignmentType.TEST, "Здесь должен быть промпт для генерации задания")]
     )
@@ -71,6 +76,7 @@ class ModuleStructure(BaseModel):
 class AgentState(TypedDict):
     """Состояние агента для создания модулей"""
 
+    teacher_context: TeacherContext  # Контекстные данные преподавателя
     audience_description: str  # Описание целевой аудитории курса
     learning_objectives: list[str]  # Цели обучения курса
     order: int  # Порядковый номер модуля
@@ -87,8 +93,7 @@ async def plan_module_structure(state: AgentState) -> dict[str, ModuleStructure 
         system_prompt="""\
         Ты полезный ассистент для планирования структуры образовательного модуля
         по его описанию. Ты пишешь задание для агентов, которые будут наполнять модуль контентом
-        и заданиями. Учти что у агентов будут инструменты для web поиска,
-        рисования mermaid диаграмм, поиска видео, книг и.т.д
+        и заданиями.
         """,
         response_format=ProviderStrategy(ModuleStructure),
     )
@@ -132,12 +137,14 @@ async def generate_content_blocks(state: AgentState) -> dict[str, Module]:
             progress_percent, content_type.value, prompt[:100]
         )
         prompt_template = (
-            "# Контекст текущего модуля:"
-            f"{get_module_context(module)}\n\n"
-            "## Промпт для создания материала:\n"
-            f"{prompt}"
+            "# Контекст текущего модуля:\n"
+            f"{get_module_context(module, include_content_blocks=False)}\n\n"
+            f"# Сгенерируй контент блок с заданным типом - '{content_type.value}':\n"
+            f"**Промпт**: {prompt}"
         )
-        content_block = await call_theory_agent(content_type, prompt_template)
+        content_block = await call_theory_agent(
+            content_type, prompt_template, context=state["teacher_context"]
+        )
         module.append_content_block(content_block)
         elapsed_time = time.monotonic() - start_time
         logger.info(

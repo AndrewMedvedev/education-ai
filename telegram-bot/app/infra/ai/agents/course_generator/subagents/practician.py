@@ -51,7 +51,7 @@ config = {
     AssignmentType.TEST: {
         "tools": [web_search, browse_page],
         "middleware": [ToolCallLimitMiddleware(
-            tool_name="web_search", run_limit=5, thread_limit=7
+            tool_name="web_search", run_limit=2, thread_limit=4
         )],
         "system_prompt": SYSTEM_PROMPTS[AssignmentType.TEST],
         "response_format": ProviderStrategy(TestAssignment),
