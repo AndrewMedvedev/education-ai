@@ -14,7 +14,7 @@ from app.settings import settings
 
 from ...tools import browse_page, web_search
 from ..schemas import TeacherContext
-from ..tools import rag_search
+from ..tools import knowledge_search, save_knowledge
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +114,18 @@ RESEARCHER_PROMPT = """\
 который поступил от методиста.
 
 У тебя есть доступ к следующим инструментам (используй их строго в указанном порядке):
-1. **rag_search** — поиск по материалам преподавателя (документы,
+1. **knowledge_search** — поиск по материалам преподавателя (документы,
    загруженные в его рабочий кабинет). Всегда начинай с этого инструмента,
-   так как материалы преподавателя наиболее релевантны.
-2. **web_search** — поиск в интернете. Используй, если rag_search не дал достаточно информации
-   или нужны свежие данные, примеры из практики, исследования.
+   так как материалы преподавателя наиболее релевантны (для поиска по материалам преподавателя
+   используй category = 'materials').
+2. **web_search** — поиск в интернете. Используй, если knowledge_search не дал достаточно
+   информации или нужны свежие данные, примеры из практики, исследования.
 3. **browse_page** — детальное чтение веб-страницы. Используй после web_search,
-   чтобы изучить конкретную найденную страницу.
+   чтобы изучить конкретную найденную страницу (изучай только самые полезные
+   на твой взгляд страницы).
+4. **save_knowledge** - сохранение информации, которая может быть полезна
+   для дальнейшего создания курса (использоваться в лекциях, заданиях или просто полезные знания).
+   При сохранении используй category = 'web_research'.
 
 Твой запрос (task) может касаться:
 - предметной области (понятия, принципы, современные подходы);
@@ -206,7 +211,7 @@ async def call_researcher_agent(runtime: ToolRuntime[TeacherContext], task: str)
     researcher_agent = create_agent(
         model=model,
         system_prompt=RESEARCHER_PROMPT,
-        tools=[rag_search, web_search, browse_page],
+        tools=[knowledge_search, web_search, browse_page, save_knowledge],
         middleware=[
             ToolCallLimitMiddleware(
                 tool_name="web_search", run_limit=2, thread_limit=4

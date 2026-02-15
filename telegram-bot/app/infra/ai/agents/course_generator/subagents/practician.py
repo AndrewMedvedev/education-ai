@@ -4,28 +4,30 @@ import logging
 from uuid import uuid4
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
+from langgraph.checkpoint.memory import InMemorySaver
 
-from src.core.config import settings
-from src.features.course.schemas import (
+from app.core.entities.course import (
     AnyAssignment,
     AssignmentType,
     FileUploadAssignment,
     GitHubAssignment,
     TestAssignment,
 )
+from app.settings import settings
 
-from ...tools import browse_page, web_search
+from ..schemas import TeacherContext
+from ..tools import knowledge_search
 
 logger = logging.getLogger(__name__)
 
 # Системные промпты для генерации разных типов практических заданий
 SYSTEM_PROMPTS = {
     AssignmentType.TEST: """\
-    Ты ассистент для создания теста к модулю. Создай качественный тест,
-    избегай коротких ответов (предпочти открытые вопросы или с объяснениями).
+    Ты ассистент для создания теста к модулю, 7-10 качественных заданий/вопросов.
+    Создай качественный тест, избегая коротких ответов (предпочти открытые вопросы
+    или с объяснениями).
 
     Сначала используй свои знания. Вызывай инструменты только если нужна актуальная информация
     (например, свежие примеры кода). Экономь: не более 1-2 вызовов.
@@ -49,10 +51,7 @@ model = ChatOpenAI(
 
 config = {
     AssignmentType.TEST: {
-        "tools": [web_search, browse_page],
-        "middleware": [ToolCallLimitMiddleware(
-            tool_name="web_search", run_limit=2, thread_limit=4
-        )],
+        "tools": [knowledge_search],
         "system_prompt": SYSTEM_PROMPTS[AssignmentType.TEST],
         "response_format": ProviderStrategy(TestAssignment),
     },
@@ -61,26 +60,33 @@ config = {
         "response_format": ProviderStrategy(FileUploadAssignment),
     },
     AssignmentType.GITHUB: {
+        "tools": [knowledge_search],
         "system_prompt": SYSTEM_PROMPTS[AssignmentType.GITHUB],
         "response_format": ProviderStrategy(GitHubAssignment),
     },
 }
 
 
-async def call_practice_agent(assignment_type: AssignmentType, prompt: str) -> AnyAssignment:
+async def call_practice_agent(
+        assignment_type: AssignmentType, prompt: str, context: TeacherContext
+) -> AnyAssignment:
     """Вызывает агента - генератора практических заданий для модуля
 
     :param assignment_type: Тип практического задания.
     :param prompt: Детальный промпт для генерации задания.
+    :param context: Контекстная информация преподавателя.
     """
 
-    logger.info(
-        "Calling practice agent for assignment type `%s` and prompt: '%s ...'",
-        assignment_type.value, prompt[:500],
+    logger.info("Calling practice agent for assignment type `%s` ...", assignment_type.value)
+    agent = create_agent(
+        model=model,
+        context_schema=TeacherContext,
+        checkpointer=InMemorySaver(),
+        **config.get(assignment_type, {})
     )
-    agent = create_agent(model=model, **config.get(assignment_type, {}))
     result = await agent.ainvoke(
         {"messages": [("human", prompt)]},
+        context=context,
         config={"configurable": {"thread_id": f"{uuid4()}"}}
     )
     return result["structured_response"]

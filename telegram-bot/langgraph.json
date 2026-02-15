@@ -1,0 +1,9 @@
+{
+  "graphs": {
+    "course_generator": {
+      "path": "app.infra.ai.agents.course_generator.workflow:agent"
+    }
+  },
+  "dependencies": ["."],
+  "env": ".env"
+}

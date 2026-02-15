@@ -76,7 +76,7 @@ async def generate_modules(state: AgentState) -> dict[str, Course]:
             "module_description": module_description,
         })
         course.append_module(result["module"])
-        progress_percent = round((order + 1 / total_modules) * 100, 2)
+        progress_percent = round((order / total_modules) * 100, 2)
         logger.info("Modules generation progress %s%%", progress_percent)
     logger.info(
         "Successfully generated %s modules, spent time %s seconds",

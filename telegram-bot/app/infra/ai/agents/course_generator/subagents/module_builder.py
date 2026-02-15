@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 
 from app.core.entities.course import AssignmentType, ContentType, Module
 from app.settings import settings
-from app.utils.formatting import get_module_context
+from app.utils.formatting import get_content_blocks_context, get_module_context
 
+from .... import rag
 from ..schemas import GeneratedContentType, TeacherContext
 from .practician import call_practice_agent
 from .theorist import call_theory_agent
@@ -38,7 +39,7 @@ class ModuleStructure(BaseModel):
     learning_objectives: list[str] = Field(description="Цели обучения модуля")
     content_plan: list[tuple[GeneratedContentType, str]] = Field(
         description="""\
-        Детальные промпты для генерации контент блоков с образовательным материалом.
+        Детальные промпты для генерации контент блоков с теоретическим материалом.
         (должны быть в том порядке, в котором блоки будут идти внутри модуля)
         Для каждого блока content_plan создавай детальный промпт, который:
          1. Учитывает контекст курса и модуля
@@ -49,14 +50,15 @@ class ModuleStructure(BaseModel):
 
         Виды контент блоков:
          - text - теоретический материал/лекция
-         - program_code - пример с кодом и объяснением
+         - program_code - пример с кодом и объяснением (укажи в промпте язык
+           на котором нужно написать код)
          - mermaid - mermaid диаграмма (напиши только промпт для её генерации)
          - quiz - вопросы для самопроверки
 
         Идеальное количество контент блоков 4-5
         """,
         min_length=3,
-        max_length=10,
+        max_length=7,
         examples=[
             [
                 (ContentType.TEXT, "Здесь должен быть промпт для написания теоретического блока"),
@@ -65,9 +67,16 @@ class ModuleStructure(BaseModel):
         ]
     )
     assignment_specification: tuple[AssignmentType, str] = Field(
-        description="""
-        Детальный промпт для составления практического задания по пройденному материал,
-        опиши прохождение и темы внури задания
+        description="""\
+        Детальный промпт для агента-практика (practician), который на основе этого промпта
+        создаст практическое задание для студентов.
+
+        Промпт должен:
+         - Чётко описывать, какое задание нужно создать (тест, загрузка файла, github-репозиторий).
+         - Указывать темы модуля, которые должно проверять задание.
+         - Определять уровень сложности и ожидаемый результат.
+         - Содержать конкретные инструкции: например, для теста — примерные вопросы и количество,
+           для file_upload — описание задачи и требования к формату сдачи.
         """,
         examples=[(AssignmentType.TEST, "Здесь должен быть промпт для генерации задания")]
     )
@@ -151,6 +160,18 @@ async def generate_content_blocks(state: AgentState) -> dict[str, Module]:
             "Added `%s` content block in module, generation time - %s seconds",
             content_type.value, round(elapsed_time, 2)
         )
+    logger.info(
+        "Saving generated content blocks of `%s` module to knowledge base ...", module.title
+    )
+    rag.indexing(
+        text=get_content_blocks_context(module.content_blocks),
+        metadata={
+            "tenant_id": state["teacher_context"].tenant_id,
+            "module_id": f"{module.id}",
+            "source": f"{module.title}",
+            "category": "theory"
+        }
+    )
     return {"module": module}
 
 
@@ -162,13 +183,15 @@ async def generate_assignment(state: AgentState) -> dict[str, Module]:
     prompt_template = (
         "# Контекст текущего модуля:"
         f"{get_module_context(module)}\n\n"
-        "## Промпт для создания практического задания:\n"
-        f"{prompt}"
+        "## Создай практическое задание учитывая информацию из модуля:\n"
+        f"**Промпт:**{prompt}"
     )
     logger.info(
         "Generating `%s` assignment for prompt: '%s ...'", assignment_type.value, prompt
     )
-    assignment = await call_practice_agent(assignment_type, prompt_template)
+    assignment = await call_practice_agent(
+        assignment_type, prompt_template, context=state["teacher_context"]
+    )
     module.add_assignment(assignment)
     return {"module": module}
 

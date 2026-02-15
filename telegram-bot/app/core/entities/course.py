@@ -137,17 +137,19 @@ class Assignment(ABC, BaseModel):
 class TestQuestion(BaseModel):
     """Вопрос внутри тестирования"""
 
-    text: str = Field(..., description="Формулировка вопроса")
+    text: str = Field(..., description="Формулировка задания/вопроса")
     options: list[str] = Field(
         default_factory=list,
         min_length=2,
+        max_length=7,
         description="Варианты ответов (порядок имеет значение)"
     )
     correct_answers: list[int] = Field(
         default_factory=list,
         min_length=1,
+        max_length=7,
         description="Индексы правильных ответов начиная с 0",
-        examples=[{0, 3, 4}, {1}, {2, 5}]
+        examples=[[0, 3, 4], [1], [2, 5]]
     )
     points: PositiveInt = Field(..., description="Количество баллов за правильный ответ")
 
@@ -159,7 +161,7 @@ class TestAssignment(Assignment):
 
     questions: list[TestQuestion] = Field(
         default_factory=list,
-        min_length=1,
+        min_length=5,
         description="Список тестовых вопросов"
     )
 
@@ -169,7 +171,7 @@ class FileUploadAssignment(Assignment):
 
     assignment_type: AssignmentType = AssignmentType.FILE_UPLOAD
 
-    task: str = Field(..., description="Текст задания, который увидит студент")
+    task: str = Field(..., description="Подробно сформулированное задание")
     allowed_extensions: list[str] = Field(
         default_factory=lambda: ["*"],
         description="Разрешённые расширения файлов",
@@ -186,7 +188,7 @@ class GitHubAssignment(Assignment):
     assignment_type: AssignmentType = AssignmentType.GITHUB
 
     repository_task: str = Field(
-        ..., description="Задание, которое нужно выполнить в репозитории"
+        ..., description="ТЗ для выполнения задания, включает требования, ожидаемый результат, ..."
     )
     repository_rules: str = Field(..., description="Правила оформления репозитория")
     required_branch: str = Field(default="main", description="Требуемая ветка для проверки")

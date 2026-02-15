@@ -4,7 +4,6 @@ import logging
 from uuid import uuid4
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolCallLimitMiddleware
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
 from langgraph.checkpoint.memory import InMemorySaver
@@ -19,9 +18,8 @@ from app.core.entities.course import (
 )
 from app.settings import settings
 
-from ...tools import browse_page, search_books, web_search
 from ..schemas import GeneratedContentType, TeacherContext
-from ..tools import rag_search
+from ..tools import knowledge_search
 
 logger = logging.getLogger(__name__)
 
@@ -36,10 +34,8 @@ SYSTEM_PROMPTS = {
     используя контекст модуля.
 
     ### Доступные инструменты
-     - web_search - используй для проверки фактов или поиска необходимого материала
-     - search_books - используй для поиска книг
-     - browse_page - используй для получения контента со страницы по её URL
-     - materials_search - используй для поиска информации в материалах преподавателя
+     - knowledge_search - поиск информации в базе знаний курса, используй для обогащения
+       теории полезной информацией.
 
     Используй инструменты в том случае, если тебе не хватает твоих знаний (не более 2 вызовов)
     """,
@@ -47,7 +43,7 @@ SYSTEM_PROMPTS = {
     Ты полезный ассистент для создания вопросов/теста для самопроверки пройденных знаний.
     Твоя задача создать тест, который затронет все ключевые темы и знания.
 
-    Используй инструмент web_search для поиска достоверной информации.
+    Используй инструмент knowledge_search для поиска достоверной информации.
     """,
     ContentType.MERMAID: """\
     Ты — эксперт по визуализации данных и диаграммам Mermaid. Твоя задача — анализировать запрос
@@ -111,12 +107,12 @@ config = {
         "response_format": ProviderStrategy(CodeBlock),
     },
     GeneratedContentType.TEXT: {
-        "tools": [web_search, search_books, browse_page, rag_search],
+        "tools": [knowledge_search],
         "system_prompt": SYSTEM_PROMPTS[ContentType.TEXT],
         "response_format": ProviderStrategy(TextBlock),
     },
     GeneratedContentType.QUIZ: {
-        "tools": [rag_search],
+        "tools": [knowledge_search],
         "system_prompt": SYSTEM_PROMPTS[ContentType.QUIZ],
         "response_format": ProviderStrategy(QuizBlock),
     },
@@ -141,14 +137,6 @@ async def call_theory_agent(
     logger.info("Calling theory agent for content type `%s`  ...'", content_type.value)
     agent = create_agent(
         model=model,
-        middleware=[
-            ToolCallLimitMiddleware(
-                tool_name="web_search", run_limit=2, thread_limit=4
-            ),
-            ToolCallLimitMiddleware(
-                tool_name="browse_page", run_limit=2, thread_limit=4
-            )
-        ],
         context_schema=TeacherContext,
         checkpointer=InMemorySaver(),
         **config.get(content_type, {})

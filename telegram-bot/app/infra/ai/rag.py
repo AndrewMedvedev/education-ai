@@ -80,6 +80,7 @@ def retrieve(
         (
             f"**Relevance score:** {round(distance, 2)}\n"
             f"**Source:** {metadata.get('source', '')}\n"
+            f"**Category:** {metadata.get('category', '')}\n"
             "**Document:**\n"
             f"{document}"
         )
