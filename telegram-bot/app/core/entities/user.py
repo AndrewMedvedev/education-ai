@@ -23,6 +23,4 @@ class User(BaseModel):
     id: PositiveInt
     created_at: datetime = Field(default_factory=current_datetime)
     username: str | None = None
-    first_name: str | None = None
-    last_name: str | None = None
     role: UserRole

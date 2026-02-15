@@ -1,6 +1,7 @@
 {
   "id": "edd3851d-be9b-4ed4-8084-c37d55176702",
   "created_at": "2026-02-15T10:20:54.663604+03:00",
+  "tenant_id": "12345",
   "creator_id": 123,
   "status": "in_progress",
   "image_url": null,

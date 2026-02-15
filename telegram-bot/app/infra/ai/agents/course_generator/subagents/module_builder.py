@@ -11,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, Field
 
-from app.core.entities.course import AssignmentType, ContentType, Module
+from app.core.entities.course import AssignmentType, Module
 from app.settings import settings
 from app.utils.formatting import get_content_blocks_context, get_module_context
 
@@ -59,12 +59,6 @@ class ModuleStructure(BaseModel):
         """,
         min_length=3,
         max_length=7,
-        examples=[
-            [
-                (ContentType.TEXT, "Здесь должен быть промпт для написания теоретического блока"),
-                (ContentType.PROGRAM_CODE, "Детальное описание блока с программным кодом"),
-            ]
-        ]
     )
     assignment_specification: tuple[AssignmentType, str] = Field(
         description="""\
@@ -77,8 +71,7 @@ class ModuleStructure(BaseModel):
          - Определять уровень сложности и ожидаемый результат.
          - Содержать конкретные инструкции: например, для теста — примерные вопросы и количество,
            для file_upload — описание задачи и требования к формату сдачи.
-        """,
-        examples=[(AssignmentType.TEST, "Здесь должен быть промпт для генерации задания")]
+        """
     )
 
 
@@ -181,9 +174,11 @@ async def generate_assignment(state: AgentState) -> dict[str, Module]:
     module_structure, module = state["module_structure"], state["module"]
     assignment_type, prompt = module_structure.assignment_specification
     prompt_template = (
-        "# Контекст текущего модуля:"
-        f"{get_module_context(module)}\n\n"
-        "## Создай практическое задание учитывая информацию из модуля:\n"
+        "## Контекст текущего модуля:\n"
+        "<MODULE>\n"
+        f"{get_module_context(module)}\n"
+        "</MODULE>\n\n"
+        "## Создай практическое задание учитывая запрос и материал модуля:\n"
         f"**Промпт:**{prompt}"
     )
     logger.info(

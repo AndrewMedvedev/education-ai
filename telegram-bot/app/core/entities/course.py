@@ -140,13 +140,13 @@ class TestQuestion(BaseModel):
     text: str = Field(..., description="Формулировка задания/вопроса")
     options: list[str] = Field(
         default_factory=list,
-        min_length=2,
+        # min_length=1,
         max_length=7,
         description="Варианты ответов (порядок имеет значение)"
     )
     correct_answers: list[int] = Field(
         default_factory=list,
-        min_length=1,
+        # min_length=1,
         max_length=7,
         description="Индексы правильных ответов начиная с 0",
         examples=[[0, 3, 4], [1], [2, 5]]
@@ -161,7 +161,7 @@ class TestAssignment(Assignment):
 
     questions: list[TestQuestion] = Field(
         default_factory=list,
-        min_length=5,
+        # min_length=5,
         description="Список тестовых вопросов"
     )
 
@@ -261,6 +261,7 @@ class Course(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
+    tenant_id: str
     creator_id: PositiveInt
     status: CourseStatus = Field(default=CourseStatus.IN_PROGRESS)
     image_url: str | None = None
