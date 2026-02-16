@@ -6,7 +6,7 @@ from langchain.tools import ToolRuntime, tool
 from pydantic import BaseModel, Field, NonNegativeFloat
 
 from ... import rag
-from .schemas import TeacherContext
+from .schemas import CourseContext
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ class SaveKnowledgeInput(BaseModel):
     args_schema=SaveKnowledgeInput,
 )
 def save_knowledge(
-        runtime: ToolRuntime[TeacherContext],
+        runtime: ToolRuntime[CourseContext],
         source: str,
         text: str,
         score: float,
@@ -55,7 +55,7 @@ def save_knowledge(
     rag.indexing(
         text=text,
         metadata={
-            "tenant_id": runtime.context.tenant_id,
+            "tenant_id": runtime.context.course_id,
             "source": source,
             "category": category,
             "score": score,
@@ -78,12 +78,12 @@ class KnowledgeSearchInput(BaseModel):
     args_schema=KnowledgeSearchInput,
 )
 def knowledge_search(
-        runtime: ToolRuntime[TeacherContext],
+        runtime: ToolRuntime[CourseContext],
         search_query: str,
         category: Literal["materials", "web_research", "theory"] | None = None
 ) -> str:
     meta_filter = {}
-    tenant_filter = {"tenant_id": runtime.context.tenant_id}
+    tenant_filter = {"tenant_id": runtime.context.course_id}
     if category is not None:
         logger.info(
             "Searching knowledge by category - `%s` and query: '%s ...'",

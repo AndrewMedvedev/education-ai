@@ -2,7 +2,7 @@ from typing import Any
 
 from uuid import UUID
 
-from sqlalchemy import ARRAY, TEXT, BigInteger, ForeignKey, String
+from sqlalchemy import ARRAY, TEXT, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,8 +12,7 @@ from .base import Base
 class CourseOrm(Base):
     __tablename__ = "courses"
 
-    creator_id: Mapped[int] = mapped_column(BigInteger)
-    tenant_id: Mapped[str] = mapped_column(unique=True)
+    creator_id: Mapped[UUID]
     status: Mapped[str]
     image_url: Mapped[str | None] = mapped_column(nullable=True)
     title: Mapped[str]

@@ -2,15 +2,13 @@ from typing import Literal
 
 from enum import StrEnum
 
-from pydantic import BaseModel, Field, NonNegativeFloat, PositiveInt
+from pydantic import BaseModel, Field, NonNegativeFloat
 
 
-class TeacherContext(BaseModel):
-    """Контекст преподавателя для генерации образовательного курса"""
+class CourseContext(BaseModel):
+    """Контекст курса"""
 
-    user_id: PositiveInt
-    comment: str
-    tenant_id: str
+    course_id: str
 
 
 class GeneratedContentType(StrEnum):
@@ -25,7 +23,7 @@ class GeneratedContentType(StrEnum):
 class Knowledge(BaseModel):
     """Знания полученные в ходе создания образовательного курса"""
 
-    tenant_id: str = Field(..., description="ID выделенного тенанта в поисковом индексе")
+    course_id: str = Field(..., description="ID курса")
     category: Literal["materials", "web_research", "theory"] = Field(
         default="web_research",
         description="""\

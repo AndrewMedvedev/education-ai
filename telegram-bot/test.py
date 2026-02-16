@@ -9,7 +9,7 @@ from app.core.entities.course import Course
 from app.infra.ai import rag
 from app.infra.ai.agents.course_generator.schemas import TeacherContext
 from app.infra.ai.agents.course_generator.workflow import agent
-from app.utils.preprocessing import convert_document_to_md
+from app.utils.docs_processing import convert_document_to_md
 
 user_id = 123
 tenant_id = str(12345)

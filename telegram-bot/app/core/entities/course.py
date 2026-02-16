@@ -247,7 +247,8 @@ class FinalAssessment(BaseModel):
 
 
 class CourseStatus(StrEnum):
-    IN_PROGRESS = "in_progress"
+    PENDING = "pending"
+    GENERATED = "generated"
     REVIEW = "review"
     DRAFT = "draft"
     PUBLISHED = "published"
@@ -261,9 +262,8 @@ class Course(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
-    tenant_id: str
-    creator_id: PositiveInt
-    status: CourseStatus = Field(default=CourseStatus.IN_PROGRESS)
+    creator_id: UUID
+    status: CourseStatus = Field(default=CourseStatus.PENDING)
     image_url: str | None = None
     title: str
     description: str

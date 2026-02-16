@@ -54,17 +54,3 @@ class SubmissionOrm(Base):
     score: Mapped[float]
     ai_feedback: Mapped[str | None] = mapped_column(TEXT, nullable=True)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-
-
-class StudentProgressOrm(Base):
-    __tablename__ = "student_progresses"
-
-    student_id: UUID
-    course_id: UUID
-    started_at: datetime
-    completed_at: datetime | None = None
-    completed_modules_count: NonNegativeInt = Field(default=0)
-    total_modules_count: NonNegativeInt
-    total_score: NonNegativeFloat = Field(default=0.0)
-    overall_percentage: NonNegativeFloat = Field(default=0.0)
-    current_module_id: UUID | None = None
