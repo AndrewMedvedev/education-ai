@@ -2,8 +2,8 @@ import logging
 
 import uvicorn
 
-from src.core.app import app
-from src.features.teacher.views import router as teacher_views_router
+from tg_bot.core.app import app
+from tg_bot.features.teacher.views import router as teacher_views_router
 
 
 def configure_logging(level=logging.INFO):

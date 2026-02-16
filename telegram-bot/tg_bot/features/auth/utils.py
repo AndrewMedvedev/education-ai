@@ -1,0 +1,86 @@
+import io
+
+import pandas as pd
+
+from tg_bot.utils import current_datetime
+
+from .schemas import Credentials
+
+
+def get_student_list_template(
+        course_title: str, group_title: str, include_instruction: bool = True
+) -> bytes:
+    """Создаёт шаблон Excel файла для заполнения списка студентов.
+
+    :param course_title: Название курса.
+    :param group_title: Название группы.
+    :param include_instruction: Добавить лист с инструкцией
+    """
+
+    df_empty = pd.DataFrame(columns=["ФИО"])
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(
+        buffer, engine="openpyxl", datetime_format="dd.mm.yyyy"
+    ) as writer:
+        df_empty.to_excel(writer, sheet_name="Список студентов", index=False)
+        if include_instruction:
+            instructions = pd.DataFrame({
+                "Инструкция": [
+                    "1. Заполните колонку «ФИО» для каждого студента",
+                    "2. Одна строка — один студент",
+                    "3. ФИО пишите полностью (Фамилия Имя Отчество)",
+                    "4. Не удаляйте и не переименовывайте заголовок «ФИО»",
+                    "5. Пустые строки в конце файла можно удалить",
+                    f"Курс: {course_title}",
+                    f"Группа: {group_title}",
+                    f"Создан: {current_datetime().strftime('%d.%m.%Y %H:%M')}"
+                ]
+            })
+        instructions.to_excel(writer, sheet_name="Инструкция", index=False)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def extract_student_full_names(
+        excel_file: bytes, sheet_name: str = "Список студентов"
+) -> list[str]:
+    """Парсит ФИО студентов из заполненного Excel файла.
+
+    Ожидается, что:
+     - есть лист "Список студентов"
+     - в нём есть колонка "ФИО" (регистр букв не важен)
+    """
+
+    buffer = io.BytesIO(excel_file)
+    buffer.seek(0)
+    data = pd.read_excel(
+        buffer,
+        sheet_name=sheet_name,
+        engine="openpyxl",
+        dtype=str,
+        keep_default_na=False,
+    )
+    return (
+        data["ФИО"]
+        .astype(str)
+        .str.strip()
+        .replace("", pd.NA)
+        .dropna()
+        .str.replace(r"\s+", " ", regex=True)
+        .tolist()
+    )
+
+
+def generate_student_credentials_file(credentials: list[Credentials]) -> bytes:
+    data = pd.DataFrame({
+        "ФИО": [cred.full_name for cred in credentials],
+        "Логин": [cred.login for cred in credentials],
+        "Пароль": [cred.password.get_secret_value() for cred in credentials]
+    })
+    buffer = io.BytesIO()
+    with pd.ExcelWriter(
+            buffer, engine="openpyxl", datetime_format="dd.mm.yyyy"
+    ) as writer:
+        data.to_excel(writer, sheet_name="Список студентов", index=False)
+    buffer.seek(0)
+    return buffer.getvalue()

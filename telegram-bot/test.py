@@ -5,11 +5,11 @@ from uuid import uuid4
 import anyio
 from langchain_core.runnables.graph import MermaidDrawMethod
 
-from app.core.entities.course import Course
-from app.infra.ai import rag
-from app.infra.ai.agents.course_generator.schemas import TeacherContext
-from app.infra.ai.agents.course_generator.workflow import agent
-from app.utils.docs_processing import convert_document_to_md
+from src.core.entities.course import Course
+from src.infra.ai import rag
+from src.infra.ai.agents.course_generator.schemas import TeacherContext
+from src.infra.ai.agents.course_generator.workflow import agent
+from src.utils.docs_processing import convert_document_to_md
 
 user_id = 123
 tenant_id = str(12345)

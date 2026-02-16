@@ -1,57 +1,51 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.database import session_factory
-from src.features.course import repository, schemas
+from src.core.entities.course import Course, Module
+from src.infra.db.repos import CourseRepository
 
-router = APIRouter(prefix="/courses", tags=["🎓 Courses"])
+from ..dependencies import get_course_repo
+
+router = APIRouter(prefix="/courses", tags=["Courses"])
 
 
 @router.get(
     path="/{course_id}",
     status_code=status.HTTP_200_OK,
-    response_model=schemas.Course,
-    summary="Получение курса",
+    response_model=Course,
+    summary="Получение курса"
 )
 async def get_course(
-    course_id: UUID,
-    session: AsyncSession = Depends(session_factory),
-) -> schemas.Course:
-    course = await repository.get(session, course_id)
+        course_id: UUID, repository: CourseRepository = Depends(get_course_repo)
+) -> Course:
+    course = await repository.read(course_id)
     if course is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Course not found by ID {course_id}"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
     return course
-
-
-@router.put(
-    path="",
-    status_code=status.HTTP_200_OK,
-    response_model=schemas.Course,
-    summary="Редактирование курса"
-)
-async def update_course(
-        course: schemas.Course, session: AsyncSession = Depends(session_factory)
-) -> schemas.Course:
-    return await repository.refresh(session, course)
 
 
 @router.get(
     path="/modules/{module_id}",
     status_code=status.HTTP_200_OK,
-    response_model=schemas.Module,
-    summary="Получение модуля курса"
+    response_model=Module,
+    summary="Получение модуля"
 )
 async def get_module(
-        module_id: UUID,
-        session: AsyncSession = Depends(session_factory),
-) -> schemas.Module:
-    module = await repository.get_module(session, module_id)
+        module_id: UUID, repository: CourseRepository = Depends(get_course_repo)
+) -> Module:
+    module = await repository.get_module(module_id)
     if module is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Module not found by ID {module_id}"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Module not found")
     return module
+
+
+@router.put(
+    path="",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Обновление курса"
+)
+async def update_course(
+        course: Course, repository: CourseRepository = Depends(get_course_repo)
+) -> None:
+    await repository.refresh(course)

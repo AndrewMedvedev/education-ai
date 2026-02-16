@@ -1,0 +1,36 @@
+from typing import Any
+
+from uuid import UUID
+
+from sqlalchemy import ARRAY, TEXT, ForeignKey, String
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from .base import Base
+
+
+class CourseOrm(Base):
+    __tablename__ = "courses"
+
+    creator_id: Mapped[UUID]
+    status: Mapped[str]
+    image_url: Mapped[str | None] = mapped_column(nullable=True)
+    title: Mapped[str]
+    description: Mapped[str]
+    learning_objectives: Mapped[list[str]] = mapped_column(ARRAY(String))
+    modules: Mapped[list["ModuleOrm"]] = relationship(back_populates="course", lazy="selectin")
+    final_assessment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+
+class ModuleOrm(Base):
+    __tablename__ = "modules"
+
+    course_id: Mapped[UUID] = mapped_column(ForeignKey("courses.id"), unique=False)
+    title: Mapped[str]
+    description: Mapped[str] = mapped_column(TEXT)
+    learning_objectives: Mapped[list[str]] = mapped_column(ARRAY(String))
+    order: Mapped[int]
+    content_blocks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB)
+    assignment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+    course: Mapped["CourseOrm"] = relationship(back_populates="modules")
