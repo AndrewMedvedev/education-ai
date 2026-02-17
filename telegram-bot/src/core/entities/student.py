@@ -10,7 +10,6 @@ from pydantic import (
     NonNegativeFloat,
     NonNegativeInt,
     PositiveInt,
-    SecretStr,
 )
 
 from ..commons import current_datetime
@@ -23,9 +22,7 @@ class Group(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=current_datetime)
     course_id: UUID
-    teacher_id: UUID
     title: str
 
 
@@ -34,12 +31,10 @@ class Student(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     created_at: datetime = Field(default_factory=current_datetime)
-    joined_at: datetime | None = None
-    user_id: PositiveInt | None = None
+    user_id: PositiveInt
+    username: str | None = None
     group_id: UUID
     full_name: str
-    login: str
-    password_hash: SecretStr
     is_active: bool = False
 
 

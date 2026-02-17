@@ -5,13 +5,10 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.entities.course import Course, Module
-from src.core.entities.student import IndividualAssignment, Student
-from src.core.entities.user import User
+from src.core.entities.user import AnyUser, Student, Teacher
 
-from .models.base import Base
-from .models.course import CourseOrm, ModuleOrm
-from .models.student import IndividualAssignmentOrm, StudentOrm
-from .models.user import UserOrm
+from .base import Base
+from .models import AnyUserOrm, CourseOrm, ModuleOrm, StudentOrm, TeacherOrm, UserOrm
 
 
 class SqlAlchemyRepository[EntityT: BaseModel, ModelT: Base]:
@@ -52,40 +49,39 @@ class SqlAlchemyRepository[EntityT: BaseModel, ModelT: Base]:
         await self.session.commit()
 
 
-class UserRepository(SqlAlchemyRepository[User, UserOrm]):
-    entity = User
-    model = UserOrm
+class UserRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
 
     @staticmethod
-    def _to_orm(user: User) -> UserOrm:
-        return UserOrm(
-            id=user.id,
-            created_at=user.created_at,
-            username=user.username,
-            full_name=user.full_name,
-            email=user.email,
-            password_hash=user.password_hash.get_secret_value(),
-            role=user.role,
-            is_active=user.is_active,
-        )
+    def _to_orm(user: AnyUser) -> AnyUserOrm:
+        if isinstance(user, Student):
+            return StudentOrm(**user.model_dump())
+        if isinstance(user, Teacher):
+            return TeacherOrm(**user.model_dump())
+        raise ValueError("Unexpected user instance!")
 
-    async def create(self, user: User) -> None:
+    @staticmethod
+    def _from_orm(model: AnyUserOrm) -> AnyUser:
+        if isinstance(model, StudentOrm):
+            return Student.model_validate(model)
+        if isinstance(model, TeacherOrm):
+            return Teacher.model_validate(model)
+        raise ValueError("Unexpected model instance!")
+
+    async def create(self, user: AnyUser) -> None:
         model = self._to_orm(user)
         self.session.add(model)
         await self.session.commit()
         await self.session.refresh(model)
 
-    async def get_by_email(self, email: str) -> User | None:
-        stmt = select(self.model).where(self.model.email == email)
+    async def read(self, user_id: int) -> AnyUser:
+        stmt = select(UserOrm).where(UserOrm.id == user_id)
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
-        return None if model is None else self.entity.model_validate(model)
+        return None if model is None else self._from_orm(model)
 
-    async def get_by_username(self, username: str) -> User | None:
-        stmt = select(self.model).where(self.model.username == username)
-        result = await self.session.execute(stmt)
-        model = result.scalar_one_or_none()
-        return None if model is None else self.entity.model_validate(model)
+    async def get_groups(self) -> list[...]: ...
 
 
 class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
@@ -143,13 +139,3 @@ class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
         result = await self.session.execute(stmt)
         model = result.scalar_one_or_none()
         return None if model is None else Module.model_validate(model)
-
-
-class StudentRepository(SqlAlchemyRepository[Student, StudentOrm]):
-    schema = Student
-    model = StudentOrm
-
-    async def add_individual_assignment(self, assignment: IndividualAssignment) -> None:
-        stmt = insert(IndividualAssignmentOrm).values(**assignment.model_dump())
-        await self.session.execute(stmt)
-        await self.session.commit()
