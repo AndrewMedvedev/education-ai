@@ -2,9 +2,13 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 class StudentSignUpForm(StatesGroup):
-    in_group_selecting = State()
-    full_name_typing = State()
+    """Форма регистрации для студента"""
+
+    in_group_choice = State()
+    waiting_for_full_name = State()
 
 
 class TeacherSignUpForm(StatesGroup):
-    password = State()
+    """Форма регистрации преподавателя"""
+
+    waiting_for_password = State()

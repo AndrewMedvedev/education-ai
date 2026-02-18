@@ -9,6 +9,15 @@ from alembic import context
 
 from src.settings import settings
 from src.infra.db.base import Base
+from src.infra.db.models import (
+    CourseOrm,
+    ModuleOrm,
+    UserOrm,
+    StudentOrm,
+    TeacherOrm,
+    LearningProgressOrm,
+    GroupOrm,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

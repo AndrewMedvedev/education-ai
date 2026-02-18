@@ -8,7 +8,6 @@ from pydantic import (
     ConfigDict,
     Field,
     NonNegativeFloat,
-    NonNegativeInt,
     PositiveInt,
 )
 
@@ -68,18 +67,17 @@ class Submission(BaseModel):
     checked_at: datetime = Field(default_factory=current_datetime)
 
 
-class StudentProgress(BaseModel):
-    """Прогресс студента на курсе"""
+class LearningProgress(BaseModel):
+    """Прогресс в обучении"""
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: UUID = Field(default_factory=uuid4)
-    student_id: UUID
+    student_id: PositiveInt
     course_id: UUID
     started_at: datetime
     completed_at: datetime | None = None
-    completed_modules_count: NonNegativeInt = Field(default=0)
-    total_modules_count: NonNegativeInt
     total_score: NonNegativeFloat = Field(default=0.0)
-    overall_percentage: NonNegativeFloat = Field(default=0.0)
     current_module_id: UUID | None = None
+    score_per_module: dict[UUID, float] = Field(
+        default_factory=dict, description="Баллы за каждый модуль"
+    )

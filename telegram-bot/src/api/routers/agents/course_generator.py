@@ -1,9 +1,7 @@
-from typing import Annotated
-
 from fastapi import Body, Depends, status
 from faststream.redis import RedisBroker, fastapi
 
-from src.app.schemas import CourseGenerate, CurrentUser
+from src.app.schemas import CourseGenerate
 from src.app.usecases.generate_course import GenerateCourseUseCase
 from src.core.entities.course import Course, CourseStatus
 from src.infra.ai.agents.course_generator.schemas import GenerationContext
@@ -11,7 +9,7 @@ from src.infra.ai.agents.course_generator.workflow import agent
 from src.infra.db.repos import CourseRepository
 from src.settings import settings
 
-from ...dependencies import get_course_repo, get_current_user
+from ...dependencies import get_course_repo
 
 router = fastapi.RedisRouter(
     url=settings.redis.url, prefix="/course-generator", tags=["Course generator"]
@@ -36,11 +34,11 @@ def get_generate_course_uc(
     summary="Начать генерацию курса",
 )
 async def generate_course(
-        current_user: Annotated[CurrentUser, Depends(get_current_user)],
+        teacher_id: int = Body(..., embed=True),
         prompt: str = Body(..., embed=True),
         usecase: GenerateCourseUseCase = Depends(get_generate_course_uc),
 ) -> Course:
-    return await usecase.execute(user_id=current_user.user_id, prompt=prompt)
+    return await usecase.execute(user_id=teacher_id, prompt=prompt)
 
 
 @router.subscriber("course:generate")

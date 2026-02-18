@@ -4,11 +4,20 @@ from pydantic import BaseModel
 from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.entities.course import Course, Module
-from src.core.entities.user import AnyUser, Student, Teacher
-
+from ...core.entities.course import Course, Module
+from ...core.entities.student import Group, LearningProgress
+from ...core.entities.user import AnyUser, Student, Teacher
 from .base import Base
-from .models import AnyUserOrm, CourseOrm, ModuleOrm, StudentOrm, TeacherOrm, UserOrm
+from .models import (
+    AnyUserOrm,
+    CourseOrm,
+    GroupOrm,
+    LearningProgressOrm,
+    ModuleOrm,
+    StudentOrm,
+    TeacherOrm,
+    UserOrm,
+)
 
 
 class SqlAlchemyRepository[EntityT: BaseModel, ModelT: Base]:
@@ -81,11 +90,53 @@ class UserRepository:
         model = result.scalar_one_or_none()
         return None if model is None else self._from_orm(model)
 
-    async def get_groups(self) -> list[...]: ...
+
+class StudentRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_groups(self) -> list[Group]:
+        stmt = select(GroupOrm)
+        results = await self.session.execute(stmt)
+        models = results.scalars().all()
+        return [Group.model_validate(model) for model in models]
+
+    async def get_student_group(self, student_id: int) -> Group | None:
+        stmt = (
+            select(GroupOrm)
+            .join(StudentOrm, StudentOrm.group_id == GroupOrm.id)
+            .where(StudentOrm.id == student_id)
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return None if model is None else Group.model_validate(model)
+
+    async def save_learning_progress(self, progress: LearningProgress) -> None:
+        stmt = insert(LearningProgressOrm).values(**progress.model_dump())
+        await self.session.execute(stmt)
+        await self.session.commit()
+
+    async def get_learning_progress(self, student_id: int) -> LearningProgress | None:
+        stmt = select(LearningProgressOrm).where(LearningProgressOrm.student_id == student_id)
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return None if model is None else LearningProgress.model_validate(model)
+
+    async def update_learning_progress(self, student_id: int, **kwargs) -> LearningProgress:
+        stmt = (
+            update(LearningProgressOrm)
+            .where(LearningProgressOrm.student_id == student_id)
+            .values(**kwargs)
+            .returning(LearningProgressOrm)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        model = result.scalar_one()
+        return LearningProgress.model_validate(model)
 
 
 class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
-    schema = Course
+    entity = Course
     model = CourseOrm
 
     @staticmethod
@@ -108,6 +159,7 @@ class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
                     order=module.order,
                     title=module.title,
                     description=module.description,
+                    learning_objectives=module.learning_objectives,
                     content_blocks=[
                         content_block.model_dump() for content_block in module.content_blocks
                     ],

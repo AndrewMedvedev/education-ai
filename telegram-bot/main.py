@@ -1,9 +1,58 @@
 import logging
 
 import uvicorn
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums.parse_mode import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import Update
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
-from tg_bot.core.app import app
-from tg_bot.features.teacher.views import router as teacher_views_router
+from src.api.routers import router as api_router
+from src.bot.handlers import router as bot_router
+from src.settings import settings
+
+logger = logging.getLogger(__name__)
+
+WEBHOOK_URL = f"{settings.app.url}{settings.telegram.webhook_path}"
+
+bot = Bot(
+    token=settings.telegram.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
+
+dp = Dispatcher(storage=MemoryStorage())
+dp.include_router(bot_router)
+
+
+async def lifespan(_: FastAPI):
+    await bot.set_webhook(
+        url=WEBHOOK_URL,
+        allowed_updates=dp.resolve_used_update_types(),
+        drop_pending_updates=True
+    )
+    logger.info("Telegram bot webhook set to `%s`", WEBHOOK_URL)
+    yield
+    await bot.delete_webhook()
+    logger.info("Telegram bot webhook removed")
+
+
+app = FastAPI(title="Education AI API", version="0.1.0", lifespan=lifespan)
+app.include_router(api_router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post(path=settings.telegram.webhook_path)
+async def webhook(request: Request) -> None:
+    data = await request.json()
+    update = Update.model_validate(data, context={"bot": bot})
+    await dp.feed_update(bot=bot, update=update)
 
 
 def configure_logging(level=logging.INFO):
@@ -16,7 +65,4 @@ def configure_logging(level=logging.INFO):
 
 if __name__ == "__main__":
     configure_logging()
-
-    app.include_router(teacher_views_router)
-
     uvicorn.run(app, host="0.0.0.0", port=8000)  # noqa: S104

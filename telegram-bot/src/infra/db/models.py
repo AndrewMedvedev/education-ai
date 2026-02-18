@@ -1,8 +1,9 @@
 from typing import Any
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, TEXT, BigInteger, ForeignKey, String
+from sqlalchemy import ARRAY, TEXT, BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -12,24 +13,27 @@ from src.infra.db.base import Base
 class UserOrm(Base):
     __tablename__ = "users"
     __mapper_args__ = {  # noqa: RUF012
-        "polymorphic_on": "type",
-        "polymorphic_identity": "base",
+        "polymorphic_on": "role",
+        "polymorphic_identity": "user",
         "with_polymorphic": "*",
     }
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    username: Mapped[str] = mapped_column(unique=True, nullable=True)
+    username: Mapped[str | None] = mapped_column(unique=True, nullable=True)
     role: Mapped[str]
 
 
-class StudentOrm(Base):
+class StudentOrm(UserOrm):
     __mapper_args__ = {"polymorphic_identity": "student"}  # noqa: RUF012
 
     group_id: Mapped[UUID | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
     full_name: Mapped[str | None] = mapped_column(nullable=True)
 
+    group: Mapped["GroupOrm"] = relationship(back_populates="students")
+    learning_progress: Mapped["LearningProgressOrm"] = relationship(back_populates="student")
 
-class TeacherOrm(Base):
+
+class TeacherOrm(UserOrm):
     __mapper_args__ = {"polymorphic_identity": "teacher"}  # noqa: RUF012
 
     password_hash: Mapped[str | None] = mapped_column(unique=True, nullable=True)
@@ -72,3 +76,17 @@ class ModuleOrm(Base):
     assignment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     course: Mapped["CourseOrm"] = relationship(back_populates="modules")
+
+
+class LearningProgressOrm(Base):
+    __tablename__ = "learning_progress"
+
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    course_id: Mapped[UUID]
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    total_score: Mapped[float]
+    current_module_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    score_per_module: Mapped[dict[UUID, float]] = mapped_column(JSONB)
+
+    student: Mapped["StudentOrm"] = relationship(back_populates="learning_progress")
