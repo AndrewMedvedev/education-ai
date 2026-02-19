@@ -1,0 +1,398 @@
+/* Дополнительные стили для админ-панели */
+      .admin-header {
+        background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+        color: white;
+        padding: 20px 16px;
+        margin-bottom: 20px;
+        border-radius: 0 0 12px 12px;
+      }
+
+      .admin-toolbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 12px 20px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      .admin-controls {
+        display: flex;
+        gap: 10px;
+      }
+
+      .admin-btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .export-btn {
+        background: #48bb78;
+        color: white;
+      }
+
+      .export-btn:hover {
+        background: #38a169;
+      }
+
+      .add-module-btn {
+        background: #667eea;
+        color: white;
+      }
+
+      .add-module-btn:hover {
+        background: #5a67d8;
+      }
+
+      .module-editor {
+        margin-bottom: 30px;
+        background: white;
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        position: relative;
+      }
+
+      .module-header-editor {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .module-input {
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 16px;
+        width: 100%;
+      }
+
+      .module-input:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .blocks-container {
+        margin-top: 20px;
+      }
+
+      .block-editor-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 5px;
+        z-index: 10;
+      }
+
+      .block-control-btn {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 6px;
+        background: white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s ease;
+      }
+
+      .block-control-btn:hover {
+        background: #f7fafc;
+        transform: scale(1.1);
+      }
+
+      .move-up-btn {
+        color: #4299e1;
+      }
+
+      .move-down-btn {
+        color: #4299e1;
+      }
+
+      .delete-btn {
+        color: #e53e3e;
+      }
+
+      .add-block-btn {
+        width: 100%;
+        padding: 15px;
+        background: #f7fafc;
+        border: 2px dashed #cbd5e0;
+        border-radius: 8px;
+        color: #718096;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: all 0.2s ease;
+      }
+
+      .add-block-btn:hover {
+        background: #edf2f7;
+        border-color: #667eea;
+        color: #667eea;
+      }
+
+      .block-type-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .block-type-btn {
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+      }
+
+      .block-type-btn:hover {
+        border-color: #667eea;
+        background: #f7fafc;
+        transform: translateY(-2px);
+      }
+
+      .text-editor {
+        min-height: 200px;
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 16px;
+        line-height: 1.6;
+        resize: vertical;
+        width: 100%;
+      }
+
+      .text-editor:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .video-url-input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        margin-bottom: 10px;
+      }
+
+      .key-moments-editor {
+        margin-top: 15px;
+      }
+
+      .key-moment-row {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: center;
+      }
+
+      .key-moment-time {
+        width: 80px;
+        padding: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+      }
+
+      .add-key-moment {
+        margin-top: 10px;
+        padding: 8px 16px;
+        background: #edf2f7;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      /* Панель переключения модулей вверху */
+      .modules-switcher {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        background: white;
+        padding: 15px 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        z-index: 999;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modules-nav {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .module-select {
+        padding: 8px 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 6px;
+        background: white;
+        font-size: 14px;
+        cursor: pointer;
+        min-width: 200px;
+      }
+
+      .module-select:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .nav-arrow {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 6px;
+        background: #f7fafc;
+        color: #4a5568;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        transition: all 0.2s ease;
+      }
+
+      .nav-arrow:hover:not(:disabled) {
+        background: #667eea;
+        color: white;
+      }
+
+      .nav-arrow:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .module-info {
+        font-size: 14px;
+        color: #718096;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .main-content {
+        margin-top: 130px;
+        padding: 20px;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #4a5568;
+      }
+
+      .form-control {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 14px;
+      }
+
+      .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .question-editor {
+        margin-bottom: 20px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .add-question-btn {
+        background: #c6f6d5;
+        color: #22543d;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .add-question-btn:hover {
+        background: #9ae6b4;
+      }
+
+      .delete-question-btn {
+        background: #fed7d7;
+        color: #9b2c2c;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-top: 8px;
+      }
+
+      .delete-question-btn:hover {
+        background: #feb2b2;
+      }
+
+      @media (max-width: 768px) {
+        .modules-switcher {
+          flex-direction: column;
+          gap: 10px;
+          align-items: stretch;
+          padding: 10px;
+        }
+
+        .modules-nav {
+          justify-content: center;
+        }
+
+        .module-info {
+          justify-content: center;
+        }
+
+        .main-content {
+          margin-top: 160px;
+          padding: 10px;
+        }
+
+        .admin-toolbar {
+          flex-direction: column;
+          gap: 10px;
+          padding: 10px;
+        }
+
+        .admin-controls {
+          width: 100%;
+          justify-content: center;
+        }
+      }

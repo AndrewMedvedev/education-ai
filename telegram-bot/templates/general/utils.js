@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 
+=======
+>>>>>>> c0b307491d3e5390eed3be240f9683001d7736d5
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
@@ -220,7 +223,11 @@ function sanitizeMermaid(code) {
     .replace(/```\s*$/i, "")
     .trim();
 
+<<<<<<< HEAD
   // Удаляем все директивы вида %%{...}%%
+=======
+  // Удаляем все директивы вида %%{...}%% (не только init)
+>>>>>>> c0b307491d3e5390eed3be240f9683001d7736d5
   clean = clean.replace(/^%%\{[\s\S]*?\}%%\s*\n?/gm, "");
 
   // Преобразуем diagram в graph с сохранением направления
@@ -233,6 +240,7 @@ function sanitizeMermaid(code) {
     clean = "graph" + clean.substring(7);
   }
 
+<<<<<<< HEAD
   // Экранируем все специальные символы в тексте узлов
   clean = clean.replace(/\[([^\]]+)\]/g, (match, text) => {
     // Проверяем, содержит ли текст уже HTML-сущности
@@ -255,6 +263,8 @@ function sanitizeMermaid(code) {
     return match; // Если уже есть HTML-сущности, оставляем как есть
   });
 
+=======
+>>>>>>> c0b307491d3e5390eed3be240f9683001d7736d5
   // Удаляем возможные пустые строки в начале
   clean = clean.replace(/^\s*\n+/, "");
 
@@ -271,18 +281,25 @@ function getContentTypeLabel(type) {
   };
   return labels[type] || type;
 }
+<<<<<<< HEAD
 
 function getModuleById(moduleId, course) {
   return course.modules.find((module) => module.id === moduleId);
 }
 
 
+=======
+>>>>>>> c0b307491d3e5390eed3be240f9683001d7736d5
 export {
   formatTime,
   formatDuration,
   parseMarkdown,
   getEmbedUrl,
   sanitizeMermaid,
+<<<<<<< HEAD
   getContentTypeLabel,
   getModuleById,
+=======
+  getContentTypeLabel
+>>>>>>> c0b307491d3e5390eed3be240f9683001d7736d5
 };
