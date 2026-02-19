@@ -72,9 +72,9 @@ def get_modules_kb(modules: list[Module], current_module_id: UUID) -> InlineKeyb
     builder = InlineKeyboardBuilder()
     for order, module in enumerate(modules):
         if current_order is not None and order <= current_order:
-            btn_text = f"🔓 {module.title}"
+            btn_text = f"🟢 {module.title}"
         else:
-            btn_text = f"🔒 {module.title}"
+            btn_text = f"🔴 {module.title}"
         builder.button(
             text=btn_text, callback_data=ModuleCbData(module_id=module.id).pack()
         )
@@ -96,12 +96,39 @@ def get_module_study_kb() -> InlineKeyboardMarkup:
 
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="💻 Приступить к изучению",
+        text="💻 Изучить теорию",
         callback_data=ModuleStudyCbData(action=ModuleAction.STUDY_THEORY).pack()
     )
     builder.button(
         text="🎯 Пройти тестирование",
         callback_data=ModuleStudyCbData(action=ModuleAction.TAKE_TEST).pack()
     )
+    builder.adjust(1)
+    return builder.as_markup()
+
+
+class StartTestCbData(CallbackData, prefix="start_test"):
+    action: Literal["start", "cancel"] = "start"
+
+
+def get_start_test_kb() -> InlineKeyboardMarkup:
+    """Клавиатура для начала тестирования"""
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🏁 Начать тестирование", callback_data=StartTestCbData().pack())
+    builder.button(text="❌ Отмена", callback_data=StartTestCbData(action="cancel").pack())
+    return builder.as_markup()
+
+
+class OptionChoiceCbData(CallbackData, prefix="option_choice"):
+    index: int
+
+
+def get_options_choice_kb(options: list[str]) -> InlineKeyboardMarkup:
+    """Клавиатура для выбора вариантов ответа"""
+
+    builder = InlineKeyboardBuilder()
+    for i, option in enumerate(options):
+        builder.button(text=option, callback_data=OptionChoiceCbData(index=i).pack())
     builder.adjust(1)
     return builder.as_markup()

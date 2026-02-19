@@ -133,11 +133,6 @@
           "explanation": "Диаграмма отображает структуру первого модуля курса по инженерии программного обеспечения, показывая иерархию тем и связанных с ними лекций и практических занятий."
         },
         {
-          "content_type": "quiz",
-          "ai_generated": true,
-          "questions": []
-        },
-        {
           "content_type": "program_code",
           "ai_generated": true,
           "language": "markdown",

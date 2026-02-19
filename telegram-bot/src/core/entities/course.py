@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, PositiveInt
 
 from ..commons import current_datetime
 
@@ -277,3 +277,73 @@ class Course(BaseModel):
 
     def add_final_assessment(self, final_assessment: FinalAssessment) -> None:
         self.final_assessment = final_assessment
+
+
+class TestType(StrEnum):
+    """Тип тестирования"""
+
+    MULTIPLE_CHOICE = "multiple_choice"
+    DETAILED_ANSWER = "detailed_answer"
+
+
+class DetailedAnswerQuestion(BaseModel):
+    """Вопрос с развёрнутым ответом"""
+
+    text: str = Field(description="Сформулированный вопрос")
+    excepted_answer: str = Field(description="Пример правильного ответа на поставленный вопрос")
+    hint: str | None = Field(default=None, description="Подсказка (если нужно)")
+    points: PositiveInt = Field(
+        default=1, description="Количество баллов полученное за правильный ответ"
+    )
+
+
+class MultipleChoiceQuestion(BaseModel):
+    """Вопрос с выбором вариантов ответа"""
+
+    text: str = Field(description="Сформулированный вопрос")
+    options: list[str] = Field(..., min_length=2, description="Варианты ответа")
+    correct_answer: NonNegativeInt = Field(description="Индекс правильного ответа")
+    points: PositiveInt = Field(
+        default=1, description="Количество баллов полученное за правильный ответ"
+    )
+
+
+class KnowledgeTest(ABC, BaseModel):
+    """Тестирования для проверки знаний"""
+
+    test_type: TestType
+    title: str = Field(description="Название тестирование")
+    estimated_time_minutes: PositiveInt = Field(
+        description="Примерное время в минутах за которое можно выполнить тестирование"
+    )
+    questions: list[MultipleChoiceQuestion | DetailedAnswerQuestion]
+
+
+class MultipleChoiceTest(KnowledgeTest):
+    """Тестирование с выбором варианта ответа"""
+
+    test_type: TestType = TestType.MULTIPLE_CHOICE
+    questions: list[MultipleChoiceQuestion] = Field(
+        ...,
+        min_length=10,
+        max_length=30,
+        description="Вопросы с выбором варианта ответа"
+    )
+
+
+class DetailedAnswerTest(KnowledgeTest):
+    """Тестирование с развёрнутым вариантом ответа"""
+
+    test_type: TestType = TestType.DETAILED_ANSWER
+    questions: list[DetailedAnswerQuestion] = Field(
+        ..., min_length=5, max_length=15, description="Вопросы с развёрнутым ответом"
+    )
+
+
+AnyKnowledgeTest = DetailedAnswerTest | MultipleChoiceTest
+
+
+class TestResult(BaseModel):
+    score: NonNegativeFloat
+    is_passing: bool = False
+    ai_feedback: str | None = None

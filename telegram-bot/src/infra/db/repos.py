@@ -178,13 +178,11 @@ class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
         model = self._to_orm(course)
         self.session.add(model)
         await self.session.commit()
-        await self.session.refresh(model)
 
     async def refresh(self, course: Course) -> None:
         model = self._to_orm(course)
         await self.session.merge(model)
         await self.session.commit()
-        await self.session.refresh(model)
 
     async def get_module(self, module_id: UUID) -> Module | None:
         stmt = select(ModuleOrm).where(ModuleOrm.id == module_id)
