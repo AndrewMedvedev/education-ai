@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Редактор тестовых заданий</title>
+  <link rel="stylesheet" href="github_tests.css" />
+</head>
+
+<body>
+  <div class="container">
+    <!-- Форма для создания/редактирования -->
+    <div class="form-section">
+      <h2>
+        <span>📋</span>
+        <span id="formTitle">Создать новое задание</span>
+      </h2>
+
+      <form id="testForm">
+        <div class="form-group">
+          <label for="title">Название задания *</label>
+          <input type="text" id="title" required placeholder="Введите название задания" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="max_score">Максимальный балл</label>
+            <input type="number" id="max_score" min="0" value="100" required />
+          </div>
+
+          <div class="form-group">
+            <label for="passing_score">Проходной балл</label>
+            <input type="number" id="passing_score" min="0" value="70" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="repository_task">Ссылка на задание (GitHub)</label>
+          <input type="url" id="repository_task" required placeholder="https://github.com/..." />
+        </div>
+
+        <div class="form-group">
+          <label for="repository_rules">Ссылка на правила (GitHub)</label>
+          <input type="url" id="repository_rules" required placeholder="https://github.com/.../CONTRIBUTING.md" />
+        </div>
+
+        <div class="form-group">
+          <label for="required_branch">Требуемая ветка</label>
+          <input type="text" id="required_branch" value="develop" required placeholder="develop" />
+        </div>
+
+        <input type="hidden" id="editId" value="" />
+        <input type="hidden" id="version" value="0" />
+
+        <div class="button-group">
+          <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span>💾</span> Сохранить задание
+          </button>
+          <button type="button" class="btn btn-outline" id="cancelBtn">
+            <span>✖️</span> Отмена
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Список тестов -->
+    <div class="tests-list">
+      <h2>
+        <span>📚</span>
+        <span>Список заданий</span>
+      </h2>
+      <div id="testsContainer"></div>
+    </div>
+  </div>
+
+  <script id="initial-data" type="application/json">
+      {{ baseURL | tojson }}
+      {{ course | tojson }}
+      {{ moduleId | tojson }}
+    </script>
+
+  <script src="gitHubTests.js" type="module"></script>
+</body>
+
+</html>

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Админ-панель контента</title>
+  <link rel="stylesheet" href="content_blocks.css" />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" />
+</head>
+
+<body>
+  <div class="main-content">
+    <div id="app">
+      <div class="loading" id="loading">
+        <div class="loading-spinner"></div>
+        <p>Загрузка данных...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-toolbar">
+    <div class="admin-controls">
+      <button class="admin-btn publish-btn" id="publishBtn">
+        📤 Опубликовать
+      </button>
+    </div>
+  </div>
+
+  <!-- Модальное окно выбора типа блока -->
+  <div id="blockTypeModal" style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 2000;
+        align-items: center;
+        justify-content: center;
+      ">
+    <div style="
+          background: white;
+          padding: 30px;
+          border-radius: 12px;
+          max-width: 500px;
+          width: 90%;
+        ">
+      <h3 style="margin: 0 0 20px 0">Выберите тип блока</h3>
+      <div class="block-type-selector">
+        <button data-type="text" class="block-type-btn">📝 Текст</button>
+        <button data-type="video" class="block-type-btn">🎥 Видео</button>
+        <button data-type="code" class="block-type-btn">💻 Код</button>
+        <button data-type="quiz" class="block-type-btn">🧠 Тест</button>
+        <button data-type="mermaid" class="block-type-btn">
+          📊 Диаграмма
+        </button>
+      </div>
+      <div style="margin-top: 20px; text-align: right">
+        <button id="cancelBlockType" style="
+              padding: 8px 16px;
+              background: #e2e8f0;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+            ">
+          Отмена
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script id="initial-data" type="application/json">
+      {{ baseURL | tojson }}
+      {{ course | tojson }}
+      {{ moduleId | tojson }}
+    </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="contentBlocks.js" type="module"></script>
+</body>
+
+</html>

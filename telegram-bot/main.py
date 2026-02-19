@@ -37,7 +37,7 @@ async def lifespan(_: FastAPI):
     logger.info("Telegram bot webhook removed")
 
 
-app = FastAPI(title="Education AI API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Education AI API", version="0.1.0", lifespan=lifespan) # type: ignore
 app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,

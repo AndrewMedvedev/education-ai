@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Редактор тестов</title>
+  <link rel="stylesheet" href="questions.css" />
+</head>
+
+<body>
+  <div class="container">
+    <!-- Контейнер для вопросов -->
+    <div id="questions-container"></div>
+
+    <!-- Кнопка добавления нового вопроса -->
+    <button id="add-question-btn" class="add-block-end-btn">
+      <span>➕</span> Добавить новый вопрос
+    </button>
+
+    <!-- Панель сохранения -->
+    <div class="admin-panel" id="admin-panel">
+      <button class="admin-button publish-button" id="publish-btn">
+        <span class="btn-icon">📢</span>
+        <span class="btn-text">Опубликовать</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Модальное окно подтверждения -->
+  <div class="modal" id="confirm-modal">
+    <div class="modal-content">
+      <h3 id="modal-title">Подтверждение</h3>
+      <p id="modal-message">Вы уверены?</p>
+      <div class="modal-buttons">
+        <button class="cancel" onclick="closeModal()">Отмена</button>
+        <button class="confirm" id="modal-confirm">Подтвердить</button>
+      </div>
+    </div>
+  </div>
+
+  <script id="initial-data" type="application/json">
+      {{ baseURL | tojson }}
+      {{ course | tojson }}
+      {{ moduleId | tojson }}
+    </script>
+
+  <script src="questions.js" type="module"></script>
+</body>
+
+</html>
