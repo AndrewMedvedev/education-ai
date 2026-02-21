@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt
 
 from ..commons import current_datetime
 
@@ -341,9 +341,3 @@ class DetailedAnswerTest(KnowledgeTest):
 
 
 AnyKnowledgeTest = DetailedAnswerTest | MultipleChoiceTest
-
-
-class TestResult(BaseModel):
-    score: NonNegativeFloat
-    is_passing: bool = False
-    ai_feedback: str | None = None

@@ -128,7 +128,7 @@ def get_options_choice_kb(options: list[str]) -> InlineKeyboardMarkup:
     """Клавиатура для выбора вариантов ответа"""
 
     builder = InlineKeyboardBuilder()
-    for i, option in enumerate(options):
-        builder.button(text=option, callback_data=OptionChoiceCbData(index=i).pack())
+    for i in range(len(options)):
+        builder.button(text=f"{i + 1}", callback_data=OptionChoiceCbData(index=i).pack())
     builder.adjust(1)
     return builder.as_markup()

@@ -4,13 +4,13 @@ import uvicorn
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums.parse_mode import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import router as api_router
 from src.bot.handlers import router as bot_router
+from src.bot.setup import storage
 from src.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ bot = Bot(
     token=settings.telegram.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher(storage=storage)
 dp.include_router(bot_router)
 
 

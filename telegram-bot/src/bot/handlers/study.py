@@ -1,14 +1,23 @@
+import asyncio
 import random
 
-import anyio
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from aiogram.fsm.storage.base import StorageKey
 from aiogram.types import CallbackQuery, Message
-from aiogram.utils.formatting import BlockQuote, Bold, Text, Underline, as_line
+from aiogram.utils.formatting import (
+    BlockQuote,
+    Bold,
+    Text,
+    Underline,
+    as_line,
+    as_numbered_section,
+)
 
+from src.app.services import check_multiple_choice_test, save_test_result
 from src.core.commons import current_datetime
-from src.core.entities.course import MultipleChoiceTest, TestResult, TestType
+from src.core.entities.course import Module, TestType
 from src.core.entities.student import LearningProgress
 from src.infra.ai.agents.knowledge_tester import call_knowledge_tester
 from src.infra.db.conn import session_factory
@@ -26,8 +35,11 @@ from ..keyboards import (
     get_options_choice_kb,
     get_start_test_kb,
 )
+from ..setup import storage
 
 router = Router(name=__name__)
+
+background_tasks = set()
 
 
 @router.message(Command("study"))
@@ -96,8 +108,34 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
     )
 
 
+async def generate_knowledge_test(
+        bot: Bot, user_id: int, test_type: TestType, module: Module
+) -> None:
+    """Задача для фоновой генерации тестирования"""
+
+    storage_key = StorageKey(bot_id=bot.id, chat_id=user_id, user_id=user_id)
+    state = FSMContext(storage=storage, key=storage_key)
+    knowledge_test = await call_knowledge_tester(test_type, module)
+    await state.update_data(knowledge_test=knowledge_test)
+    await bot.send_message(
+        user_id,
+        **Text(
+            as_line("Тестирование готово!", end="\n\n"),
+            as_line(Bold(f"🧩 {knowledge_test.title}"), end="\n\n"),
+            as_line("❓ Количество вопросов", "-", f"{len(knowledge_test.questions)}", sep=" "),
+            as_line(
+                "⏱️ Время выполнения",
+                "-",
+                Underline(f"{knowledge_test.estimated_time_minutes} минут"),
+                sep=" ",
+            ),
+        ).as_kwargs(),
+        reply_markup=get_start_test_kb(),
+    )
+
+
 @router.callback_query(ModuleStudyCbData.filter(F.action == ModuleAction.TAKE_TEST))
-async def cb_take_test(query: CallbackQuery, state: FSMContext) -> None:
+async def cb_take_test(query: CallbackQuery, bot: Bot, state: FSMContext) -> None:
     """Прохождение тестирования по пройденной теории"""
 
     await query.answer()
@@ -108,31 +146,27 @@ async def cb_take_test(query: CallbackQuery, state: FSMContext) -> None:
         repo = CourseRepository(session)
         current_module = await repo.get_module(data["current_module_id"])
     await query.message.answer("🪄✨ Начинаю генерировать тестирование ...")
-    knowledge_test = await call_knowledge_tester(test_type, current_module)
-    await state.update_data(knowledge_test=knowledge_test)
-    await query.message.edit_text(
-        **Text(
-            as_line("Тестирование готово!", end="\n\n"),
-            as_line(Bold(f"🧩 {knowledge_test.title}"), end="\n\n"),
-            as_line(
-                "❓ Количество вопросов", "-", f"{len(knowledge_test.questions)}", sep=" "
-            ),
-            as_line(
-                "⏱️ Время выполнения",
-                "-",
-                Underline(f"{knowledge_test.estimated_time_minutes} минут"), sep=" ")
-        ).as_kwargs(), reply_markup=get_start_test_kb()
-    )
+    task = asyncio.create_task(generate_knowledge_test(
+        bot=bot,
+        user_id=query.from_user.id,
+        test_type=test_type,
+        module=current_module
+    ))
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)
 
 
-def get_question_text(text: str, current: int, total: int) -> Text:
+def get_multiply_choice_question_text(
+        text: str, options: list[str], index: int, total: int
+) -> Text:
     return Text(
-        as_line(Bold(f"❓ Вопрос №{current}")),
+        as_line(Bold(f"❓ Вопрос №{index + 1}")),
         as_line(
-            "Пройдено", "-", Underline(f"{round((current / total) * 100, 2)}%"), sep=" "
+            "Пройдено", "-", Underline(f"{round((index / total) * 100, 2)}%"), sep=" "
         ),
         as_line(),
-        as_line(text),
+        as_line(text, end="\n\n"),
+        as_numbered_section(Bold("Варианты ответа:"), *options)
     )
 
 
@@ -145,8 +179,11 @@ async def cb_start_test(query: CallbackQuery, state: FSMContext) -> None:
     knowledge_test = data["knowledge_test"]
     question_index = 0
     first_question = knowledge_test.questions[question_index]
-    content = get_question_text(
-        first_question.text, question_index, len(knowledge_test.questions)
+    content = get_multiply_choice_question_text(
+        text=first_question.text,
+        options=first_question.options,
+        index=question_index,
+        total=len(knowledge_test.questions)
     )
     if knowledge_test.test_type == TestType.MULTIPLE_CHOICE:
         await query.message.edit_text(
@@ -156,19 +193,6 @@ async def cb_start_test(query: CallbackQuery, state: FSMContext) -> None:
         await query.message.edit_text(**content.as_kwargs())
     await state.update_data(question_index=question_index, given_answers=[])
     await state.set_state(TestPassingForm.waiting_for_answer)
-
-
-def check_multiple_choice_test(
-        given_answers: list[int], test: MultipleChoiceTest, passing_score: float = 61.0
-) -> TestResult:
-    total_points = 0
-    max_points = sum(question.points for question in test.questions)
-    for given_answer, question in zip(given_answers, test.questions, strict=False):
-        if given_answer == question.correct_answer:
-            total_points += question.points
-    score = round(total_points / max_points, 2)
-    is_passing = score >= passing_score
-    return TestResult(score=score, is_passing=is_passing)
 
 
 @router.callback_query(OptionChoiceCbData.filter(), TestPassingForm.waiting_for_answer)
@@ -182,9 +206,13 @@ async def process_option_choice(
     question_index, knowledge_test, given_answers = (
         data["question_index"], data["knowledge_test"], data["given_answers"]
     )
-    given_answers.append(callback_data.index)
     if question_index == len(knowledge_test.questions) - 1:
         result = check_multiple_choice_test(given_answers, knowledge_test)
+        await save_test_result(
+            student_id=query.from_user.id,
+            module_id=data["current_module_id"],
+            score=result.score
+        )
         await query.message.edit_text(f"Результат {result.score} баллов")
         await state.update_data(
             question_index=None, knowledge_test=None, given_answers=None
@@ -192,11 +220,13 @@ async def process_option_choice(
         await cmd_study(query.message, state)
         return
     question_index += 1
-    current_question = knowledge_test.questions[question_index]
-    content = get_question_text(
-        current_question.text, question_index, len(knowledge_test.questions)
+    given_answers.append(callback_data.index)
+    question = knowledge_test.questions[question_index]
+    content = get_multiply_choice_question_text(
+        question.text, question.options, question_index, len(knowledge_test.questions)
     )
-    await query.message.edit_text(
-        **content.as_kwargs(), reply_markup=get_options_choice_kb(current_question.options)
+    await query.message.answer(
+        **content.as_kwargs(), reply_markup=get_options_choice_kb(question.options)
     )
+    await state.update_data(question_index=question_index, given_answers=given_answers)
     await state.set_state(TestPassingForm.waiting_for_answer)
