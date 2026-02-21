@@ -15,6 +15,7 @@ from src.infra.ai.agents.knowledge_tester import call_knowledge_tester
 from src.infra.db.conn import session_factory
 from src.infra.db.repos import CourseRepository, StudentRepository
 
+from ...app.dto import TestResult
 from ..fsm import TestPassingForm
 from ..keyboards import (
     ModuleAction,
@@ -28,12 +29,23 @@ from ..keyboards import (
     get_start_test_kb,
 )
 from ..lexicon import (
+    CONFETTI_EFFECT_ID,
     COURSE_PREVIEW_TEMPLATE,
+    FAIL_EFFECT_ID,
+    FAILED_TEST_RESULT_TEMPLATE,
+    FIRE_EFFECT_ID,
     GENERATED_TEST_TEMPLATE,
+    GOOD_TEST_RESULT_TEMPLATE,
+    GREAT_TEST_RESULT_TEMPLATE,
     MODULE_PREVIEW_TEMPLATE,
     MULTIPLE_CHOICE_QUESTION_TEMPLATE,
+    PASSED_TEST_RESULT_TEMPLATE,
 )
 from ..setup import storage
+
+MAX_TEST_SCORE = 100
+PASSING_TEST_SCORE = 61
+GOOD_TEST_SCORE = 81
 
 router = Router(name=__name__)
 
@@ -101,7 +113,7 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
 
 
 async def generate_knowledge_test(
-        bot: Bot, user_id: int, test_type: TestType, module: Module
+    bot: Bot, user_id: int, test_type: TestType, module: Module
 ) -> None:
     """Задача для фоновой генерации тестирования"""
 
@@ -132,12 +144,11 @@ async def cb_take_test(query: CallbackQuery, bot: Bot, state: FSMContext) -> Non
         repo = CourseRepository(session)
         module = await repo.get_module(data["module_id"])
     await query.message.answer("🪄✨ Начинаю генерировать тестирование ...")
-    task = asyncio.create_task(generate_knowledge_test(
-        bot=bot,
-        user_id=query.from_user.id,
-        test_type=test_type,
-        module=module
-    ))
+    task = asyncio.create_task(
+        generate_knowledge_test(
+            bot=bot, user_id=query.from_user.id, test_type=test_type, module=module
+        )
+    )
     background_tasks.add(task)
     task.add_done_callback(background_tasks.discard)
 
@@ -159,8 +170,9 @@ async def cb_start_test(query: CallbackQuery, state: FSMContext) -> None:
                 text=first_question.text,
                 options="\n".join([
                     f"{i + 1}) {option}" for i, option in enumerate(first_question.options)
-                ])
-            ), reply_markup=get_options_choice_kb(first_question.options)
+                ]),
+            ),
+            reply_markup=get_options_choice_kb(first_question.options),
         )
     else:
         await query.message.edit_text("...")
@@ -168,28 +180,58 @@ async def cb_start_test(query: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(TestPassingForm.waiting_for_answer)
 
 
+async def show_test_result_message(message: Message, result: TestResult) -> None:
+    """Показать сообщение с результатами тестирования"""
+
+    await message.delete()
+    data = {"score": result.score, "correct_answers_count": result.correct_answers_count}
+    if not result.is_passed:
+        await message.answer(
+            text=FAILED_TEST_RESULT_TEMPLATE.format(**data),
+            message_effect_id=FAIL_EFFECT_ID,
+        )
+        return
+    if PASSING_TEST_SCORE <= result.score <= GOOD_TEST_SCORE:
+        await message.answer(
+            text=PASSED_TEST_RESULT_TEMPLATE.format(**data),
+            message_effect_id=CONFETTI_EFFECT_ID,
+        )
+        return
+    if GOOD_TEST_SCORE < result.score < MAX_TEST_SCORE:
+        await message.answer(
+            text=GOOD_TEST_RESULT_TEMPLATE.format(**data), message_effect_id=CONFETTI_EFFECT_ID
+        )
+        return
+    if result.score == MAX_TEST_SCORE:
+        await message.answer(
+            text=GREAT_TEST_RESULT_TEMPLATE.format(**data), message_effect_id=FIRE_EFFECT_ID
+        )
+        return
+
+
 @router.callback_query(OptionChoiceCbData.filter(), TestPassingForm.waiting_for_answer)
 async def process_option_choice(
-        query: CallbackQuery, callback_data: OptionChoiceCbData, state: FSMContext
+    query: CallbackQuery, callback_data: OptionChoiceCbData, state: FSMContext
 ) -> None:
     """Обработка выбранного варианта ответа"""
 
     await query.answer()
     data = await state.get_data()
     question_index, knowledge_test, given_answers = (
-        data["question_index"], data["knowledge_test"], data["given_answers"]
+        data["question_index"],
+        data["knowledge_test"],
+        data["given_answers"],
     )
     if question_index == len(knowledge_test.questions) - 1:
         result = check_multiple_choice_test(given_answers, knowledge_test)
         await save_test_result(
             student_id=query.from_user.id,
+            course_id=data["course_id"],
             module_id=data["module_id"],
-            score=result.score
+            result=result,
         )
-        await query.message.edit_text(f"Результат {result.score} баллов")
-        await state.update_data(
-            question_index=None, knowledge_test=None, given_answers=None
-        )
+        await show_test_result_message(query.message, result)
+        await state.clear()
         await cmd_study(query.message, state)
         return
     question_index += 1
@@ -200,9 +242,7 @@ async def process_option_choice(
             number=question_index + 1,
             passed_percent=round(question_index / len(knowledge_test.questions) * 100, 2),
             text=question.text,
-            options="\n".join([
-                f"{i + 1}) {option}" for i, option in enumerate(question.options)
-            ]),
+            options="\n".join([f"{i + 1}) {option}" for i, option in enumerate(question.options)]),
         ),
         reply_markup=get_options_choice_kb(question.options),
     )

@@ -2,6 +2,8 @@ from aiogram.utils.formatting import Bold, BotCommand, Text, as_line, as_marked_
 
 # Эффект сообщения с конфетти
 CONFETTI_EFFECT_ID = "5104841245755180586"
+FAIL_EFFECT_ID = "5104858069142078462"
+FIRE_EFFECT_ID = "5107584321108051014"
 
 # Командное меню студента
 STUDENT_CMD_MENU_TEXT = Text(
@@ -22,15 +24,15 @@ STUDENT_CMD_MENU_TEXT = Text(
 # Сообщение для превью курса
 COURSE_PREVIEW_TEMPLATE = (
     "<b>🎓 {title}</b>\n\n"
-    "<i>Описание</i>}\n"
+    "<i>Описание</i>\n"
     "<blockquote>{description}</blockquote>"
 )
 
 # Сообщение с превью для модуля
 MODULE_PREVIEW_TEMPLATE = (
-    "📚 {title}\n\n"
+    "<b>📚 {title}</b>\n\n"
     "<i>О чём этот модуль?</i>\n"
-    "<blockquote>{description}</blockquote>}"
+    "<blockquote>{description}</blockquote>"
 )
 
 # Текст сообщения для сгенерированного тестирования
@@ -48,4 +50,30 @@ MULTIPLE_CHOICE_QUESTION_TEMPLATE = (
     "{text}\n\n"
     "<b>Варианты ответа:</b>\n"
     "{options}"
+)
+
+
+# Шаблоны сообщений с результатами тестирования
+FAILED_TEST_RESULT_TEMPLATE = (
+    "😞 К сожалению, вы не прошли тестирование ...\n\n"
+    "🚨 Набрано баллов: <b>{score}</b>\n"
+    "✅ Правильных ответов: <u>{correct_answers_count}</u>"
+)
+
+PASSED_TEST_RESULT_TEMPLATE = (
+    "🔝 Тестирование пройдено!\n\n"
+    "👍 Набрано баллов: <b>{score}</b>\n"
+    "✅ Правильных ответов: <u>{correct_answers_count}"
+)
+
+GOOD_TEST_RESULT_TEMPLATE = (
+    "🏅 Вы набрали более 80 баллов!\n\n"
+    "💪 Набрано баллов: {score}\n"
+    "✅ Правильных ответов: <u>{correct_answers_count}"
+)
+
+GREAT_TEST_RESULT_TEMPLATE = (
+    "🏆 Вы набрали <b>максимальное</b> количество баллов!\n\n"
+    "💯 Набрано баллов: {score}\n"
+    "✅ Правильных ответов: <u>{correct_answers_count}"
 )
