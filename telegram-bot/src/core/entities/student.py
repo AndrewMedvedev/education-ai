@@ -88,6 +88,8 @@ class LearningProgress(BaseModel):
     )
 
     def increment_score(self, score: float) -> None:
+        """Добавление баллов за тестирование к текущему модулю"""
+
         attempts = self.score_per_module.get(str(self.current_module_id), {}).get("attempts", 0)
         attempts += 1
         self.score_per_module.update(
@@ -96,4 +98,6 @@ class LearningProgress(BaseModel):
         self.total_score = sum(module["score"] for module in self.score_per_module.values())
 
     def switch_to_next_module(self, next_module_id: UUID) -> None:
+        """Переход к следующему модулю"""
+
         self.current_module_id = next_module_id

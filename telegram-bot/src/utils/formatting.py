@@ -1,3 +1,5 @@
+import re
+
 from src.core.entities.course import (
     AnyAssignment,
     AnyContentBlock,
@@ -77,3 +79,12 @@ def get_module_context(
     if include_assignment and module.assignment is not None:
         context += get_assignment_context(module.assignment)
     return context
+
+
+def sanitize_for_telegram(text: str) -> str:
+    """Подготовить текст к Telegram формату"""
+
+    text = re.sub(r"^#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[-—–]{3,}", "───", text)
+    text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
+    return text.strip()

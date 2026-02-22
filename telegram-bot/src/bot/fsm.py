@@ -18,3 +18,9 @@ class TestPassingForm(StatesGroup):
     """Форма для прохождения тестирования"""
 
     waiting_for_answer = State()
+
+
+class ChattingForm(StatesGroup):
+    """FSM для чата с AI ассистентом"""
+
+    in_message_typing = State()
