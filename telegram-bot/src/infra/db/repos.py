@@ -91,9 +91,7 @@ class UserRepository:
         return None if model is None else self._from_orm(model)
 
 
-class StudentRepository:
-    def __init__(self, session: AsyncSession) -> None:
-        self.session = session
+class StudentRepository(UserRepository):
 
     async def get_groups(self) -> list[Group]:
         stmt = select(GroupOrm)
@@ -133,6 +131,11 @@ class StudentRepository:
         await self.session.commit()
         model = result.scalar_one()
         return LearningProgress.model_validate(model)
+
+    async def refresh_learning_progress(self, progress: LearningProgress) -> None:
+        model = LearningProgressOrm(**progress.model_dump())
+        await self.session.merge(model)
+        await self.session.commit()
 
 
 class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):

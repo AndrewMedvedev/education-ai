@@ -232,7 +232,7 @@ async def process_option_choice(
         )
         await show_test_result_message(query.message, result)
         await state.clear()
-        await cmd_study(query.message, state)
+        await query.message.answer("Нажмите /study, чтобы вернуться к изучению курса")
         return
     question_index += 1
     given_answers.append(callback_data.index)

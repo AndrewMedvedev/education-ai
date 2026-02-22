@@ -87,6 +87,6 @@ class LearningProgressOrm(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     total_score: Mapped[float]
     current_module_id: Mapped[UUID | None] = mapped_column(nullable=True)
-    score_per_module: Mapped[dict[UUID, float]] = mapped_column(JSONB)
+    score_per_module: Mapped[dict[str, dict[str, int | float]]] = mapped_column(JSONB)
 
     student: Mapped["StudentOrm"] = relationship(back_populates="learning_progress")

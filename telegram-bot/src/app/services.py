@@ -6,6 +6,9 @@ from ..infra.db.conn import session_factory
 from ..infra.db.repos import CourseRepository, StudentRepository
 from .dto import TestResult
 
+# Максимальное количество попыток перепрохождения тестирования
+MAX_TEST_ATTEMPTS = 3
+
 
 def check_multiple_choice_test(
         given_answers: list[int], test: MultipleChoiceTest, passing_score: float = 61.0
@@ -35,16 +38,14 @@ async def save_test_result(
         student_repo = StudentRepository(session)
         course = await course_repo.read(course_id)
         progress = await student_repo.get_learning_progress(student_id)
-        total_score = progress.total_score + result.score
-        score_per_module = progress.score_per_module
-        score_per_module.update({str(module_id): result.score})
-        kwargs = {"total_score": total_score, "score_per_module": score_per_module}
-        module_order = next(
-            (order for order, module in enumerate(course.modules) if module.id == module_id),
-            None,
-        )
+        progress.increment_score(result.score)
         if result.is_passed:
-            module_order += 1
-            if module_order <= len(course.modules):
-                kwargs.update({"current_module_id": str(course.modules[module_order].id)})
-        return await student_repo.update_learning_progress(student_id, **kwargs)
+            module_order = next(
+                (module.order for module in course.modules if module.id == module_id),
+                None,
+            )
+            if module_order is not None and module_order + 1 <= len(course.modules):
+                next_module = course.modules[module_order + 1]
+                progress.switch_to_next_module(next_module.id)
+        await student_repo.refresh_learning_progress(progress)
+        return progress

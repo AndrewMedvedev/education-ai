@@ -77,3 +77,14 @@ GREAT_TEST_RESULT_TEMPLATE = (
     "💯 Набрано баллов: {score}\n"
     "✅ Правильных ответов: <u>{correct_answers_count}"
 )
+
+# Шаблон сообщения для профиля студента
+STUDENT_PROFILE_TEMPLATE = (
+    "<b>👤 Профиль студента {user_mention}:</b>\n\n"
+    "<b>ℹ️ Общая информация:</b>\n"
+    " - ФИО: <u>{full_name}</u>\n"
+    " - Группа: <u>{group}</u>\n\n"
+    "<b>🎓 Учебный прогресс:</b>\n"
+    " - Количество баллов: <u>{total_score}</u>\n"
+    " - Пройдено уроков: <u>{learning_percent}%</u>"
+)
