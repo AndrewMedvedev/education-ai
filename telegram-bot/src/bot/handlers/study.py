@@ -107,6 +107,7 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
 
     await query.answer()
     data = await state.get_data()
+    course_id, module_id = data["course_id"], data["module_id"]
     async with session_factory() as session:
         course_repo = CourseRepository(session)
         module = await course_repo.get_module(callback_data.module_id)
@@ -115,7 +116,7 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
             return
     await query.message.edit_text(
         MODULE_PREVIEW_TEMPLATE.format(title=module.title, description=module.description),
-        reply_markup=get_module_study_kb(),
+        reply_markup=get_module_study_kb(course_id, module_id),
     )
 
 

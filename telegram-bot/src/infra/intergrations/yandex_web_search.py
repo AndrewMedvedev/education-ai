@@ -119,7 +119,7 @@ async def search(query: str) -> list[dict[str, Any]]:
     }
     payload = _build_payload(query)
     async with aiohttp.ClientSession(base_url=BASE_URL) as session, session.post(
-        url="web/search", headers=headers, json=payload
+        url="templates/search", headers=headers, json=payload
     ) as response:
         data = await response.text()
         xml_content = base64.b64decode(json.loads(data)["rawData"]).decode("utf-8")
@@ -151,7 +151,7 @@ async def search_async(query: str, interval: int = 1, max_wait: int = 300) -> li
     }
     payload = _build_payload(query)
     async with aiohttp.ClientSession(base_url=BASE_URL) as session, session.post(
-            url="web/searchAsync", headers=headers, json=payload
+            url="templates/searchAsync", headers=headers, json=payload
     ) as response:
         data = await response.json()
         operation_id = data["id"]

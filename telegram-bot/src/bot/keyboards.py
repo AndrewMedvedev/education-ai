@@ -4,12 +4,13 @@ from enum import StrEnum
 from uuid import UUID
 
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, WebAppInfo
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.core.entities.course import Module
 from src.core.entities.student import Group
 from src.core.entities.user import UserRole
+from src.settings import settings
 
 
 class UserChoiceCbData(CallbackData, prefix="role_choice"):
@@ -91,13 +92,15 @@ class ModuleStudyCbData(CallbackData, prefix="module_learn"):
     action: ModuleAction
 
 
-def get_module_study_kb() -> InlineKeyboardMarkup:
+def get_module_study_kb(course_id: UUID, module_id: UUID) -> InlineKeyboardMarkup:
     """Клавиатура для изучения модуля"""
 
     builder = InlineKeyboardBuilder()
     builder.button(
         text="💻 Изучить теорию",
-        callback_data=ModuleStudyCbData(action=ModuleAction.STUDY_THEORY).pack()
+        web_app=WebAppInfo(
+            url=f"{settings.app.url}/students/courses/{course_id}/modules/{module_id}/theory"
+        ),
     )
     builder.button(
         text="🎯 Пройти тестирование",

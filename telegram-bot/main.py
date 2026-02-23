@@ -7,11 +7,13 @@ from aiogram.enums.parse_mode import ParseMode
 from aiogram.types import Update
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api.routers import router as api_router
+from src.api.views import router as views_router
 from src.bot.handlers import router as bot_router
 from src.bot.setup import storage
-from src.settings import settings
+from src.settings import TEMPLATES_DIR, settings
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,9 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="Education AI API", version="0.1.0", lifespan=lifespan)
+app.mount("/templates", StaticFiles(directory=TEMPLATES_DIR), name="templates")
 app.include_router(api_router)
+app.include_router(views_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
