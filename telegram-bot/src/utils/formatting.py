@@ -5,6 +5,7 @@ from src.core.entities.course import (
     AnyContentBlock,
     AssignmentType,
     ContentType,
+    DetailedAnswerTest,
     Module,
 )
 
@@ -88,3 +89,18 @@ def sanitize_for_telegram(text: str) -> str:
     text = re.sub(r"[-—–]{3,}", "───", text)
     text = re.sub(r"\n\s*\n\s*\n+", "\n\n", text)
     return text.strip()
+
+
+def prepare_test_for_checking(given_answers: list[str], test: DetailedAnswerTest) -> str:
+    """Подготовка тестирования к проверке"""
+
+    context = f"## {test.title}\n\n"
+    for i, (given_answer, question) in enumerate(zip(given_answers, test.questions, strict=False)):
+        context += (
+            f"### Вопрос №{i + 1}:\n"
+            f"**Текст вопроса:** {question.text}\n\n"
+            f"**Ожидаемый ответ:** {question.excepted_answer}\n"
+            f"**Максимальный балл:** {question.points}\n\n"
+            f"**Ответ студента:** {given_answer}\n\n"
+        )
+    return context

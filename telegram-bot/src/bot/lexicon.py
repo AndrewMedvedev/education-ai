@@ -52,6 +52,15 @@ MULTIPLE_CHOICE_QUESTION_TEMPLATE = (
     "{options}"
 )
 
+# Текст сообщения для вопроса с развёрнутым ответом
+DETAILED_ANSWER_QUESTION_TEMPLATE = (
+    "<b>❓ Вопрос №{number}</b>\n"
+    "Пройдено - <u>{passed_percent}%</u>\n\n"
+    "{text}\n\n"
+    "💡 Подсказка:\n"
+    "<tg-spoiler>{hint}</tg-spoiler>\n\n"
+    "<i>Дайте развёрнутый ответ:</i>"
+)
 
 # Шаблоны сообщений с результатами тестирования
 FAILED_TEST_RESULT_TEMPLATE = (
@@ -87,4 +96,9 @@ STUDENT_PROFILE_TEMPLATE = (
     "<b>🎓 Учебный прогресс:</b>\n"
     " - Количество баллов: <u>{total_score}</u>\n"
     " - Пройдено уроков: <u>{learning_percent}%</u>"
+)
+
+AI_FEEDBACK_TEMPLATE = (
+    "<b>💬 Обратная связь:</b>\n\n"
+    "{ai_feedback}"
 )

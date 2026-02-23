@@ -1,4 +1,4 @@
-from fastapi import Body, Depends, status
+"""from fastapi import Body, Depends, status
 from faststream.redis import RedisBroker, fastapi
 
 from src.app.schemas import CourseGenerate
@@ -52,4 +52,4 @@ async def handle_course_generation(
             course_id=course.id, user_id=course.creator_id, prompt=data.prompt
         )
     })
-    await repository.refresh(result["course"])
+    await repository.refresh(result["course"])"""

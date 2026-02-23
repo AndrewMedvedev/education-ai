@@ -27,7 +27,7 @@ async def cmd_profile(message: Message, state: FSMContext) -> None:
         (module.order for module in course.modules if module.id == progress.current_module_id),
         None
     )
-    learning_percent = round((module_order + 1 / len(course.modules)) * 100, 2)
+    learning_percent = round(((module_order + 1) / len(course.modules)) * 100, 2)
     await message.answer(
         STUDENT_PROFILE_TEMPLATE.format(
             user_mention=message.from_user.mention_html(),
