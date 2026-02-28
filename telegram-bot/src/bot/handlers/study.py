@@ -145,8 +145,8 @@ async def cb_take_test(query: CallbackQuery, bot: Bot, state: FSMContext) -> Non
     """Прохождение тестирования по пройденной теории"""
 
     await query.answer()
-    test_type = random.choice([TestType.MULTIPLE_CHOICE, TestType.DETAILED_ANSWER])  # noqa: S311
-    # test_type = TestType.MULTIPLE_CHOICE  # noqa: ERA001
+    # test_type = random.choice([TestType.MULTIPLE_CHOICE, TestType.DETAILED_ANSWER])  # noqa: S311
+    test_type = TestType.MULTIPLE_CHOICE  # noqa: ERA001
     data = await state.get_data()
     async with session_factory() as session:
         repo = CourseRepository(session)
@@ -292,7 +292,7 @@ async def process_detailed_answer(message: Message, state: FSMContext) -> None:
     question_index += 1
     given_answers.append(message.text.strip())
     question = knowledge_test.questions[question_index]
-    await message.edit_text(
+    await message.answer(
         DETAILED_ANSWER_QUESTION_TEMPLATE.format(
             number=question_index + 1,
             passed_percent=round(question_index / len(knowledge_test.questions) * 100, 2),

@@ -2,6 +2,8 @@ from typing import Any
 
 import logging
 import time
+from collections.abc import Callable
+from itertools import starmap
 from uuid import uuid4
 
 import chromadb
@@ -9,8 +11,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 
 from src.settings import CHROMA_PATH
-
-INDEX_NAME = "main-index"
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,12 @@ splitter = RecursiveCharacterTextSplitter(
 )
 
 
-def indexing(text: str, metadata: dict[str, Any] | None = None) -> list[str]:
+def index_document(
+        index_name: str, text: str, metadata: dict[str, Any] | None = None
+) -> list[str]:
     """Индексация и добавление документа в семантический индекс.
 
+    :param index_name: Индекс в который нужно добавить документ.
     :param text: Текст документа.
     :param metadata: Мета-информация документа.
     :returns: Идентификаторы чанков в индексе.
@@ -34,7 +37,7 @@ def indexing(text: str, metadata: dict[str, Any] | None = None) -> list[str]:
         return []
     start_time = time.monotonic()
     logger.info("Starting index document text, length %s characters", len(text))
-    collection = client.get_or_create_collection(INDEX_NAME)
+    collection = client.get_or_create_collection(index_name)
     chunks = splitter.split_text(text)
     ids = [str(uuid4()) for _ in range(len(chunks))]
     embeddings = hf_model.encode_document(chunks, normalize_embeddings=False)
@@ -49,21 +52,39 @@ def indexing(text: str, metadata: dict[str, Any] | None = None) -> list[str]:
     return ids
 
 
-def retrieve(
+def _format_result_default(
+        document: str, metadata: dict[str, Any], distance: float | None = None
+) -> str:
+    return (
+        f"**Relevance score:** {round(distance, 2)}\n"
+        f"**Source:** {metadata.get('source', '')}\n"
+        f"**Category:** {metadata.get('category', '')}\n"
+        "**Document:**\n"
+        f"{document}"
+    )
+
+
+def retrieve_documents(
+        index_name: str,
         query: str,
         metadata_filter: dict[str, Any] | None = None,
         search_string: str | None = None,
         n_results: int = 10,
+        format_result_func: Callable[
+            [str, dict[str, Any], float | None], str
+        ] = _format_result_default,
 ) -> list[str]:
     """Извлечение релевантных документов из семантического индекса.
 
+    :param index_name: Индекс к которому нужно сделать запрос.
     :param query: Запрос для поиска.
     :param metadata_filter: Метаданные для фильтрации, пример: `{"source": "my_file.pdf"}`.
     :param search_string: Подстрока для поиска.
     :param n_results: Количество извлекаемых документов.
+    :param format_result_func: Функция для форматирования результата к строке (тексту).
     """
 
-    collection = client.get_collection(INDEX_NAME)
+    collection = client.get_collection(index_name)
     logger.info("Retrieving for query: '%s...'", query[:50])
     params = {}
     embedding = hf_model.encode_query(query, normalize_embeddings=False)
@@ -76,15 +97,14 @@ def retrieve(
     result = collection.query(
         **params, include=["documents", "metadatas", "distances"]
     )
-    return [
-        (
-            f"**Relevance score:** {round(distance, 2)}\n"
-            f"**Source:** {metadata.get('source', '')}\n"
-            f"**Category:** {metadata.get('category', '')}\n"
-            "**Document:**\n"
-            f"{document}"
+    return list(
+        starmap(
+            format_result_func,
+            zip(
+                result["documents"][0],
+                result["metadatas"][0],
+                result["distances"][0],
+                strict=False
+            )
         )
-        for document, metadata, distance in zip(
-            result["documents"][0], result["metadatas"][0], result["distances"][0], strict=False
-        )
-    ]
+    )

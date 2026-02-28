@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, NonNegativeFloat
 from ... import rag
 from .schemas import CourseContext
 
+INDEX_NAME = "main-index"
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +54,8 @@ def save_knowledge(
         "Saving `%s` knowledge from %s, score %s%%, text: '%s ...'",
         category, source, score, text[:150]
     )
-    rag.indexing(
+    rag.index_document(
+        index_name=INDEX_NAME,
         text=text,
         metadata={
             "tenant_id": str(runtime.context.course_id),
@@ -93,5 +96,7 @@ def knowledge_search(
     else:
         logger.info("Searching knowledge by query `%s`", search_query[:100])
         meta_filter.update(**tenant_filter)
-    docs = rag.retrieve(search_query, metadata_filter=meta_filter)
+    docs = rag.retrieve_documents(
+        index_name=INDEX_NAME, query=search_query, metadata_filter=meta_filter
+    )
     return "\n\n".join(docs)
