@@ -3,7 +3,7 @@ from typing import Literal
 from enum import StrEnum
 from uuid import UUID
 
-from pydantic import BaseModel, Field, NonNegativeFloat
+from pydantic import BaseModel, Field, NonNegativeFloat, PositiveInt
 
 
 class CourseContext(BaseModel):
@@ -52,3 +52,13 @@ class Knowledge(BaseModel):
         le=1.0,
         description="Насколько полезна информация, где 1 максимально релевантная информация"
     )
+
+
+class UserContext(BaseModel):
+    """Контекстная информация пользователя"""
+
+    user_id: PositiveInt
+
+
+class StudentContext(CourseContext, UserContext):
+    """Контекстная информация студента для взаимодействия с чат-ботом"""

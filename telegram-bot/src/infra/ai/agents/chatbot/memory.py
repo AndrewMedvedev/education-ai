@@ -8,7 +8,7 @@ from langchain.tools import ToolRuntime, tool
 from pydantic import BaseModel, Field, NonNegativeFloat
 
 from ... import rag
-from .schemas import UserContext
+from ..schemas import UserContext
 
 INDEX_NAME = "memory-index"
 

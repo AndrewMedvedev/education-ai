@@ -16,7 +16,7 @@ from src.settings import settings
 from src.utils.formatting import get_content_blocks_context, get_module_context
 
 from .... import rag
-from ..schemas import CourseContext, GeneratedContentType
+from ...schemas import CourseContext, GeneratedContentType
 from .practician import call_practice_agent
 from .theorist import call_theory_agent
 

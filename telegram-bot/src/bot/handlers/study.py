@@ -1,5 +1,5 @@
 import asyncio
-import random
+import logging
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
@@ -14,9 +14,9 @@ from src.app.services import (
     check_multiple_choice_test,
     save_test_result,
 )
-from src.core.commons import current_datetime
-from src.core.entities.course import Module, TestType
-from src.core.entities.student import LearningProgress
+from src.core.entities.course import AssignmentType, Module, TestType
+from src.core.entities.student import LearningProgress, StudentTask
+from src.infra.ai.agents.course_generator.subagents.practician import call_practice_agent
 from src.infra.ai.agents.knowledge_tester import call_knowledge_tester
 from src.infra.db.conn import session_factory
 from src.infra.db.repos import CourseRepository, StudentRepository
@@ -28,6 +28,7 @@ from ..keyboards import (
     ModuleStudyCbData,
     OptionChoiceCbData,
     StartTestCbData,
+    get_finish_task_kb,
     get_module_study_kb,
     get_modules_kb,
     get_options_choice_kb,
@@ -40,6 +41,7 @@ from ..lexicon import (
     DETAILED_ANSWER_QUESTION_TEMPLATE,
     FAIL_EFFECT_ID,
     FAILED_TEST_RESULT_TEMPLATE,
+    FILE_UPLOAD_ASSIGNMENT_TEMPLATE,
     FIRE_EFFECT_ID,
     GENERATED_TEST_TEMPLATE,
     GOOD_TEST_RESULT_TEMPLATE,
@@ -47,12 +49,15 @@ from ..lexicon import (
     MODULE_PREVIEW_TEMPLATE,
     MULTIPLE_CHOICE_QUESTION_TEMPLATE,
     PASSED_TEST_RESULT_TEMPLATE,
+    SESSION_EXPIRED_TEXT,
 )
 from ..setup import storage
 
 MAX_TEST_SCORE = 100
 PASSING_TEST_SCORE = 61
 GOOD_TEST_SCORE = 81
+
+logger = logging.getLogger(__name__)
 
 router = Router(name=__name__)
 
@@ -69,34 +74,31 @@ async def cmd_study(message: Message, state: FSMContext) -> None:
         course_repo = CourseRepository(session)
         group = await student_repo.get_student_group(student_id)
         course = await course_repo.read(group.course_id)
-        learn_progress = await student_repo.get_learning_progress(student_id)
-        if learn_progress is None:
+        progress = await student_repo.get_learning_progress(student_id)
+        if progress is None:
             fist_module = course.modules[0]
-            learn_progress = LearningProgress(
-                student_id=student_id,
-                course_id=group.course_id,
-                started_at=current_datetime(),
-                current_module_id=fist_module.id,
+            progress = LearningProgress.start(
+                student_id=student_id, course_id=course.id, first_module_id=fist_module.id
             )
-            await student_repo.save_learning_progress(learn_progress)
+            await student_repo.save_learning_progress(progress)
     module_order = next(
         (
             order
             for order, module in enumerate(course.modules)
-            if module.id == learn_progress.current_module_id
+            if module.id == progress.current_module_id
         ),
         None,
     )
     await state.update_data(
         group_id=group.id,
-        course_id=group.course_id,
-        module_id=learn_progress.current_module_id,
+        course_id=course.id,
+        module_id=progress.current_module_id,
         module_order=module_order,
     )
     await message.answer(
         COURSE_PREVIEW_TEMPLATE.format(title=course.title, description=course.description),
         reply_markup=get_modules_kb(
-            modules=course.modules, current_module_id=learn_progress.current_module_id
+            modules=course.modules, current_module_id=progress.current_module_id
         ),
     )
 
@@ -107,37 +109,45 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
 
     await query.answer()
     data = await state.get_data()
-    course_id, module_id = data["course_id"], data["module_id"]
+    course_id = data.get("course_id")
+    if course_id is None:
+        logger.warning("FSM state is empty, user session is expired!")
+        await query.message.answer(SESSION_EXPIRED_TEXT)
+        return
     async with session_factory() as session:
         course_repo = CourseRepository(session)
+        student_repo = StudentRepository(session)
         module = await course_repo.get_module(callback_data.module_id)
         if module.order > data["module_order"]:
             await query.answer(text="Материал недоступен!", show_alert=True)
             return
+        progress = await student_repo.get_learning_progress(query.from_user.id)
+    is_test_passed = progress.check_is_test_passed(callback_data.module_id)
     await query.message.edit_text(
         MODULE_PREVIEW_TEMPLATE.format(title=module.title, description=module.description),
-        reply_markup=get_module_study_kb(course_id, module_id),
+        reply_markup=get_module_study_kb(course_id, callback_data.module_id, is_test_passed),
     )
 
 
 async def generate_knowledge_test(
     bot: Bot, user_id: int, test_type: TestType, module: Module
 ) -> None:
-    """Задача для фоновой генерации тестирования"""
+    """Фоновая задача для генерации тестирования"""
 
     storage_key = StorageKey(bot_id=bot.id, chat_id=user_id, user_id=user_id)
     state = FSMContext(storage=storage, key=storage_key)
-    knowledge_test = await call_knowledge_tester(test_type, module)
-    await state.update_data(knowledge_test=knowledge_test)
-    await bot.send_message(
-        chat_id=user_id,
-        text=GENERATED_TEST_TEMPLATE.format(
-            title=knowledge_test.title,
-            questions_count=len(knowledge_test.questions),
-            estimated_time_minutes=knowledge_test.estimated_time_minutes,
-        ),
-        reply_markup=get_start_test_kb(),
-    )
+    async with ChatActionSender.typing(chat_id=user_id, bot=bot):
+        knowledge_test = await call_knowledge_tester(test_type, module)
+        await state.update_data(knowledge_test=knowledge_test)
+        await bot.send_message(
+            chat_id=user_id,
+            text=GENERATED_TEST_TEMPLATE.format(
+                title=knowledge_test.title,
+                questions_count=len(knowledge_test.questions),
+                estimated_time_minutes=knowledge_test.estimated_time_minutes,
+            ),
+            reply_markup=get_start_test_kb(),
+        )
 
 
 @router.callback_query(ModuleStudyCbData.filter(F.action == ModuleAction.TAKE_TEST))
@@ -145,12 +155,16 @@ async def cb_take_test(query: CallbackQuery, bot: Bot, state: FSMContext) -> Non
     """Прохождение тестирования по пройденной теории"""
 
     await query.answer()
-    # test_type = random.choice([TestType.MULTIPLE_CHOICE, TestType.DETAILED_ANSWER])  # noqa: S311
-    test_type = TestType.MULTIPLE_CHOICE  # noqa: ERA001
+    test_type = TestType.MULTIPLE_CHOICE
     data = await state.get_data()
+    module_id = data.get("module_id")
+    if module_id is None:
+        logger.warning("FSM state is empty, user session is expired!")
+        await query.message.answer(SESSION_EXPIRED_TEXT)
+        return
     async with session_factory() as session:
         repo = CourseRepository(session)
-        module = await repo.get_module(data["module_id"])
+        module = await repo.get_module(module_id)
     await query.message.answer("🪄✨ Начинаю генерировать тестирование (это займёт 30-60 сек) ...")
     task = asyncio.create_task(
         generate_knowledge_test(
@@ -167,7 +181,11 @@ async def cb_start_test(query: CallbackQuery, state: FSMContext) -> None:
 
     await query.answer()
     data = await state.get_data()
-    knowledge_test = data["knowledge_test"]
+    knowledge_test = data.get("knowledge_test")
+    if knowledge_test is None:
+        logger.warning("FSM state is empty, user session is expired!")
+        await query.message.answer(SESSION_EXPIRED_TEXT)
+        return
     question_index = 0
     first_question = knowledge_test.questions[question_index]
     if knowledge_test.test_type == TestType.MULTIPLE_CHOICE:
@@ -238,12 +256,7 @@ async def process_option_choice(
     )
     if question_index == len(knowledge_test.questions) - 1:
         result = check_multiple_choice_test(given_answers, knowledge_test)
-        await save_test_result(
-            student_id=query.from_user.id,
-            course_id=data["course_id"],
-            module_id=data["module_id"],
-            result=result,
-        )
+        await save_test_result(student_id=query.from_user.id, result=result)
         await show_test_result_message(query.message, result)
         await state.clear()
         await asyncio.sleep(1.2)
@@ -278,12 +291,7 @@ async def process_detailed_answer(message: Message, state: FSMContext) -> None:
     if question_index == len(knowledge_test.questions) - 1:
         await message.answer("🤖 Начинаю проверку тестирования ...")
         result = await check_detailed_answer_test(given_answers, knowledge_test)
-        await save_test_result(
-            student_id=message.from_user.id,
-            course_id=data["course_id"],
-            module_id=data["module_id"],
-            result=result,
-        )
+        await save_test_result(student_id=message.from_user.id, result=result)
         await show_test_result_message(message, result)
         await state.clear()
         await asyncio.sleep(1.2)
@@ -302,3 +310,67 @@ async def process_detailed_answer(message: Message, state: FSMContext) -> None:
     )
     await state.update_data(question_index=question_index, given_answers=given_answers)
     await state.set_state(TestPassingForm.waiting_for_answer)
+
+
+async def create_assignment(
+    bot: Bot, user_id: int, assignment_type: AssignmentType, module: Module
+) -> None:
+    """Фоновая задача для генерации и создания практического задания"""
+
+    assignment = await call_practice_agent(assignment_type, module)
+    task = StudentTask(student_id=user_id, module_id=module.id, assignment=assignment)
+    async with session_factory() as session:
+        repo = StudentRepository(session)
+        await repo.save_task(task)
+    await bot.send_message(
+        chat_id=user_id,
+        text=FILE_UPLOAD_ASSIGNMENT_TEMPLATE.format(
+            description=assignment.description,
+            submission_instructions=assignment.submission_instructions,
+            allowed_extensions="; ".join(assignment.allowed_extensions),
+            status_msg="Завершено" if task.is_finished else "На выполнении",
+        ),
+        reply_markup=get_finish_task_kb(),
+    )
+
+
+@router.callback_query(ModuleStudyCbData.filter(F.action == ModuleAction.START_COMPLETE_TASK))
+async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMContext) -> None:
+    """Приступить к выполнению практического задания"""
+
+    await query.answer()
+    data = await state.get_data()
+    module_id = data.get("module_id")
+    if module_id is None:
+        logger.warning("FSM state is empty, user session is expired!")
+        await query.message.answer(SESSION_EXPIRED_TEXT)
+        return
+    async with session_factory() as session:
+        course_repo = CourseRepository(session)
+        student_repo = StudentRepository(session)
+        task = await student_repo.get_task(student_id=query.from_user.id, module_id=module_id)
+        if task is None:
+            await query.message.answer(
+                "🪄✨ Начинаю генерировать практическое задание (это займёт 30-60 сек) ..."
+            )
+            module = await course_repo.get_module(module_id)
+            task = asyncio.create_task(
+                create_assignment(
+                    bot=bot,
+                    user_id=query.from_user.id,
+                    assignment_type=AssignmentType.FILE_UPLOAD,
+                    module=module,
+                )
+            )
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
+            return
+        assignment = task.assignment
+        await query.message.edit_text(
+            text=FILE_UPLOAD_ASSIGNMENT_TEMPLATE.format(
+                description=assignment.description,
+                submission_instructions=assignment.submission_instructions,
+                allowed_extensions="; ".join(assignment.allowed_extensions),
+                status_msg="Завершено" if task.is_finished else "На выполнении"
+            ), reply_markup=get_finish_task_kb()
+        )

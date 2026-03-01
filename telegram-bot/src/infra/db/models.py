@@ -7,6 +7,7 @@ from sqlalchemy import ARRAY, TEXT, BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.core.entities.student import ModuleProgress
 from src.infra.db.base import Base
 
 
@@ -60,7 +61,9 @@ class CourseOrm(Base):
     title: Mapped[str]
     description: Mapped[str]
     learning_objectives: Mapped[list[str]] = mapped_column(ARRAY(String))
-    modules: Mapped[list["ModuleOrm"]] = relationship(back_populates="course", lazy="selectin")
+    modules: Mapped[list["ModuleOrm"]] = relationship(
+        back_populates="course", lazy="selectin", order_by="ModuleOrm.order"
+    )
     final_assessment: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
 
@@ -87,6 +90,17 @@ class LearningProgressOrm(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     total_score: Mapped[float]
     current_module_id: Mapped[UUID | None] = mapped_column(nullable=True)
-    score_per_module: Mapped[dict[str, dict[str, int | float]]] = mapped_column(JSONB)
+    score_per_module: Mapped[dict[str, ModuleProgress]] = mapped_column(JSONB)
 
     student: Mapped["StudentOrm"] = relationship(back_populates="learning_progress")
+
+
+class StudentTaskOrm(Base):
+    __tablename__ = "student_tasks"
+
+    student_id: Mapped[int] = mapped_column(BigInteger)
+    module_id: Mapped[UUID]
+    assignment: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    submission_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_finished: Mapped[bool]

@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from aiogram.utils.chat_action import ChatActionSender
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from src.infra.ai.agents.chatbot import call_chatbot
+from src.infra.ai.agents.chatbot.agent import call_chatbot
 from src.infra.db.conn import session_factory
 from src.infra.db.repos import StudentRepository
 from src.utils.formatting import sanitize_for_telegram

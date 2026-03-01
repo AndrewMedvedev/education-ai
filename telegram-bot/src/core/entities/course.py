@@ -108,7 +108,6 @@ AnyContentBlock = TextBlock | VideoBlock | CodeBlock | QuizBlock | MermaidBlock 
 class AssignmentType(StrEnum):
     """Тип практического задания"""
 
-    TEST = "test"
     FILE_UPLOAD = "file_upload"
     GITHUB = "github"
 
@@ -119,50 +118,13 @@ class Assignment(ABC, BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     assignment_type: AssignmentType
-    version: NonNegativeInt = Field(
-        default=0,
-        description="""\
-        Версия задания. 0 - оригинальная версия преподавателя.
-        >0 - сгенерированные варианты для предотвращения списывания"""
-    )
-    title: str = Field(..., description="Название")
-    max_score: PositiveInt = Field(
-        ..., description="Максимальное количество баллов, которое можно получить за выполнение"
-    )
+    title: str = Field(..., description="Название задания")
+    description: str = Field(..., description="Детальное описание задания / постановка задачи")
+    evaluation_criteria: list[str] = Field(description="Критерии для оценки работы")
     passing_score: PositiveInt = Field(
-        ..., description="Минимальное количество баллов, которое нужно набрать чтобы сдать задание"
-    )
-
-
-class TestQuestion(BaseModel):
-    """Вопрос внутри тестирования"""
-
-    text: str = Field(..., description="Формулировка задания/вопроса")
-    options: list[str] = Field(
-        default_factory=list,
-        # min_length=1,
-        max_length=7,
-        description="Варианты ответов (порядок имеет значение)"
-    )
-    correct_answers: list[int] = Field(
-        default_factory=list,
-        # min_length=1,
-        max_length=7,
-        description="Индексы правильных ответов начиная с 0",
-        examples=[[0, 3, 4], [1], [2, 5]]
-    )
-    points: PositiveInt = Field(..., description="Количество баллов за правильный ответ")
-
-
-class TestAssignment(Assignment):
-    """Задание в виде теста"""
-
-    assignment_type: AssignmentType = AssignmentType.TEST
-
-    questions: list[TestQuestion] = Field(
-        default_factory=list,
-        # min_length=5,
-        description="Список тестовых вопросов"
+        default=61,
+        le=80,
+        description="Минимальное количество баллов, которое нужно набрать чтобы сдать задание"
     )
 
 
@@ -171,7 +133,6 @@ class FileUploadAssignment(Assignment):
 
     assignment_type: AssignmentType = AssignmentType.FILE_UPLOAD
 
-    task: str = Field(..., description="Подробно сформулированное задание")
     allowed_extensions: list[str] = Field(
         default_factory=lambda: ["*"],
         description="Разрешённые расширения файлов",
@@ -187,14 +148,11 @@ class GitHubAssignment(Assignment):
 
     assignment_type: AssignmentType = AssignmentType.GITHUB
 
-    repository_task: str = Field(
-        ..., description="ТЗ для выполнения задания, включает требования, ожидаемый результат, ..."
-    )
     repository_rules: str = Field(..., description="Правила оформления репозитория")
     required_branch: str = Field(default="main", description="Требуемая ветка для проверки")
 
 
-AnyAssignment = TestAssignment | FileUploadAssignment | GitHubAssignment
+AnyAssignment = FileUploadAssignment | GitHubAssignment
 
 
 class Module(BaseModel):

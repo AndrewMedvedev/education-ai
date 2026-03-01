@@ -6,7 +6,7 @@ from langchain.tools import ToolRuntime, tool
 from pydantic import BaseModel, Field, NonNegativeFloat
 
 from ... import rag
-from .schemas import CourseContext
+from ..schemas import CourseContext
 
 INDEX_NAME = "main-index"
 

@@ -3,8 +3,8 @@
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field, NonNegativeInt
 
+from src.app.schemas import TestResult
 from src.core.entities.course import DetailedAnswerTest
 from src.settings import settings
 from src.utils.formatting import prepare_test_for_checking
@@ -14,7 +14,6 @@ model = ChatOpenAI(
     model=settings.yandexcloud.qwen3_235b,
     base_url=settings.yandexcloud.base_url,
     temperature=0.2,
-    max_retries=3
 )
 
 SYSTEM_PROMPT = """\
@@ -38,31 +37,13 @@ SYSTEM_PROMPT = """\
 """
 
 
-class CheckResult(BaseModel):
-    """Результат проверки"""
-
-    total_points: NonNegativeInt = Field(
-        description="Общая сумма набранных баллов (сумма баллов по всем вопросам)"
-    )
-    correct_answers_count: NonNegativeInt = Field(
-        description="Количество правильных ответов (те ответы, которые имеют не нулевой балл)"
-    )
-    feedback: str | None = Field(
-        default=None,
-        description="""\
-        Краткая обратная связь: можно отметить сильные стороны, указать на типичные ошибки,
-        дать рекомендации. (опционально)
-        """
-    )
-
-
-async def call_test_checker(given_answers: list[str], test: DetailedAnswerTest) -> CheckResult:
+async def call_test_checker(given_answers: list[str], test: DetailedAnswerTest) -> TestResult:
     """Вызов агента для проверки тестирования с развёрнутыми ответами"""
 
     agent = create_agent(
         model=model,
         system_prompt=SYSTEM_PROMPT,
-        response_format=ProviderStrategy(CheckResult),
+        response_format=ProviderStrategy(TestResult),
     )
     result = await agent.ainvoke(
         {"messages": [("human", prepare_test_for_checking(given_answers, test))]}

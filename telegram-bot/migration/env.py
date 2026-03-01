@@ -17,6 +17,7 @@ from src.infra.db.models import (
     TeacherOrm,
     LearningProgressOrm,
     GroupOrm,
+    StudentTaskOrm,
 )
 
 # this is the Alembic Config object, which provides

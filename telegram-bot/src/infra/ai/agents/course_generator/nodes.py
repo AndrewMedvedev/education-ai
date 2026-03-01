@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from src.core.entities.course import Course, CourseStatus
 
-from .schemas import GenerationContext
+from ..schemas import GenerationContext
 from .subagents.module_builder import module_builder_agent
 from .subagents.reasoner import reasoner_agent
 from .subagents.structure_planner import CourseStructure, structure_planner_agent

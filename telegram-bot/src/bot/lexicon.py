@@ -32,7 +32,10 @@ COURSE_PREVIEW_TEMPLATE = (
 MODULE_PREVIEW_TEMPLATE = (
     "<b>📚 {title}</b>\n\n"
     "<i>О чём этот модуль?</i>\n"
-    "<blockquote>{description}</blockquote>"
+    "<blockquote>{description}</blockquote>\n\n"
+    "1. Изучи теорию\n"
+    "2. Пройди тестирование\n"
+    "3. Если ты набрал <u>61</u> и более баллов за тест, то тебе откроется практическое задание"
 )
 
 # Текст сообщения для сгенерированного тестирования
@@ -72,19 +75,19 @@ FAILED_TEST_RESULT_TEMPLATE = (
 PASSED_TEST_RESULT_TEMPLATE = (
     "🔝 Тестирование пройдено!\n\n"
     "👍 Набрано баллов: <b>{score}</b>\n"
-    "✅ Правильных ответов: <u>{correct_answers_count}"
+    "✅ Правильных ответов: <u>{correct_answers_count}</u>"
 )
 
 GOOD_TEST_RESULT_TEMPLATE = (
     "🏅 Вы набрали более 80 баллов!\n\n"
     "💪 Набрано баллов: {score}\n"
-    "✅ Правильных ответов: <u>{correct_answers_count}"
+    "✅ Правильных ответов: <u>{correct_answers_count}</u>"
 )
 
 GREAT_TEST_RESULT_TEMPLATE = (
     "🏆 Вы набрали <b>максимальное</b> количество баллов!\n\n"
     "💯 Набрано баллов: {score}\n"
-    "✅ Правильных ответов: <u>{correct_answers_count}"
+    "✅ Правильных ответов: <u>{correct_answers_count}</u>"
 )
 
 # Шаблон сообщения для профиля студента
@@ -101,4 +104,23 @@ STUDENT_PROFILE_TEMPLATE = (
 AI_FEEDBACK_TEMPLATE = (
     "<b>💬 Обратная связь:</b>\n\n"
     "{ai_feedback}"
+)
+
+# Сообщение при истёкшей сессии
+SESSION_EXPIRED_TEXT = (
+    "⌛ Похоже, что ваша сессия истекла ...\n\n"
+    "<i>Для продолжения обучения нажмите 👇</i>\n"
+    "/study"
+)
+
+# Шаблон сообщения для задания с загрузкой файла
+FILE_UPLOAD_ASSIGNMENT_TEMPLATE = (
+    "<b>🔗 Задание с загрузкой файла</b>\n\n"
+    "<u>📌 Постановка задачи:</u>\n"
+    "{description}\n\n"
+    "<u>⚙️ Инструкция по оформлению:</u>\n"
+    "<blockquote expandable>{submission_instructions}</blockquote>\n\n"
+    "<u>📂 Разрешённые форматы файлов:</u>\n"
+    "{allowed_extensions}\n\n"
+    "<b>Статус:</b> <i>{status_msg}</i>"
 )

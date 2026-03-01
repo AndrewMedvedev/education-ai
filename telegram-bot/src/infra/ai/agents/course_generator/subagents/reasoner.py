@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field
 
 from src.settings import settings
 
+from ...schemas import GenerationContext
 from ...tools import browse_page, web_search
-from ..schemas import GenerationContext
 from ..tools import knowledge_search, save_knowledge
 
 logger = logging.getLogger(__name__)

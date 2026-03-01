@@ -18,7 +18,7 @@ from src.core.entities.course import (
 )
 from src.settings import settings
 
-from ..schemas import CourseContext, GeneratedContentType
+from ...schemas import CourseContext, GeneratedContentType
 from ..tools import knowledge_search
 
 logger = logging.getLogger(__name__)

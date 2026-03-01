@@ -86,26 +86,35 @@ def get_modules_kb(modules: list[Module], current_module_id: UUID) -> InlineKeyb
 class ModuleAction(StrEnum):
     STUDY_THEORY = "study_theory"
     TAKE_TEST = "take_test"
+    START_COMPLETE_TASK = "start_complete_task"
 
 
 class ModuleStudyCbData(CallbackData, prefix="module_learn"):
     action: ModuleAction
 
 
-def get_module_study_kb(course_id: UUID, module_id: UUID) -> InlineKeyboardMarkup:
+def get_module_study_kb(
+        course_id: UUID, module_id: UUID, is_test_passed: bool = False
+) -> InlineKeyboardMarkup:
     """Клавиатура для изучения модуля"""
 
     builder = InlineKeyboardBuilder()
     builder.button(
-        text="💻 Изучить теорию",
+        text="📖 Изучить теорию",
         web_app=WebAppInfo(
             url=f"{settings.app.url}/students/courses/{course_id}/modules/{module_id}/theory"
         ),
     )
-    builder.button(
-        text="🎯 Пройти тестирование",
-        callback_data=ModuleStudyCbData(action=ModuleAction.TAKE_TEST).pack()
-    )
+    if not is_test_passed:
+        builder.button(
+            text="🎯 Пройти тестирование",
+            callback_data=ModuleStudyCbData(action=ModuleAction.TAKE_TEST).pack()
+        )
+    if is_test_passed:
+        builder.button(
+            text="🧪 Выполнить задание",
+            callback_data=ModuleStudyCbData(action=ModuleAction.START_COMPLETE_TASK).pack()
+        )
     builder.adjust(1)
     return builder.as_markup()
 
@@ -134,4 +143,12 @@ def get_options_choice_kb(options: list[str]) -> InlineKeyboardMarkup:
     for i in range(len(options)):
         builder.button(text=f"{i + 1}", callback_data=OptionChoiceCbData(index=i).pack())
     builder.adjust(1)
+    return builder.as_markup()
+
+
+def get_finish_task_kb() -> InlineKeyboardMarkup:
+    """Клавиатура для завершения практического задания"""
+
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🏁 Завершить", callback_data="finish_task")
     return builder.as_markup()

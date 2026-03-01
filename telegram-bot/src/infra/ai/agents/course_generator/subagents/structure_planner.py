@@ -5,7 +5,7 @@ from langchain.agents.structured_output import ProviderStrategy
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from tg_bot.core.config import settings
+from src.settings import settings
 
 SYSTEM_PROMPT = """\
 ## Роль

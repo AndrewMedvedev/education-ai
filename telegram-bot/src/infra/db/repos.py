@@ -5,7 +5,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...core.entities.course import Course, Module
-from ...core.entities.student import Group, LearningProgress
+from ...core.entities.student import Group, LearningProgress, StudentTask
 from ...core.entities.user import AnyUser, Student, Teacher
 from .base import Base
 from .models import (
@@ -15,6 +15,7 @@ from .models import (
     LearningProgressOrm,
     ModuleOrm,
     StudentOrm,
+    StudentTaskOrm,
     TeacherOrm,
     UserOrm,
 )
@@ -134,6 +135,28 @@ class StudentRepository(UserRepository):
 
     async def refresh_learning_progress(self, progress: LearningProgress) -> None:
         model = LearningProgressOrm(**progress.model_dump())
+        await self.session.merge(model)
+        await self.session.commit()
+
+    async def save_task(self, task: StudentTask) -> None:
+        model = StudentTaskOrm(**task.model_dump())
+        self.session.add(model)
+        await self.session.commit()
+
+    async def get_task(self, student_id: int, module_id: UUID) -> StudentTask | None:
+        stmt = (
+            select(StudentTaskOrm)
+            .where(
+                (StudentTaskOrm.student_id == student_id) &
+                (StudentTaskOrm.module_id == module_id)
+            )
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return None if model is None else StudentTask.model_validate(model)
+
+    async def refresh_task(self, task: StudentTask) -> None:
+        model = StudentTaskOrm(**task.model_dump())
         await self.session.merge(model)
         await self.session.commit()
 

@@ -14,9 +14,9 @@ from src.settings import BASE_DIR, settings
 from src.utils.formatting import get_module_context
 
 from ..course_generator.tools import knowledge_search
+from ..schemas import StudentContext
 from .memory import remember, search_memory
 from .prompts import SUMMARY_PROMPT, SYSTEM_PROMPT
-from .schemas import StudentContext
 
 SQLITE_PATH = BASE_DIR / "checkpoint.sqlite"
 

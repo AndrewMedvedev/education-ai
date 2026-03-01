@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt
 
+from ..core.entities.student import PASSING_TEST_SCORE
+
 
 class CourseGenerate(BaseModel):
     """DTO для генерации курса"""
@@ -13,7 +15,38 @@ class CourseGenerate(BaseModel):
 class TestResult(BaseModel):
     """Результаты тестирования"""
 
+    score: NonNegativeFloat = Field(
+        ...,
+        ge=0.0,
+        le=100.0,
+        description="Общая сумма набранных баллов (сумма баллов по всем вопросам), максимум 100"
+    )
+    correct_answers_count: NonNegativeInt = Field(
+        ..., description="Количество правильных ответов (те ответы, которые имеют не нулевой балл)"
+    )
+    ai_feedback: str | None = Field(
+        default=None,
+        description="""\
+        Краткая обратная связь: можно отметить сильные стороны, указать на типичные ошибки,
+        дать рекомендации. (опционально)
+        """,
+    )
+
+    @property
+    def is_passed(self) -> bool:
+        """Пройдено ли тестирование"""
+
+        return self.score >= PASSING_TEST_SCORE
+
+
+class AssignmentResult(BaseModel):
+    """Результаты выполнения практического задания"""
+
     score: NonNegativeFloat = Field(..., ge=0.0, le=100.0, description="Набранные баллы")
-    correct_answers_count: NonNegativeInt = Field(..., description="Количество правильных ответов")
-    is_passed: bool = Field(default=False, description="Пройдено ли тестирование")
-    ai_feedback: str | None = Field(default=None, description="Обратная связь от AI")
+    ai_feedback: str | None = Field(
+        default=None,
+        description="""\
+        Краткая обратная связь: можно отметить сильные стороны, указать на типичные ошибки,
+        дать рекомендации. (опционально)
+        """,
+    )
