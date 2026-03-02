@@ -11,14 +11,26 @@ from src.core.entities.course import (
 
 
 def get_assignment_context(assignment: AnyAssignment) -> str:
-    context = f"## Практическое задание\n**Тип задания**: {assignment.assignment_type}\n"
+    assignment_type_map = {
+        AssignmentType.FILE_UPLOAD: "Задание с загрузкой файла",
+        AssignmentType.GITHUB: "Задание на платформе GitHub"
+    }
+    context = (
+        f"## Практическое задание: '{assignment.title}'\n"
+        f"**{assignment_type_map[assignment.assignment_type]}**\n\n"
+    )
     match assignment.assignment_type:
-        case AssignmentType.TEST:
-            context += "Список вопросов\n"
-            for question in assignment.questions:
-                context += f"Вопрос: {question.text}"
-                for i, option in enumerate(question.options):
-                    context += f" - {i}. {option}\n"
+        case AssignmentType.FILE_UPLOAD:
+            context += (
+                "### Постановка задачи\n"
+                f"{assignment.description}\n\n"
+                "### Инструкция по оформлению\n"
+                f"{assignment.submission_instructions}\n\n"
+            )
+    context += (
+        "### Критерии оценивания"
+        f"{'\n - '.join(assignment.evaluation_criteria)}"
+    )
     context += "\n"
     return context
 

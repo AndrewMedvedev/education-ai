@@ -146,9 +146,13 @@ def get_options_choice_kb(options: list[str]) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+class TaskCbData(CallbackData, prefix="task"):
+    action: Literal["finish"] = "finish"
+
+
 def get_finish_task_kb() -> InlineKeyboardMarkup:
     """Клавиатура для завершения практического задания"""
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="🏁 Завершить", callback_data="finish_task")
+    builder.button(text="🏁 Завершить", callback_data=TaskCbData().pack())
     return builder.as_markup()

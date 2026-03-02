@@ -1,5 +1,7 @@
 import asyncio
+import io
 import logging
+from uuid import UUID
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command
@@ -13,6 +15,7 @@ from src.app.services import (
     check_detailed_answer_test,
     check_multiple_choice_test,
     save_test_result,
+    submit_file_upload_assignment,
 )
 from src.core.entities.course import AssignmentType, Module, TestType
 from src.core.entities.student import LearningProgress, StudentTask
@@ -21,13 +24,14 @@ from src.infra.ai.agents.knowledge_tester import call_knowledge_tester
 from src.infra.db.conn import session_factory
 from src.infra.db.repos import CourseRepository, StudentRepository
 
-from ..fsm import TestPassingForm
+from ..fsm import FileUploadForm, TestPassingForm
 from ..keyboards import (
     ModuleAction,
     ModuleCbData,
     ModuleStudyCbData,
     OptionChoiceCbData,
     StartTestCbData,
+    TaskCbData,
     get_finish_task_kb,
     get_module_study_kb,
     get_modules_kb,
@@ -36,6 +40,7 @@ from ..keyboards import (
 )
 from ..lexicon import (
     AI_FEEDBACK_TEMPLATE,
+    ASSIGNMENT_RESULT_TEMPLATE,
     CONFETTI_EFFECT_ID,
     COURSE_PREVIEW_TEMPLATE,
     DETAILED_ANSWER_QUESTION_TEMPLATE,
@@ -312,7 +317,7 @@ async def process_detailed_answer(message: Message, state: FSMContext) -> None:
     await state.set_state(TestPassingForm.waiting_for_answer)
 
 
-async def create_assignment(
+async def generate_and_create_assignment(
     bot: Bot, user_id: int, assignment_type: AssignmentType, module: Module
 ) -> None:
     """Фоновая задача для генерации и создания практического задания"""
@@ -330,7 +335,7 @@ async def create_assignment(
             allowed_extensions="; ".join(assignment.allowed_extensions),
             status_msg="Завершено" if task.is_finished else "На выполнении",
         ),
-        reply_markup=get_finish_task_kb(),
+        reply_markup=None if task.is_finished else get_finish_task_kb(),
     )
 
 
@@ -355,7 +360,7 @@ async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMConte
             )
             module = await course_repo.get_module(module_id)
             task = asyncio.create_task(
-                create_assignment(
+                generate_and_create_assignment(
                     bot=bot,
                     user_id=query.from_user.id,
                     assignment_type=AssignmentType.FILE_UPLOAD,
@@ -374,3 +379,57 @@ async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMConte
                 status_msg="Завершено" if task.is_finished else "На выполнении"
             ), reply_markup=get_finish_task_kb()
         )
+
+
+@router.callback_query(TaskCbData.filter(F.action == "finish"))
+async def cb_finish_task(query: CallbackQuery, state: FSMContext) -> None:
+    """Завершение выполнения задания"""
+
+    await query.message.edit_text(text="🔗 Прикрепите файл в чат ...")
+    await state.set_state(FileUploadForm.waiting_for_file)
+
+
+async def submit_task_for_checking(
+        bot: Bot, user_id: int, module_id: UUID, file_data: bytes, file_extension: str
+) -> None:
+    """Сдать задание на проверку"""
+
+    storage_key = StorageKey(bot_id=bot.id, chat_id=user_id, user_id=user_id)
+    state = FSMContext(storage=storage, key=storage_key)
+    async with ChatActionSender.typing(chat_id=user_id, bot=bot):
+        result = await submit_file_upload_assignment(
+            student_id=user_id,
+            module_id=module_id,
+            file_data=file_data,
+            file_extension=file_extension,
+        )
+        await bot.send_message(
+            chat_id=user_id,
+            text=ASSIGNMENT_RESULT_TEMPLATE.format(
+                score=result.score, ai_feedback=result.ai_feedback
+            ),
+        )
+    await asyncio.sleep(1.2)
+    await bot.send_message(chat_id=user_id, text="Для продолжения обучения нажмите → /study")
+    await state.clear()
+
+
+@router.message(FileUploadForm.waiting_for_file, F.document)
+async def process_file_upload(message: Message, bot: Bot, state: FSMContext) -> None:
+    """Обработка загруженного файла"""
+
+    data = await state.get_data()
+    file_name = message.document.file_name
+    file_info = await message.bot.get_file(message.document.file_id)
+    buffer = await message.bot.download_file(file_info.file_path, destination=io.BytesIO())
+    task = asyncio.create_task(
+        submit_task_for_checking(
+            bot=bot,
+            user_id=message.from_user.id,
+            module_id=data["module_id"],
+            file_data=buffer.getvalue(),
+            file_extension=f".{file_name.split('.')[-1]}",
+        )
+    )
+    background_tasks.add(task)
+    task.add_done_callback(background_tasks.discard)

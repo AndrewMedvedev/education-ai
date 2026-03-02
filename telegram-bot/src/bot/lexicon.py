@@ -124,3 +124,11 @@ FILE_UPLOAD_ASSIGNMENT_TEMPLATE = (
     "{allowed_extensions}\n\n"
     "<b>Статус:</b> <i>{status_msg}</i>"
 )
+
+# Шаблон сообщения с результатом практического задания
+ASSIGNMENT_RESULT_TEMPLATE = (
+    "<b>✔️ Задание проверено</b>\n\n"
+    "📊 Набрано баллов: <u>{score}</u>\n\n"
+    "<i>💭 Обратная связь</i>\n"
+    "{ai_feedback}"
+)

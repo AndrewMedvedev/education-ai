@@ -3,6 +3,7 @@ from uuid import UUID
 
 from ..core.entities.course import DetailedAnswerTest, MultipleChoiceTest
 from ..core.entities.student import LearningProgress
+from ..infra.ai.agents.assignment_checker import call_assignment_checker
 from ..infra.ai.agents.test_checker import call_test_checker
 from ..infra.db.conn import session_factory
 from ..infra.db.repos import CourseRepository, StudentRepository
@@ -58,15 +59,31 @@ async def submit_file_upload_assignment(
     """Сдать задание с загрузкой файла на проверку"""
 
     async with session_factory() as session:
+        course_repo = CourseRepository(session)
         student_repo = StudentRepository(session)
         task = await student_repo.get_task(student_id, module_id)
         if file_extension not in task.assignment.allowed_extensions:
             logger.warning(
-                "Student submit not allowed extension, extension - `%s`", file_extension
+                "Student submit not allowed extension, extension - `%s`!", file_extension
             )
             raise ValueError(
-                f"Student submit not allowed extension, extension - `{file_extension}`"
+                f"Student submit not allowed extension, extension - `{file_extension}`!"
             )
-        md_text = convert_document_to_md(file_data, file_extension=file_extension)
+        if file_extension == ".md":
+            md_text = file_data.decode("utf-8")
+        else:
+            md_text = convert_document_to_md(file_data, file_extension=file_extension)
         task.add_submission({"file_extension": file_extension, "md_text": md_text})
         await student_repo.refresh_task(task)
+        result = await call_assignment_checker(task.assignment, task.submission_data)
+        progress = await student_repo.get_learning_progress(student_id)
+        progress.increment_assignment_score(result.score)
+        course = await course_repo.read(progress.course_id)
+        current_module = next(
+            (module for module in course.modules if module.id == progress.current_module_id), None
+        )
+        if (current_module.order + 1) <= len(course.modules):
+            next_module = course.modules[current_module.order + 1]
+            progress.switch_to_next_module(next_module.id)
+        await student_repo.refresh_learning_progress(progress)
+    return result

@@ -20,7 +20,13 @@ class TestPassingForm(StatesGroup):
     waiting_for_answer = State()
 
 
-class ChattingForm(StatesGroup):
+class ChatForm(StatesGroup):
     """FSM для чата с AI ассистентом"""
 
     in_message_typing = State()
+
+
+class FileUploadForm(StatesGroup):
+    """Форма для загрузки файла"""
+
+    waiting_for_file = State()

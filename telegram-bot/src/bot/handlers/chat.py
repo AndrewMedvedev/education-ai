@@ -10,7 +10,7 @@ from src.infra.db.conn import session_factory
 from src.infra.db.repos import StudentRepository
 from src.utils.formatting import sanitize_for_telegram
 
-from ..fsm import ChattingForm
+from ..fsm import ChatForm
 from ..lexicon import STUDENT_CMD_MENU_TEXT
 
 router = Router(name=__name__)
@@ -33,10 +33,10 @@ async def cmd_chat(message: Message, state: FSMContext) -> None:
         group = await repo.get_student_group(message.from_user.id)
     await message.answer("Задайте свой вопрос ...")
     await state.update_data(course_id=group.course_id, group_id=group.id)
-    await state.set_state(ChattingForm.in_message_typing)
+    await state.set_state(ChatForm.in_message_typing)
 
 
-@router.message(ChattingForm.in_message_typing, F.text)
+@router.message(ChatForm.in_message_typing, F.text)
 async def process_message(message: Message, state: FSMContext) -> None:
     """Обработка сообщения студента"""
 
@@ -46,7 +46,7 @@ async def process_message(message: Message, state: FSMContext) -> None:
             course_id=data["course_id"], user_id=message.from_user.id, user_prompt=message.text
         )
         await message.reply(text=sanitize_for_telegram(content), reply_markup=get_leave_chat_kb())
-        await state.set_state(ChattingForm.in_message_typing)
+        await state.set_state(ChatForm.in_message_typing)
 
 
 @router.callback_query(F.data == "leave_chat")
