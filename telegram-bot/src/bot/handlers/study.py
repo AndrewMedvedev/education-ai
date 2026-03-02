@@ -422,6 +422,7 @@ async def process_file_upload(message: Message, bot: Bot, state: FSMContext) -> 
     file_name = message.document.file_name
     file_info = await message.bot.get_file(message.document.file_id)
     buffer = await message.bot.download_file(file_info.file_path, destination=io.BytesIO())
+    await message.answer("🪄✨ Проверяю работу (это может занять 30-60 сек) ...")
     task = asyncio.create_task(
         submit_task_for_checking(
             bot=bot,
