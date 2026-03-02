@@ -1,24 +1,15 @@
-from aiogram.utils.formatting import Bold, BotCommand, Text, as_line, as_marked_section
 
-# Эффект сообщения с конфетти
 CONFETTI_EFFECT_ID = "5104841245755180586"
 FAIL_EFFECT_ID = "5104858069142078462"
 FIRE_EFFECT_ID = "5107584321108051014"
 
 # Командное меню студента
-STUDENT_CMD_MENU_TEXT = Text(
-    as_marked_section(
-        Bold("⚙️ Командное меню:"),
-        as_line(BotCommand("/study"), "-", "прохождение курса", sep=" "),
-        as_line(
-            BotCommand("/profile"),
-            "-",
-            "мой профиль (информация о студенте, успеваемость, ...)",
-            sep=" "
-        ),
-        as_line(BotCommand("/chat", "-", "чат с AI ассистентом"), sep=" "),
-        as_line(BotCommand("/info"), "-", "информация о боте", sep=" ")
-        )
+STUDENT_CMD_MENU_TEXT = (
+    "<b>⚙️ Главное меню</b>\n\n"
+    " - /study - <i>🎓 изучение курса</i>\n"
+    " - /profile - <i>👤 мой профиль</i>\n"
+    " - /leaderboard - <i>🏆 доска лидеров</i>\n"
+    " - /info - <i>ℹ️ информация о боте, инструкции</i>"
 )
 
 # Сообщение для превью курса

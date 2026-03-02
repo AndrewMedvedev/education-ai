@@ -2,7 +2,7 @@ __all__ = ["router"]
 
 from aiogram import Router
 
-from .chat import router as chat_router
+from .leaderboard import router as leaderboard_router
 from .profile import router as profile_router
 from .sign_up import router as sign_up_router
 from .start import router as start_router
@@ -15,5 +15,5 @@ router.include_routers(
     sign_up_router,
     study_router,
     profile_router,
-    chat_router
+    leaderboard_router,
 )

@@ -1,9 +1,10 @@
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import delete, insert, select, update
+from sqlalchemy import delete, desc, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ...app.schemas import Leader
 from ...core.entities.course import Course, Module
 from ...core.entities.student import Group, LearningProgress, StudentTask
 from ...core.entities.user import AnyUser, Student, Teacher
@@ -159,6 +160,33 @@ class StudentRepository(UserRepository):
         model = StudentTaskOrm(**task.model_dump())
         await self.session.merge(model)
         await self.session.commit()
+
+    async def get_leaders(self, course_id: UUID, group_id: UUID, limit: int = 5) -> list[Leader]:
+        rank = func.rank().over(order_by=desc(LearningProgressOrm.total_score))
+        stmt = (
+            select(
+                StudentOrm.id,
+                StudentOrm.full_name,
+                StudentOrm.username,
+                LearningProgressOrm.total_score,
+                rank.label("rank")
+            )
+            .join(LearningProgressOrm, StudentOrm.id == LearningProgressOrm.student_id)
+            .where(
+                (StudentOrm.group_id == group_id) &
+                (LearningProgressOrm.course_id == course_id)
+            )
+            .order_by(desc(LearningProgressOrm.total_score))
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        rows = result.all()
+        return [
+            Leader(
+                user_id=row[0], full_name=row[1], username=row[2], total_score=row[3], rank=row[4]
+            )
+            for row in rows
+        ]
 
 
 class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):

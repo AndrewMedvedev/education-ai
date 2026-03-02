@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt
+from pydantic import BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveInt
 
 from ..core.entities.student import PASSING_TEST_SCORE
 
@@ -50,3 +50,13 @@ class AssignmentResult(BaseModel):
         дать рекомендации. (опционально)
         """,
     )
+
+
+class Leader(BaseModel):
+    """Член доски лидеров"""
+
+    user_id: PositiveInt
+    full_name: str
+    username: str | None = None
+    total_score: NonNegativeFloat
+    rank: PositiveInt

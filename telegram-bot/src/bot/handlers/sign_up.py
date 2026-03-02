@@ -98,5 +98,5 @@ async def cb_confirm_sign_up(query: CallbackQuery, state: FSMContext) -> None:
     await query.message.answer(
         text="🎉 Вы успешно зарегистрированы", message_effect_id=CONFETTI_EFFECT_ID
     )
-    await query.message.answer(**STUDENT_CMD_MENU_TEXT.as_kwargs())
+    await query.message.answer(STUDENT_CMD_MENU_TEXT)
     await state.clear()

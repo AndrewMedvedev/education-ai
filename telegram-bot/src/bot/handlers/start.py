@@ -15,7 +15,7 @@ router = Router(name=__name__)
 async def handle_any_user(message: Message, user: AnyUser):
     match user.role:
         case UserRole.STUDENT:
-            await message.answer(**STUDENT_CMD_MENU_TEXT.as_kwargs())
+            await message.answer(STUDENT_CMD_MENU_TEXT)
         case UserRole.TEACHER:
             await message.answer(text="...")
 
