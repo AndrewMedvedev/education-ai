@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import PositiveInt
 
 from src.infra.db.repos import CourseRepository
 from src.settings import TEMPLATES_DIR, settings
@@ -20,6 +21,7 @@ async def get_theory_page(
     request: Request,
     course_id: UUID,
     module_id: str,
+    user_id: PositiveInt = Query(..., description="ID студента"),
     repository: CourseRepository = Depends(get_course_repo),
 ) -> HTMLResponse:
     course = await repository.read(course_id)
@@ -29,6 +31,7 @@ async def get_theory_page(
         context={
             "request": request,
             "course": jsonable_encoder(course),
+            "userId": user_id,
             "moduleId": module_id,
             "baseURL": settings.app.url
         },

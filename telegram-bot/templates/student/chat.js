@@ -1,4 +1,11 @@
-export function initializeChat() {
+import { chat } from "../general/rest.js";
+
+let userId = null;
+let courseId = null;
+
+export function initializeChat(user_id, course_id) {
+  userId = user_id;
+  courseId = course_id;
   const chatToggle = document.getElementById("chatToggle");
   const chatClose = document.getElementById("chatClose");
   const chatInput = document.getElementById("chatInput");
@@ -100,24 +107,26 @@ async function sendMessage() {
 
   try {
     // Здесь будет запрос к вашему API ИИ
-    const response = await getAIResponse(message);
+    const response = await chat(userId, message, courseId);
+
+    if (!response.ok) {
+      addMessage(
+        "Извините, произошла ошибка при получении ответа. Пожалуйста, попробуйте позже.",
+        "ai",
+      );
+    }
+    const result = await response.json();
 
     // Убираем индикатор печатания
     hideTypingIndicator();
 
     // Добавляем ответ ИИ
-    addMessage(response, "ai");
+    addMessage(result.text, "ai");
   } catch (error) {
     console.error("Error getting AI response:", error);
 
     // Убираем индикатор печатания
     hideTypingIndicator();
-
-    // Показываем сообщение об ошибке
-    addMessage(
-      "Извините, произошла ошибка при получении ответа. Пожалуйста, попробуйте позже.",
-      "ai",
-    );
   }
 }
 

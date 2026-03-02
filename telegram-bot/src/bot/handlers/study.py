@@ -130,7 +130,12 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
     is_test_passed = progress.check_is_test_passed(callback_data.module_id)
     await query.message.edit_text(
         MODULE_PREVIEW_TEMPLATE.format(title=module.title, description=module.description),
-        reply_markup=get_module_study_kb(course_id, callback_data.module_id, is_test_passed),
+        reply_markup=get_module_study_kb(
+            course_id=course_id,
+            module_id=callback_data.module_id,
+            user_id=query.from_user.id,
+            is_test_passed=is_test_passed,
+        ),
     )
 
 

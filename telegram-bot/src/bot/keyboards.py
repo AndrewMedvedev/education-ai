@@ -94,17 +94,18 @@ class ModuleStudyCbData(CallbackData, prefix="module_learn"):
 
 
 def get_module_study_kb(
-        course_id: UUID, module_id: UUID, is_test_passed: bool = False
+        course_id: UUID, module_id: UUID, user_id: int, is_test_passed: bool = False
 ) -> InlineKeyboardMarkup:
     """Клавиатура для изучения модуля"""
 
     builder = InlineKeyboardBuilder()
-    builder.button(
-        text="📖 Изучить теорию",
-        web_app=WebAppInfo(
-            url=f"{settings.app.url}/students/courses/{course_id}/modules/{module_id}/theory"
-        ),
+    web_app_url = (
+        f"{settings.app.url}/students"
+        f"/courses/{course_id}"
+        f"/modules/{module_id}"
+        f"/theory?user_id={user_id}"
     )
+    builder.button(text="📖 Изучить теорию", web_app=WebAppInfo(url=web_app_url))
     if not is_test_passed:
         builder.button(
             text="🎯 Пройти тестирование",

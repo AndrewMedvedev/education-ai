@@ -55,7 +55,7 @@ async def call_chatbot(course_id: UUID, user_id: int, user_prompt: str) -> str:
         await checkpointer.setup()
         agent = create_agent(
             model=model,
-            system_prompt=SYSTEM_PROMPT.format(current_datetime()),
+            system_prompt=SYSTEM_PROMPT.format(current_date=current_datetime()),
             context_schema=StudentContext,
             middleware=[summarization_middleware],
             tools=[knowledge_search, get_current_module_context, remember, search_memory],
