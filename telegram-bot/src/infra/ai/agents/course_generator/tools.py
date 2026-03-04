@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 class SaveKnowledgeInput(BaseModel):
     """Аргументы для сохранения знаний"""
 
-    category: Literal["materials", "web_research", "theory"] = Field(
+    category: Literal["data", "web_research", "theory"] = Field(
         default="web_research",
         description="""\
             Тип знаний:
-             - materials - информация полученная из материалов преподавателя
+             - data - информация полученная из материалов преподавателя
              - web_research - информация полученная в ходе изучения предметной области
              - theory - сгенерированный теоретический материал уже созданного курса
             """,
@@ -48,7 +48,7 @@ def save_knowledge(
         source: str,
         text: str,
         score: float,
-        category: Literal["materials", "web_research", "theory"] = "web_research",
+        category: Literal["data", "web_research", "theory"] = "web_research",
 ) -> None:
     logger.info(
         "Saving `%s` knowledge from %s, score %s%%, text: '%s ...'",
@@ -69,7 +69,7 @@ def save_knowledge(
 class KnowledgeSearchInput(BaseModel):
     search_query: str = Field(description="Запрос для поиска информации")
     category: Literal[
-        "materials",
+        "data",
         "web_research",
         "theory"
     ] | None = Field(default=None, description="Тип информации, который нужно найти")
@@ -83,7 +83,7 @@ class KnowledgeSearchInput(BaseModel):
 def knowledge_search(
         runtime: ToolRuntime[CourseContext],
         search_query: str,
-        category: Literal["materials", "web_research", "theory"] | None = None
+        category: Literal["data", "web_research", "theory"] | None = None
 ) -> str:
     meta_filter = {}
     tenant_filter = {"tenant_id": str(runtime.context.course_id)}

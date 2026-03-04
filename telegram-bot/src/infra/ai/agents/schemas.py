@@ -32,11 +32,11 @@ class Knowledge(BaseModel):
     """Знания полученные в ходе создания образовательного курса"""
 
     course_id: str = Field(..., description="ID курса")
-    category: Literal["materials", "web_research", "theory"] = Field(
+    category: Literal["data", "web_research", "theory"] = Field(
         default="web_research",
         description="""\
         Тип знаний:
-         - materials - информация полученная из материалов преподавателя
+         - data - информация полученная из материалов преподавателя
          - web_research - информация полученная в ходе изучения предметной области
          - theory - теоретический материал уже созданного курса
         """

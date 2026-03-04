@@ -112,7 +112,6 @@ async def cmd_study(message: Message, state: FSMContext) -> None:
 async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FSMContext) -> None:
     """Прохождение модуля"""
 
-    await query.answer()
     data = await state.get_data()
     course_id = data.get("course_id")
     if course_id is None:
@@ -124,8 +123,12 @@ async def cb_module(query: CallbackQuery, callback_data: ModuleCbData, state: FS
         student_repo = StudentRepository(session)
         module = await course_repo.get_module(callback_data.module_id)
         if module.order > data["module_order"]:
-            await query.answer(text="Материал недоступен!", show_alert=True)
+            await query.answer(
+                text="Материал недоступен! Пройдите предыдущие модули ...", show_alert=True
+            )
+            await asyncio.sleep(1.2)
             return
+        await query.answer()
         progress = await student_repo.get_learning_progress(query.from_user.id)
     is_test_passed = progress.check_is_test_passed(callback_data.module_id)
     await query.message.edit_text(
@@ -344,8 +347,10 @@ async def generate_and_create_assignment(
     )
 
 
-@router.callback_query(ModuleStudyCbData.filter(F.action == ModuleAction.START_COMPLETE_TASK))
-async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMContext) -> None:
+@router.callback_query(ModuleStudyCbData.filter(F.action == ModuleAction.START_TASK))
+async def cb_start_complete_task(
+        query: CallbackQuery, bot: Bot, callback_data: ModuleStudyCbData, state: FSMContext
+) -> None:
     """Приступить к выполнению практического задания"""
 
     await query.answer()
@@ -358,7 +363,9 @@ async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMConte
     async with session_factory() as session:
         course_repo = CourseRepository(session)
         student_repo = StudentRepository(session)
-        task = await student_repo.get_task(student_id=query.from_user.id, module_id=module_id)
+        task = await student_repo.get_task(
+            student_id=query.from_user.id, module_id=callback_data.id
+        )
         if task is None:
             await query.message.answer(
                 "🪄✨ Начинаю генерировать практическое задание (это займёт 30-60 сек) ..."
@@ -382,7 +389,7 @@ async def cb_start_complete_task(query: CallbackQuery, bot: Bot, state: FSMConte
                 submission_instructions=assignment.submission_instructions,
                 allowed_extensions="; ".join(assignment.allowed_extensions),
                 status_msg="Завершено" if task.is_finished else "На выполнении"
-            ), reply_markup=get_finish_task_kb()
+            ), reply_markup=None if task.is_finished else get_finish_task_kb(),
         )
 
 

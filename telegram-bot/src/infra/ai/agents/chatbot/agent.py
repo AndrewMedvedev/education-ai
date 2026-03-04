@@ -20,10 +20,17 @@ from .prompts import SUMMARY_PROMPT, SYSTEM_PROMPT
 
 SQLITE_PATH = BASE_DIR / "checkpoint.sqlite"
 
+# model = ChatOpenAI(
+#     api_key=settings.yandexcloud.api_key,
+#     model=settings.yandexcloud.qwen3_235b,
+#     base_url=settings.yandexcloud.base_url,
+#     temperature=0.3,
+# )
+
 model = ChatOpenAI(
-    api_key=settings.yandexcloud.api_key,
-    model=settings.yandexcloud.qwen3_235b,
-    base_url=settings.yandexcloud.base_url,
+    api_key=settings.deepseek.api_key,
+    base_url=settings.deepseek.base_url,
+    model=settings.deepseek.deepseek_chat,
     temperature=0.3,
 )
 

@@ -86,10 +86,11 @@ def get_modules_kb(modules: list[Module], current_module_id: UUID) -> InlineKeyb
 class ModuleAction(StrEnum):
     STUDY_THEORY = "study_theory"
     TAKE_TEST = "take_test"
-    START_COMPLETE_TASK = "start_complete_task"
+    START_TASK = "start_task"
 
 
-class ModuleStudyCbData(CallbackData, prefix="module_learn"):
+class ModuleStudyCbData(CallbackData, prefix="module_study"):
+    id: UUID
     action: ModuleAction
 
 
@@ -109,12 +110,14 @@ def get_module_study_kb(
     if not is_test_passed:
         builder.button(
             text="🎯 Пройти тестирование",
-            callback_data=ModuleStudyCbData(action=ModuleAction.TAKE_TEST).pack()
+            callback_data=ModuleStudyCbData(id=module_id, action=ModuleAction.TAKE_TEST).pack()
         )
     if is_test_passed:
         builder.button(
             text="🧪 Выполнить задание",
-            callback_data=ModuleStudyCbData(action=ModuleAction.START_COMPLETE_TASK).pack()
+            callback_data=ModuleStudyCbData(
+                id=module_id, action=ModuleAction.START_TASK
+            ).pack()
         )
     builder.adjust(1)
     return builder.as_markup()

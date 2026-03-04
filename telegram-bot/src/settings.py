@@ -46,6 +46,17 @@ class YandexCloudSettings(BaseSettings):
         return f"gpt://{self.folder_id}/yandexgpt/rc"
 
 
+class DeepSeekSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="DEEPSEEK_")
+
+    api_key: str = "<APIKEY>"
+    base_url: str = "https://api.deepseek.com"
+
+    @property
+    def deepseek_chat(self) -> str:
+        return "deepseek-chat"
+
+
 class PostgresSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="POSTGRES_")
 
@@ -61,27 +72,6 @@ class PostgresSettings(BaseSettings):
         return f"postgresql+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
 
 
-class RedisSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="REDIS_")
-
-    host: str = "redis"
-    port: str = 6379
-
-    @property
-    def url(self) -> str:
-        return f"redis://{self.host}:{self.port}/0"
-
-
-class JWTSettings(BaseSettings):
-    secret_key: str = "<SECRET_KEY>"
-    algorithm: str = "HS256"
-    user_access_token_expires_in_minutes: int = 15
-    user_refresh_token_expires_in_days: int = 7
-    guest_access_token_expires_in_days: int = 10
-
-    model_config = SettingsConfigDict(env_prefix="JWT_")
-
-
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
@@ -91,9 +81,8 @@ class AppSettings(BaseSettings):
 class Settings(BaseSettings):
     telegram: TelegramSettings = TelegramSettings()
     yandexcloud: YandexCloudSettings = YandexCloudSettings()
+    deepseek: DeepSeekSettings = DeepSeekSettings()
     postgres: PostgresSettings = PostgresSettings()
-    redis: RedisSettings = RedisSettings()
-    jwt: JWTSettings = JWTSettings()
     app: AppSettings = AppSettings()
 
 
