@@ -76,7 +76,7 @@ class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
     url: str = "http://localhost:8000"
-    port: int = 10000
+    port: int = 8000
 
 
 class Settings(BaseSettings):
