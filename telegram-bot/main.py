@@ -13,6 +13,7 @@ from src.api.routers import router as api_router
 from src.api.views import router as views_router
 from src.bot.handlers import router as bot_router
 from src.bot.setup import storage
+from src.infra.db.base import create_tables
 from src.settings import TEMPLATES_DIR, settings
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ dp.include_router(bot_router)
 
 
 async def lifespan(_: FastAPI):
+    await create_tables()  # Создание таблиц
     await bot.set_webhook(
         url=WEBHOOK_URL,
         allowed_updates=dp.resolve_used_update_types(),

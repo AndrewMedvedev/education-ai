@@ -14,12 +14,19 @@ from src.core.entities.course import (
 from src.settings import settings
 from src.utils.formatting import get_module_context
 
+# model = ChatOpenAI(
+#     api_key=settings.yandexcloud.api_key,
+#     model=settings.yandexcloud.qwen3_235b,
+#     base_url=settings.yandexcloud.base_url,
+#     temperature=0.2,
+#     max_retries=3
+# )
+
 model = ChatOpenAI(
-    api_key=settings.yandexcloud.api_key,
-    model=settings.yandexcloud.qwen3_235b,
-    base_url=settings.yandexcloud.base_url,
+    api_key=settings.deepseek.api_key,
+    base_url=settings.deepseek.base_url,
+    model=settings.deepseek.deepseek_chat,
     temperature=0.2,
-    max_retries=3
 )
 
 config = {
