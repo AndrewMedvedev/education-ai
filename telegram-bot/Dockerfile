@@ -22,6 +22,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     pip install --no-cache-dir uv && \
     uv sync --frozen --no-install-project --no-dev
 
+ENV PATH="/app/.venv/bin:$PATH"
+
 # ------------------- ЗАГРУЗКА МОДЕЛИ -------------------
 # Теперь, когда зависимости установлены, скачиваем модель эмбеддингов
 # (эта команда сохранит файлы в $HF_HOME)
