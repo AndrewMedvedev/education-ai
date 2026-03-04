@@ -73,4 +73,4 @@ def configure_logging(level=logging.INFO):
 
 if __name__ == "__main__":
     configure_logging()
-    uvicorn.run(app, host="0.0.0.0", port=8000)  # noqa: S104
+    uvicorn.run(app, host="0.0.0.0", port=settings.app.port)  # noqa: S104
