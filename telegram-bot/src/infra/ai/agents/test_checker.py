@@ -1,7 +1,7 @@
 # Агент для проверки тестов с развёрнутыми ответами
 
 from langchain.agents import create_agent
-from langchain.agents.structured_output import ProviderStrategy
+from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
 from langchain_openai import ChatOpenAI
 
 from src.app.schemas import TestResult
@@ -50,7 +50,7 @@ async def call_test_checker(given_answers: list[str], test: DetailedAnswerTest) 
     agent = create_agent(
         model=model,
         system_prompt=SYSTEM_PROMPT,
-        response_format=ProviderStrategy(TestResult),
+        response_format=ToolStrategy(TestResult),
     )
     result = await agent.ainvoke(
         {"messages": [("human", prepare_test_for_checking(given_answers, test))]}

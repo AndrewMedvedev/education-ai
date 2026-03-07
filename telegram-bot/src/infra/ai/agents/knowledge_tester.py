@@ -1,7 +1,7 @@
 # Агент для проверки теоретических знаний
 
 from langchain.agents import create_agent
-from langchain.agents.structured_output import ProviderStrategy
+from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
 from langchain_openai import ChatOpenAI
 
 from src.core.entities.course import (
@@ -44,7 +44,7 @@ config = {
              - индекс правильного варианта ответа (индексация с 0),
              - баллы за вопрос (по умолчанию 1, если не указано иное).
             """,
-            "response_format": ProviderStrategy(MultipleChoiceTest),
+            "response_format": ToolStrategy(MultipleChoiceTest),
         },
     TestType.DETAILED_ANSWER: {
         "system_prompt": """\
@@ -63,7 +63,7 @@ config = {
         Убедись, что вопросы соответствуют содержанию модуля и проверяют глубокое понимание,
         а не простое воспроизведение.
         """,
-        "response_format": ProviderStrategy(DetailedAnswerTest),
+        "response_format": ToolStrategy(DetailedAnswerTest),
     }
 }
 

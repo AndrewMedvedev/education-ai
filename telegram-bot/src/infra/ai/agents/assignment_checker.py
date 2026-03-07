@@ -5,7 +5,7 @@ from typing import Any
 import logging
 
 from langchain.agents import create_agent
-from langchain.agents.structured_output import ProviderStrategy
+from langchain.agents.structured_output import ProviderStrategy, ToolStrategy
 from langchain_openai import ChatOpenAI
 
 from src.app.schemas import AssignmentResult
@@ -63,7 +63,7 @@ async def call_assignment_checker(
     agent = create_agent(
         model=model,
         system_prompt=SYSTEM_PROMPT,
-        response_format=ProviderStrategy(AssignmentResult),
+        response_format=ToolStrategy(AssignmentResult),
     )
     prompt_template = (
         f"{get_assignment_context(assignment)}\n\n"
