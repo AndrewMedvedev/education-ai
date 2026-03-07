@@ -68,14 +68,14 @@ class RememberInput(BaseModel):
     ),
     args_schema=RememberInput,
 )
-def remember(
+async def remember(
         runtime: ToolRuntime[UserContext], text: str, confidence: float, memory_type: MemoryType
 ) -> None:
     logger.info(
         "Remembering [%s] information (conf=%.2f): '%s ...'",
         memory_type, confidence, text[:100]
     )
-    rag.index_document(
+    await rag.index_document(
         index_name=INDEX_NAME,
         text=text,
         metadata={
@@ -131,9 +131,11 @@ def format_result(document: str, metadata: dict[str, Any], distance: float | Non
     """,
     args_schema=SearchMemoryInput,
 )
-def search_memory(runtime: ToolRuntime[UserContext], query: str, memory_type: MemoryType) -> str:
+async def search_memory(
+        runtime: ToolRuntime[UserContext], query: str, memory_type: MemoryType
+) -> str:
     logger.info("Searching [%s] memory for query: '%s ...'", memory_type, query[:100])
-    docs = rag.retrieve_documents(
+    docs = await rag.retrieve_documents(
         index_name=INDEX_NAME,
         query=query,
         metadata_filter={

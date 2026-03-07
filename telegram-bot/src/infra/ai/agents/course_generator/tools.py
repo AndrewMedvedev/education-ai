@@ -43,7 +43,7 @@ class SaveKnowledgeInput(BaseModel):
     description="Сохраняет информацию в базу знаний курса",
     args_schema=SaveKnowledgeInput,
 )
-def save_knowledge(
+async def save_knowledge(
         runtime: ToolRuntime[CourseContext],
         source: str,
         text: str,
@@ -54,7 +54,7 @@ def save_knowledge(
         "Saving `%s` knowledge from %s, score %s%%, text: '%s ...'",
         category, source, score, text[:150]
     )
-    rag.index_document(
+    await rag.index_document(
         index_name=INDEX_NAME,
         text=text,
         metadata={
@@ -80,7 +80,7 @@ class KnowledgeSearchInput(BaseModel):
     description="Поиск информации в базе знаний курса",
     args_schema=KnowledgeSearchInput,
 )
-def knowledge_search(
+async def knowledge_search(
         runtime: ToolRuntime[CourseContext],
         search_query: str,
         category: Literal["data", "web_research", "theory"] | None = None
@@ -96,7 +96,7 @@ def knowledge_search(
     else:
         logger.info("Searching knowledge by query `%s`", search_query[:100])
         meta_filter.update(**tenant_filter)
-    docs = rag.retrieve_documents(
+    docs = await rag.retrieve_documents(
         index_name=INDEX_NAME, query=search_query, metadata_filter=meta_filter
     )
     return "\n\n".join(docs)

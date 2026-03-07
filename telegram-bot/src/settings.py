@@ -72,6 +72,12 @@ class PostgresSettings(BaseSettings):
         return f"postgresql+{self.driver}://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
 
 
+class HuggingFaceSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="HF_")
+
+    space_base_url: str = "http://localhost:8001"
+
+
 class AppSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
@@ -84,6 +90,7 @@ class Settings(BaseSettings):
     yandexcloud: YandexCloudSettings = YandexCloudSettings()
     deepseek: DeepSeekSettings = DeepSeekSettings()
     postgres: PostgresSettings = PostgresSettings()
+    huggingface: HuggingFaceSettings = HuggingFaceSettings()
     app: AppSettings = AppSettings()
 
 
