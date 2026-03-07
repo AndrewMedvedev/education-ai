@@ -75,7 +75,7 @@ class PostgresSettings(BaseSettings):
 class HuggingFaceSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="HF_")
 
-    space_base_url: str = "http://localhost:8001"
+    space_url: str = "http://localhost:8001"
 
 
 class AppSettings(BaseSettings):

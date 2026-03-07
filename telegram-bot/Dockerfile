@@ -9,8 +9,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    HF_HOME=/app/hf_cache
+    UV_LINK_MODE=copy
+    # HF_HOME=/app/hf_cache
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ ENV PATH="/app/.venv/bin:$PATH"
 # ------------------- ЗАГРУЗКА МОДЕЛИ -------------------
 # Теперь, когда зависимости установлены, скачиваем модель эмбеддингов
 # (эта команда сохранит файлы в $HF_HOME)
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('deepvk/USER-bge-m3')"
+# RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('deepvk/USER-bge-m3')"
 # -------------------------------------------------------
 
 # ────────────────────────────────────────────────
@@ -36,8 +36,8 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 FROM python:3.13-slim
 
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    HF_HOME=/app/hf_cache
+    PYTHONDONTWRITEBYTECODE=1
+    # HF_HOME=/app/hf_cache
 
 WORKDIR /app
 
@@ -45,7 +45,7 @@ WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
 
 # Копируем папку с загруженной моделью
-COPY --from=builder /app/hf_cache /app/hf_cache
+# COPY --from=builder /app/hf_cache /app/hf_cache
 
 # Добавляем venv в PATH
 ENV PATH="/app/.venv/bin:$PATH"
