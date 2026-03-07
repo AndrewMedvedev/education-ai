@@ -52,7 +52,6 @@ services:
     restart: unless-stopped
     ports:
       - "8080:80"
-      - "443:443"
     environment:
       SERVER_NAME: ${SERVER_NAME}
     volumes:
