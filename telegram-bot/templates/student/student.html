@@ -4,13 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Курс</title>
-    <link rel="stylesheet" href="/templates/student/student.css" />
+    <link rel="stylesheet" href="../student/student.css" />
     <link
       href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css"
       rel="stylesheet"
     />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <!-- markdown-it (ядро) -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.0.0/dist/markdown-it.min.js"></script>
+
+    <!-- Плагин для таблиц, зачёркнутого текста и автоссылок (GFM) -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-gfm@3.0.0/dist/markdown-it-gfm.min.js"></script>
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"
+    />
   </head>
 
   <body>
@@ -93,9 +103,6 @@
     </script>
 
     <!-- Панель администратора будет добавлена скриптом -->
-    <script
-      src="/templates/student/student.js"
-      type="module"
-    ></script>
+    <script src="../student/student.js" type="module"></script>
   </body>
 </html>

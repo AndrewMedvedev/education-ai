@@ -15,7 +15,6 @@ export function initializeChat(user_id, course_id) {
   chatClose?.addEventListener("click", closeChat);
   chatSend?.addEventListener("click", sendMessage);
 
-  // Отправка по Enter (но Shift+Enter для новой строки)
   chatInput?.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -23,14 +22,10 @@ export function initializeChat(user_id, course_id) {
     }
   });
 
-  // Автоматическое изменение высоты textarea
   chatInput?.addEventListener("input", autoResizeTextarea);
-
-  // Инициализация состояния чата при загрузке
   initializeChatState();
 }
 
-// Инициализация состояния чата
 function initializeChatState() {
   const isChatOpen = sessionStorage.getItem("isChatOpen");
   const chatToggle = document.getElementById("chatToggle");
@@ -47,18 +42,12 @@ function initializeChatState() {
   }
 }
 
-// Переключение чата
 function toggleChat() {
   const currentState = sessionStorage.getItem("isChatOpen") === "true";
-
-  if (currentState) {
-    closeChat();
-  } else {
-    openChat();
-  }
+  if (currentState) closeChat();
+  else openChat();
 }
 
-// Открытие чата
 function openChat() {
   const chatToggle = document.getElementById("chatToggle");
   const chatPanel = document.getElementById("chatPanel");
@@ -73,7 +62,6 @@ function openChat() {
   scrollToBottom();
 }
 
-// Закрытие чата
 function closeChat() {
   const chatToggle = document.getElementById("chatToggle");
   const chatPanel = document.getElementById("chatPanel");
@@ -85,7 +73,6 @@ function closeChat() {
   sessionStorage.setItem("isChatOpen", "false");
 }
 
-// Отправка сообщения
 async function sendMessage() {
   const chatInput = document.getElementById("chatInput");
   const message = chatInput?.value.trim();
@@ -93,23 +80,24 @@ async function sendMessage() {
 
   if (!message || isTyping) return;
 
-  // Добавляем сообщение пользователя
   addMessage(message, "user");
 
-  // Очищаем input
   if (chatInput) {
     chatInput.value = "";
     autoResizeTextarea();
   }
 
-  // Показываем индикатор печатания
   showTypingIndicator();
 
   try {
-    // Здесь будет запрос к вашему API ИИ
     const response = await chat(userId, message, courseId);
 
-    if (!response.ok) {
+    if (response.status === 429) {
+      addMessage(
+        "Ой, мы так увлеклись беседой, что потратили все сегодняшние сообщения! Возвращайся завтра.",
+        "ai",
+      );
+    } else if (!response.ok) {
       addMessage(
         "Извините, произошла ошибка при получении ответа. Пожалуйста, попробуйте позже.",
         "ai",
@@ -124,122 +112,115 @@ async function sendMessage() {
     addMessage(result.text, "ai");
   } catch (error) {
     console.error("Error getting AI response:", error);
-
-    // Убираем индикатор печатания
     hideTypingIndicator();
   }
 }
 
-// Добавление сообщения в чат
 function addMessage(text, sender) {
   const chatMessages = document.getElementById("chatMessages");
   if (!chatMessages) return;
 
   const messageDiv = document.createElement("div");
   messageDiv.className = `chat-message ${sender}-message`;
-
-  // Поддержка markdown-like форматирования
-  const formattedText = formatMessage(text);
-  messageDiv.innerHTML = formattedText;
-
+  messageDiv.innerHTML = formatMessage(text);
   chatMessages.appendChild(messageDiv);
   scrollToBottom();
 }
 
-// Форматирование сообщения (простой markdown)
+// ================== MARKDOWN RENDERER ==================
 function formatMessage(text) {
-  // Экранируем HTML
-  text = escapeHtml(text);
+  // Если markdown-it не загружен – возвращаем экранированный текст с <br>
+  if (typeof window.markdownit !== "function") {
+    console.warn("markdown-it not loaded, fallback to plain text");
+    return escapeHtml(text).replace(/\n/g, "<br>");
+  }
 
-  // Заменяем переносы строк на <br>
-  text = text.replace(/\n/g, "<br>");
-
-  // Жирный текст
-  text = text.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-
-  // Курсив
-  text = text.replace(/\*(.*?)\*/g, "<em>$1</em>");
-
-  // Код
-  text = text.replace(/`(.*?)`/g, "<code>$1</code>");
-
-  // Блоки кода
-  text = text.replace(/```(.*?)```/gs, (match, code) => {
-    return `<pre><code>${escapeHtml(code.trim())}</code></pre>`;
+  const md = window.markdownit({
+    html: false,
+    linkify: true,
+    typographer: true,
+    highlight: function (code, lang) {
+      if (lang && window.hljs && window.hljs.getLanguage(lang)) {
+        try {
+          return (
+            '<pre><code class="hljs language-' +
+            lang +
+            '">' +
+            window.hljs.highlight(code, { language: lang }).value +
+            "</code></pre>"
+          );
+        } catch (__) {}
+      }
+      return "<pre><code>" + escapeHtml(code) + "</code></pre>";
+    },
   });
 
-  return text;
+  // Подключаем GFM-плагин, если он загружен
+  if (window.markdownitGfm) {
+    md.use(window.markdownitGfm);
+  } else {
+    console.warn(
+      "markdown-it-gfm not loaded, tables & strikethrough won't work",
+    );
+  }
+
+  // Подключаем KaTeX-плагин, если загружен
+  if (window.markdownitKatex) {
+    md.use(window.markdownitKatex, {
+      throwOnError: false,
+      output: "html",
+    });
+  } else {
+    console.warn("markdown-it-katex not loaded, LaTeX formulas won't render");
+  }
+
+  let rawHtml = md.render(text);
+
+  // Очистка через DOMPurify
+  if (window.DOMPurify) {
+    rawHtml = window.DOMPurify.sanitize(rawHtml, {
+      USE_PROFILES: { html: true },
+    });
+  } else {
+    console.warn("DOMPurify not loaded, HTML may be unsafe");
+  }
+
+  return rawHtml;
 }
 
-// Экранирование HTML
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }
 
-// Показать индикатор печатания
+// ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
 function showTypingIndicator() {
   const chatMessages = document.getElementById("chatMessages");
   if (!chatMessages) return;
-
   sessionStorage.setItem("isTyping", "true");
-
   const indicator = document.createElement("div");
   indicator.className = "typing-indicator";
   indicator.id = "typingIndicator";
-
-  for (let i = 0; i < 3; i++) {
-    const dot = document.createElement("span");
-    indicator.appendChild(dot);
-  }
-
+  for (let i = 0; i < 3; i++)
+    indicator.appendChild(document.createElement("span"));
   chatMessages.appendChild(indicator);
   scrollToBottom();
 }
 
-// Скрыть индикатор печатания
 function hideTypingIndicator() {
   sessionStorage.setItem("isTyping", "false");
-
-  const indicator = document.getElementById("typingIndicator");
-  if (indicator) {
-    indicator.remove();
-  }
+  document.getElementById("typingIndicator")?.remove();
 }
 
-// Прокрутка вниз
 function scrollToBottom() {
   const chatMessages = document.getElementById("chatMessages");
-  if (chatMessages) {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
+  if (chatMessages) chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// Автоматическое изменение высоты textarea
 function autoResizeTextarea() {
   const chatInput = document.getElementById("chatInput");
   if (!chatInput) return;
-
   chatInput.style.height = "auto";
   chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
-}
-
-// Получение ответа от ИИ (заглушка)
-async function getAIResponse(message) {
-  // Здесь должен быть ваш API запрос
-  // Это просто заглушка для демонстрации
-
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Примеры ответов на основе контекста курса
-  const responses = [
-    "Я могу помочь вам с этим вопросом! Давайте разберем тему подробнее.",
-    "Отличный вопрос! В контексте нашего курса это объясняется следующим образом...",
-    "Вот пример кода, который иллюстрирует ваш вопрос:\n```python\ndef example():\n    print('Hello, World!')\n```",
-    "Рекомендую обратить внимание на видео-материалы в этом модуле, там подробно раскрыта эта тема.",
-    "Это фундаментальный концепт. Если хотите, могу объяснить его более подробно или привести аналогию.",
-  ];
-
-  return responses[Math.floor(Math.random() * responses.length)];
 }

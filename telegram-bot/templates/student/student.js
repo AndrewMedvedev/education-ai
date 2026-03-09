@@ -12,5 +12,5 @@ const module = getModuleById(moduleId, course);
 renderModule(module.content_blocks);
 
 document.addEventListener("DOMContentLoaded", () => {
-  initializeChat(userId, course.id);
+  initializeChat(111, course.id);
 });

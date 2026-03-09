@@ -56,12 +56,5 @@ export function createContentBlock(block, index) {
       break;
   }
 
-  if (block.ai_generated) {
-    const aiMarker = document.createElement("div");
-    aiMarker.className = "ai-generated";
-    aiMarker.textContent = "Сгенерировано ИИ";
-    blockElement.appendChild(aiMarker);
-  }
-
   return blockElement;
 }
