@@ -1,4 +1,3 @@
-
 function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text;
@@ -214,30 +213,28 @@ function getEmbedUrl(url, platform) {
 
 function sanitizeMermaid(code) {
   let clean = code
-    // Удаляем открывающий блок кода
-    .replace(/^```\s*mermaid\s*\n?/i, "")
-    // Удаляем закрывающий блок кода
-    .replace(/```\s*$/i, "")
+    .replace(/^```\s*mermaid\s*\n?/i, "") // удаляем открывающий блок
+    .replace(/```\s*$/i, "") // удаляем закрывающий блок
     .trim();
 
-  // Удаляем все директивы вида %%{...}%%
+  // Удаляем директивы вида %%{...}%%
   clean = clean.replace(/^%%\{[\s\S]*?\}%%\s*\n?/gm, "");
 
-  // Преобразуем diagram в graph с сохранением направления
-  clean = clean.replace(/^(diagram)\s+(LR|RL|TB|BT|TD|DT)/gi, "graph $2");
+  // Заменяем длинные тире (en-dash, em-dash) на обычный дефис во всём тексте
+  clean = clean.replace(/\u2013|\u2014/g, "-");
 
-  // Если есть просто diagram без направления
+  // Преобразуем "diagram" в "graph" (если используется)
+  clean = clean.replace(/^(diagram)\s+(LR|RL|TB|BT|TD|DT)/gi, "graph $2");
   if (clean.toLowerCase().startsWith("diagram ")) {
     clean = "graph " + clean.substring(8);
   } else if (clean.toLowerCase().startsWith("diagram\n")) {
     clean = "graph" + clean.substring(7);
   }
 
-  // Экранируем все специальные символы в тексте узлов
+  // Экранирование специальных символов внутри текста узлов (в квадратных скобках)
   clean = clean.replace(/\[([^\]]+)\]/g, (match, text) => {
-    // Проверяем, содержит ли текст уже HTML-сущности
     if (!text.match(/&#\d+;/g)) {
-      // Экранируем специальные символы
+      // не экранируем уже экранированное
       const escapedText = text
         .replace(/\(/g, "&#40;")
         .replace(/\)/g, "&#41;")
@@ -248,16 +245,16 @@ function sanitizeMermaid(code) {
         .replace(/\#/g, "&#35;")
         .replace(/\;/g, "&#59;")
         .replace(/\+/g, "&#43;")
-        .replace(/\=/g, "&#61;");
-
+        .replace(/\=/g, "&#61;")
+        .replace(/,/g, "&#44;")
+        .replace(/:/g, "&#58;");
       return `[${escapedText}]`;
     }
-    return match; // Если уже есть HTML-сущности, оставляем как есть
+    return match;
   });
 
   // Удаляем возможные пустые строки в начале
   clean = clean.replace(/^\s*\n+/, "");
-
   return clean.trim();
 }
 
@@ -275,7 +272,6 @@ function getContentTypeLabel(type) {
 function getModuleById(moduleId, course) {
   return course.modules.find((module) => module.id === moduleId);
 }
-
 
 export {
   formatTime,
