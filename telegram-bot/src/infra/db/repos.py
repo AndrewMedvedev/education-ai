@@ -1,3 +1,4 @@
+from datetime import date
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -6,12 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...app.schemas import Leader
 from ...core.entities.course import Course, Module
-from ...core.entities.student import Group, LearningProgress, StudentTask
+from ...core.entities.student import DailyChatLimit, Group, LearningProgress, StudentTask
 from ...core.entities.user import AnyUser, Student, Teacher
 from .base import Base
 from .models import (
     AnyUserOrm,
     CourseOrm,
+    DailyChatLimitOrm,
     GroupOrm,
     LearningProgressOrm,
     ModuleOrm,
@@ -187,6 +189,31 @@ class StudentRepository(UserRepository):
             )
             for row in rows
         ]
+
+    async def get_or_create_daily_chat_limit(
+            self, user_id: int, today_date: date
+    ) -> DailyChatLimit:
+        stmt = (
+            select(DailyChatLimitOrm)
+            .where(
+                (DailyChatLimitOrm.user_id == user_id) &
+                (DailyChatLimitOrm.date == today_date)
+            )
+        )
+        result = await self.session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            model = DailyChatLimitOrm(
+                user_id=user_id, date=today_date, max_count=10, current_count=0
+            )
+            self.session.add(model)
+            await self.session.commit()
+        return DailyChatLimit.model_validate(model)
+
+    async def refresh_daily_chat_limit(self, chat_limit: DailyChatLimit) -> None:
+        model = DailyChatLimitOrm(**chat_limit.model_dump())
+        await self.session.merge(model)
+        await self.session.commit()
 
 
 class CourseRepository(SqlAlchemyRepository[Course, CourseOrm]):

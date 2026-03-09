@@ -34,7 +34,7 @@ async def get_embeddings(texts: list[str], batch_size: int = 10) -> list[list[fl
     """
 
     logger.info(
-        "POST: `%s` for get embeddings", f"{settings.huggingface.space_base_url}/embeddings"
+        "POST: `%s` for get embeddings", f"{settings.huggingface.space_url}/embeddings"
     )
     timeout = aiohttp.ClientTimeout(total=120 * 5)
     headers = {"Content-Type": "application/json"}
@@ -42,7 +42,7 @@ async def get_embeddings(texts: list[str], batch_size: int = 10) -> list[list[fl
     for i in range(0, len(texts), batch_size):
         batch_texts = texts[i:i + batch_size]
         async with aiohttp.ClientSession(
-                base_url=settings.huggingface.space_base_url, timeout=timeout
+                base_url=settings.huggingface.space_url, timeout=timeout
         ) as session, session.post(
             url="/embeddings", json={"texts": batch_texts}, headers=headers
         ) as response:
@@ -120,7 +120,7 @@ async def retrieve_documents(
     :param format_result_func: Функция для форматирования результата к строке (тексту).
     """
 
-    collection = client.get_collection(index_name)
+    collection = client.get_or_create_collection(index_name)
     logger.info("Retrieving for query: '%s...'", query[:50])
     params = {}
     embeddings = await get_embeddings([query])

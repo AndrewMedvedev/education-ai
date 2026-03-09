@@ -1,9 +1,9 @@
 from typing import Any
 
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
-from sqlalchemy import ARRAY, TEXT, BigInteger, DateTime, ForeignKey, String
+from sqlalchemy import ARRAY, TEXT, BigInteger, Date, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -104,3 +104,16 @@ class StudentTaskOrm(Base):
     submission_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_finished: Mapped[bool]
+
+
+class DailyChatLimitOrm(Base):
+    """Модель для лимитирования количества сообщений в день для чата с ИИ.
+    По умолчанию максимум 10 сообщений в день.
+    """
+
+    __tablename__ = "daily_chat_limits"
+
+    user_id: Mapped[int] = mapped_column(BigInteger)
+    date: Mapped[date] = mapped_column(Date)
+    max_count: Mapped[int]
+    current_count: Mapped[int]

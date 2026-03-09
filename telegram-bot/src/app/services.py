@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from ..core.commons import current_datetime
 from ..core.entities.course import DetailedAnswerTest, MultipleChoiceTest
 from ..core.entities.student import LearningProgress
 from ..infra.ai.agents.assignment_checker import call_assignment_checker
@@ -87,3 +88,18 @@ async def submit_file_upload_assignment(
             progress.switch_to_next_module(next_module.id)
         await student_repo.refresh_learning_progress(progress)
     return result
+
+
+async def check_daily_chat_limit(user_id: int) -> bool:
+    """Проверка ежедневного лимита сообщений"""
+
+    async with session_factory() as session:
+        student_repo = StudentRepository(session)
+        chat_limit = await student_repo.get_or_create_daily_chat_limit(
+            user_id, today_date=current_datetime().date()
+        )
+        if chat_limit.is_reached:
+            return False
+        chat_limit.increment_count()
+        await student_repo.refresh_daily_chat_limit(chat_limit)
+        return True

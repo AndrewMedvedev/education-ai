@@ -18,6 +18,7 @@ from src.infra.db.models import (
     LearningProgressOrm,
     GroupOrm,
     StudentTaskOrm,
+    DailyChatLimitOrm,
 )
 
 # this is the Alembic Config object, which provides

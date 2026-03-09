@@ -3,7 +3,7 @@ from typing import Any, NotRequired, Self, TypedDict
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, PositiveInt
+from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, PositiveInt
 
 from ..commons import current_datetime
 from .course import AnyAssignment
@@ -132,8 +132,35 @@ class StudentTask(BaseModel):
     is_finished: bool = False
 
     def add_submission(self, submission_data: dict[str, Any]) -> None:
-        """Сдать задание"""
+        """Сдать практическое задание"""
 
         self.submission_data = submission_data
         self.completed_at = current_datetime()
         self.is_finished = True
+
+
+class DailyChatLimit(BaseModel):
+    """Ежедневное лимитирование сообщений для чата с ИИ"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID = Field(default_factory=uuid4)
+    user_id: PositiveInt = Field(..., description="ID пользователя")
+    date: datetime = Field(default_factory=current_datetime, description="Текущая дата")
+    max_count: PositiveInt = Field(
+        default=10, description="Максимальное количество сообщений в день"
+    )
+    current_count: NonNegativeInt = Field(
+        default=0, description="Текущее количество отправленных сообщений"
+    )
+
+    @property
+    def is_reached(self) -> bool:
+        """Достигнут ли максимальный лимит сообщений"""
+
+        return self.current_count >= self.max_count
+
+    def increment_count(self) -> None:
+        """Увеличивает счётчик сообщений на 1"""
+
+        self.current_count += 1

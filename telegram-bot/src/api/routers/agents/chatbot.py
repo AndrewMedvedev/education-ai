@@ -1,11 +1,17 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Query, status
+from fastapi import APIRouter, Body, Depends, Query, status
 from pydantic import PositiveInt
 
 from src.infra.ai.agents.chatbot.agent import call_chatbot
 
-router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
+from ...dependencies import enforce_daily_chat_limit
+
+router = APIRouter(
+    prefix="/chatbot",
+    tags=["Chatbot"],
+    dependencies=[Depends(enforce_daily_chat_limit)],
+)
 
 
 @router.post(
