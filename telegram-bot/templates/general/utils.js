@@ -213,15 +213,15 @@ function getEmbedUrl(url, platform) {
 
 function sanitizeMermaid(code) {
   let clean = code
-    .replace(/^```\s*mermaid\s*\n?/i, "") // удаляем открывающий блок
-    .replace(/```\s*$/i, "") // удаляем закрывающий блок
+    .replace(/^```\s*mermaid\s*\n?/i, "")   // удаляем открывающий блок
+    .replace(/```\s*$/i, "")                // удаляем закрывающий блок
     .trim();
 
   // Удаляем директивы вида %%{...}%%
   clean = clean.replace(/^%%\{[\s\S]*?\}%%\s*\n?/gm, "");
 
   // Заменяем длинные тире (en-dash, em-dash) на обычный дефис во всём тексте
-  clean = clean.replace(/\u2013|\u2014/g, "-");
+  clean = clean.replace(/\u2013|\u2014/g, '-');
 
   // Преобразуем "diagram" в "graph" (если используется)
   clean = clean.replace(/^(diagram)\s+(LR|RL|TB|BT|TD|DT)/gi, "graph $2");
@@ -231,10 +231,12 @@ function sanitizeMermaid(code) {
     clean = "graph" + clean.substring(7);
   }
 
+  // Заключаем заголовки subgraph в кавычки, если они ещё не в кавычках
+  clean = clean.replace(/^(\s*)subgraph\s+([^"\n][^\n]*)/gm, '$1subgraph "$2"');
+
   // Экранирование специальных символов внутри текста узлов (в квадратных скобках)
   clean = clean.replace(/\[([^\]]+)\]/g, (match, text) => {
-    if (!text.match(/&#\d+;/g)) {
-      // не экранируем уже экранированное
+    if (!text.match(/&#\d+;/g)) { // не экранируем уже экранированное
       const escapedText = text
         .replace(/\(/g, "&#40;")
         .replace(/\)/g, "&#41;")
