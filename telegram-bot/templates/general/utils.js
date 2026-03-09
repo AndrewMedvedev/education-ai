@@ -212,18 +212,23 @@ function getEmbedUrl(url, platform) {
 }
 
 function sanitizeMermaid(code) {
+  if (!code) return "";
+
   let clean = code
-    .replace(/^```\s*mermaid\s*\n?/i, "")   // удаляем открывающий блок
-    .replace(/```\s*$/i, "")                // удаляем закрывающий блок
+    .replace(/^```\s*mermaid\s*\n?/i, "")
+    .replace(/```\s*$/i, "")
     .trim();
 
-  // Удаляем директивы вида %%{...}%%
+  // Нормализация переводов строк
+  clean = clean.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // Замена длинных тире на обычный дефис
+  clean = clean.replace(/\u2013|\u2014/g, "-");
+
+  // Удаление директив (если есть)
   clean = clean.replace(/^%%\{[\s\S]*?\}%%\s*\n?/gm, "");
 
-  // Заменяем длинные тире (en-dash, em-dash) на обычный дефис во всём тексте
-  clean = clean.replace(/\u2013|\u2014/g, '-');
-
-  // Преобразуем "diagram" в "graph" (если используется)
+  // Преобразование "diagram" в "graph"
   clean = clean.replace(/^(diagram)\s+(LR|RL|TB|BT|TD|DT)/gi, "graph $2");
   if (clean.toLowerCase().startsWith("diagram ")) {
     clean = "graph " + clean.substring(8);
@@ -231,31 +236,35 @@ function sanitizeMermaid(code) {
     clean = "graph" + clean.substring(7);
   }
 
-  // Заключаем заголовки subgraph в кавычки, если они ещё не в кавычках
-  clean = clean.replace(/^(\s*)subgraph\s+([^"\n][^\n]*)/gm, '$1subgraph "$2"');
+  // Разбиваем на строки для обработки
+  const lines = clean.split("\n");
+  const processedLines = [];
 
-  // Экранирование специальных символов внутри текста узлов (в квадратных скобках)
-  clean = clean.replace(/\[([^\]]+)\]/g, (match, text) => {
-    if (!text.match(/&#\d+;/g)) { // не экранируем уже экранированное
-      const escapedText = text
-        .replace(/\(/g, "&#40;")
-        .replace(/\)/g, "&#41;")
-        .replace(/\[/g, "&#91;")
-        .replace(/\]/g, "&#93;")
-        .replace(/\{/g, "&#123;")
-        .replace(/\}/g, "&#125;")
-        .replace(/\#/g, "&#35;")
-        .replace(/\;/g, "&#59;")
-        .replace(/\+/g, "&#43;")
-        .replace(/\=/g, "&#61;")
-        .replace(/,/g, "&#44;")
-        .replace(/:/g, "&#58;");
-      return `[${escapedText}]`;
-    }
-    return match;
-  });
+  for (let line of lines) {
+    // 1. Обработка subgraph: заключаем заголовок в кавычки
+    line = line.replace(
+      /^(\s*)subgraph\s+(.+?)\s*$/,
+      (match, spaces, title) => {
+        const escapedTitle = title.replace(/"/g, '\\"');
+        return `${spaces}subgraph "${escapedTitle}"`;
+      },
+    );
 
-  // Удаляем возможные пустые строки в начале
+    // 2. Обработка узлов: преобразуем [текст] в ["текст"]
+    line = line.replace(
+      /\b([A-Za-z0-9_]+)\s*\[([^\]]*)\]/g,
+      (match, id, text) => {
+        const escapedText = text.replace(/"/g, '\\"');
+        return `${id}["${escapedText}"]`;
+      },
+    );
+
+    processedLines.push(line);
+  }
+
+  clean = processedLines.join("\n");
+
+  // Удаление пустых строк в начале
   clean = clean.replace(/^\s*\n+/, "");
   return clean.trim();
 }
