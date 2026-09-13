@@ -1,0 +1,27 @@
+services:
+
+  maildev:
+    image: maildev/maildev
+    container_name: maildev
+    environment:
+      - TZ=Asia/Yekaterinburg
+      - MAILDEV_WEB_PORT=${MALIDEV_PORT}
+      - MAILDEV_SMTP_PORT=${MALIDEV_CONSOLE_PORT}
+    ports:
+      - "${MALIDEV_PORT}:8082"
+      - "${MALIDEV_CONSOLE_PORT}:1025"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+
+  browserless:
+    image: ghcr.io/browserless/chromium:v2.54.0
+    container_name: browserless
+    depends_on:
+      - maildev
+    environment:
+      - CONNECTION_TIMEOUT=60000
+      - KEEP_ALIVE=true
+    ports:
+      - "${CHROMIUM_WS_PORT}:3000"

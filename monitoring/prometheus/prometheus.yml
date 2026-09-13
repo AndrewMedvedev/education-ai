@@ -1,0 +1,47 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # FastAPI backend — уже было
+  - job_name: "backend"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["backend:8000"]
+
+  # Dramatiq worker metrics (dramatiq[prometheus], отдельный http-сервер миддлвари)
+  - job_name: "dramatiq"
+    static_configs:
+      - targets: ["dramatiq:9191"] # поменяйте на реальный host:port воркера
+
+  # Postgres — через postgres_exporter
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  # Redis — через redis_exporter
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  # RabbitMQ — встроенный плагин rabbitmq_prometheus (порт 15692)
+  - job_name: "rabbitmq"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["rabbitmq:15692"]
+
+  # Qdrant — метрики встроены нативно, экспортер не нужен
+  - job_name: "qdrant"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets:
+          - "qdrant:6333"
+    http_headers:
+      api-key:
+        files:
+          - /run/secrets/qdrant_api_key
+
+  # cAdvisor — CPU/RAM/сеть по каждому контейнеру, нужен для общего overview-дашборда
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]

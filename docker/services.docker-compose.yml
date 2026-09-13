@@ -1,0 +1,66 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT}:8000"
+    env_file:
+      ../.env.prod
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/docs', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      maildev:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT}:80"
+
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_MEDIA_BASE_URL: ${VITE_MEDIA_BASE_URL}
+      VITE_STORAGE_PUBLIC_HOST: ${VITE_STORAGE_PUBLIC_HOST}
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  backup-ai:
+    image: alpine:3.20
+    container_name: backup-ai
+    restart: unless-stopped
+    volumes:
+      - ../backups:/backups
+      - ../scripts/backup_script.sh:/app/backup.sh:ro
+      - ../.env:/app/.env:ro
+      - ./.docker/minio-data:/minio_data:ro
+    environment:
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - MINIO_ACCESS_KEY_ID=${YANDEX_CLOUD_ACCESS_KEY_ID}
+      - MINIO_SECRET_ACCESS_KEY=${YANDEX_CLOUD_SECRET_ACCESS_KEY}
+      # Yandex Cloud credentials (можно взять из .env)
+      - YANDEX_S3_BUCKET=backups
+      - YANDEX_S3_ENDPOINT=https://storage.yandexcloud.net
+    command: |
+      /bin/sh -c "
+      apk add --no-cache postgresql-client curl openssl
+      echo '0 2 * * * /app/backup.sh >> /var/log/backup.log 2>&1' | crontab -
+      crond -f
+      "

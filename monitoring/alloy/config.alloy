@@ -1,0 +1,40 @@
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Оставляем только нужные контейнеры.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(backend|postgres|redis|rabbitmq|qdrant|dramatiq)"
+    action        = "keep"
+  }
+
+  // /backend -> backend
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container_name"
+    replacement   = "$1"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.docker.receiver]
+}
+
+loki.process "docker" {
+  stage.docker {}
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki-ai:3100/loki/api/v1/push"
+  }
+}

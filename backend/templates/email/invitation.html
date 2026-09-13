@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Приглашение в {{ app_name }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f4f4f4; }
+    .container { max-width: 600px; margin: 0 auto; background: white; padding: 32px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .btn { display: inline-block; background: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; margin: 20px 0; }
+    .footer { margin-top: 40px; font-size: 12px; color: #777; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Здравствуйте!</h1>
+    <p>Вас пригласили присоединиться к системе тикетов <strong>{{ app_name }}</strong> в роли <strong>{{ role }}</strong>.</p>
+
+    <p>Это даст вам возможность:</p>
+    <ul>
+      {% if role == "End User" or role == "Customer Admin" %}
+        <li>Создавать и отслеживать заявки</li>
+        <li>Общаться с поддержкой</li>
+        {% if role == "Customer Admin" %}<li>Управлять пользователями своей организации</li>{% endif %}
+      {% else %}
+        <li>Работать с заявками клиентов</li>
+        <li>Отвечать и управлять статусами</li>
+      {% endif %}
+    </ul>
+
+    <p style="text-align: center;">
+      <a href="{{ invite_url }}" class="btn">Присоединиться →</a>
+    </p>
+
+    <p>Ссылка действительна <strong>{{ expires_in_days }} дней</strong>. После этого её нужно будет запросить заново.</p>
+
+    <p>Если вы не ожидали это письмо — просто проигнорируйте его.</p>
+
+    <div class="footer">
+      С уважением,<br>
+      Команда {{ app_name }}<br>
+      <a href="mailto:{{ support_email }}">{{ support_email }}</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,166 @@
+# ============================================================
+#  ROOT
+# ============================================================
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+
+# ============================================================
+#  BACKEND  (backend/)
+# ============================================================
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+backend/env/
+
+# --- Python cache ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# --- Distribution / packaging ---
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+MANIFEST
+
+# --- Type checking & linting ---
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pylint.d/
+
+# --- Testing ---
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+nosetests.xml
+pytest.xml
+
+# --- Alembic (if used) ---
+# Keep alembic/versions/ tracked; ignore only local state
+alembic/alembic.ini.local
+
+# --- Environment & secrets ---
+.env
+
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+backend/secrets/
+
+# --- Database files ---
+*.db
+*.sqlite
+*.sqlite3
+backend/.chroma/
+
+# --- Uploads / media (runtime) ---
+backend/media/
+backend/uploads/
+backend/static/uploads/
+
+# --- Logs ---
+backend/logs/
+*.log
+
+# --- Jupyter (if any notebooks in backend) ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- uv / pip-tools lock artefacts (keep lock files, ignore caches) ---
+.uv/
+.pip-cache/
+pip-wheel-metadata/
+
+
+# ============================================================
+#  FRONTEND  (frontend/)
+# ============================================================
+
+# --- Dependencies ---
+frontend/node_modules/
+node_modules/
+
+# --- Build output ---
+frontend/dist/
+frontend/build/
+frontend/.next/
+frontend/out/
+
+# --- Vite cache ---
+frontend/.vite/
+
+# --- Environment & secrets ---
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# --- Testing ---
+frontend/coverage/
+frontend/.nyc_output/
+
+# --- Storybook ---
+frontend/storybook-static/
+
+# --- ESLint / Prettier cache ---
+frontend/.eslintcache
+frontend/.prettiercache
+
+# --- Package manager locks (keep ONE, ignore the rest) ---
+# Uncomment whichever you do NOT use:
+# frontend/package-lock.json   # if using yarn / pnpm
+# frontend/yarn.lock            # if using npm / pnpm
+# frontend/pnpm-lock.yaml       # if using npm / yarn
+
+# --- TypeScript incremental build ---
+frontend/*.tsbuildinfo
+
+# --- Local Vite / Webpack analysis ---
+frontend/stats.html
+frontend/bundle-stats.json
+
+
+# ============================================================
+#  DOCKER / INFRA
+# ============================================================
+*.env.docker
+docker-compose.override.yml
+.docker/
+
+
+# ============================================================
+#  CI / CD
+# ============================================================
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraformrc
+terraform.rc
+
+hf_cache
+.env.example

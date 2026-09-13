@@ -1,0 +1,14 @@
+name: dio-ai-courses
+
+include:
+  - docker/databases.docker-compose.yml
+  - docker/exporters.docker-compose.yml
+  - docker/metrics.docker-compose.yml
+  - docker/queues.docker-compose.yml
+  - docker/s3.docker-compose.yml
+  - docker/others.docker-compose.yml
+  - docker/services.docker-compose.yml
+
+networks:
+  default:
+    name: dio-ai-courses-network

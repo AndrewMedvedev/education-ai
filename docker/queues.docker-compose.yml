@@ -1,0 +1,42 @@
+services:
+  rabbitmq:
+    image: rabbitmq:4.3-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "${RABBIT_PORT}:5672"   # AMQP protocol
+      - "${RABBIT_MANAGEMENT_PORT}:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dramatiq:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    command: >
+      dramatiq src.courses.agents.course_generator.workflow
+      --processes 1
+      --threads 4
+      --watch /app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    env_file:
+      - ../.env.prod
+
+
+volumes:
+  rabbitmq_data:

@@ -1,0 +1,400 @@
+.organizations-page {
+    display: grid;
+    gap: 22px;
+}
+
+.organizations-page .section-top {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: start;
+}
+
+.organizations-page .section-top span,
+.organizations-page .section-top h2 {
+    min-width: 0;
+}
+
+.organizations-page .section-top h2 {
+    margin: 0;
+    line-height: 1.15;
+}
+
+.organizations-layout {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 22px;
+    align-items: start;
+}
+
+.organizations-tree {
+    position: sticky;
+    top: 18px;
+    padding: 18px;
+    display: grid;
+    gap: 10px;
+}
+
+.organizations-tree-group {
+    display: grid;
+    gap: 8px;
+}
+
+.organizations-tree-children {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(var(--accent-rgb), 0.28);
+    display: grid;
+    gap: 6px;
+}
+
+.organizations-tree-pagination {
+    margin-left: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.organizations-tree-pagination button {
+    border: 1px solid rgba(var(--accent-rgb), 0.3);
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.06);
+    color: var(--text);
+    padding: 6px 9px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.organizations-tree-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.organizations-tree-item,
+.organizations-tree-child {
+    width: 100%;
+    border: 1px solid rgba(var(--accent-rgb), 0.26);
+    border-radius: 14px;
+    background: rgba(var(--accent-rgb), 0.06);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.16s ease,
+        background 0.16s ease,
+        transform 0.16s ease;
+}
+
+.organizations-tree-item {
+    padding: 12px;
+    display: grid;
+    gap: 4px;
+}
+
+.organizations-tree-child {
+    padding: 9px 10px;
+    font-size: 0.9rem;
+}
+
+.organizations-tree-item span {
+    font-weight: 800;
+}
+
+.organizations-tree-item small {
+    color: var(--muted);
+}
+
+.organizations-tree-item:hover,
+.organizations-tree-child:hover,
+.organizations-tree-item.is-active,
+.organizations-tree-child.is-active {
+    border-color: rgba(var(--accent-rgb), 0.62);
+    background: rgba(var(--accent-rgb), 0.14);
+    transform: translateY(-1px);
+}
+
+.organizations-content {
+    min-width: 0;
+    display: grid;
+    gap: 18px;
+}
+
+.organization-message {
+    padding: 16px 18px;
+}
+
+.organization-message p {
+    margin: 0;
+    color: var(--success-text);
+    font-weight: 700;
+}
+
+.organization-message.is-error p {
+    color: #b42318;
+}
+
+.organization-panel {
+    padding: 24px;
+    display: grid;
+    gap: 18px;
+}
+
+.organization-panel h3,
+.organization-card h4 {
+    margin: 0;
+    color: var(--heading);
+}
+
+.organization-panel-head,
+.organization-card-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.organization-card-actions,
+.organization-card-actions-row,
+.organization-form-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.organization-card-actions {
+    justify-content: flex-end;
+}
+
+.organization-card-actions-row {
+    justify-content: flex-start;
+}
+
+.organization-open-field {
+    width: fit-content;
+    max-width: 100%;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    text-align: left;
+    display: grid;
+    gap: 6px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.organization-open-field strong {
+    color: var(--heading);
+    font-size: 1rem;
+}
+
+.organization-open-field span {
+    color: var(--muted);
+}
+
+.organization-open-field:hover strong,
+.organization-open-field:focus-visible strong {
+    color: var(--accent);
+}
+
+.organization-kicker,
+.organization-total,
+.organization-muted,
+.organization-description,
+.organization-card-summary p {
+    color: var(--muted);
+}
+
+.organization-kicker {
+    display: inline-flex;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.organization-total {
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.organization-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+
+.organization-form label,
+.organization-inline-field {
+    display: grid;
+    gap: 7px;
+}
+
+.organization-card-title {
+    min-width: 0;
+    display: grid;
+    gap: 10px;
+}
+
+.organization-form label > span,
+.organization-inline-field > span {
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.organization-form input,
+.organization-form textarea,
+.organization-inline-field input,
+.organization-inline-field textarea {
+    width: 100%;
+    border: 1px solid rgba(var(--accent-rgb), 0.36);
+    background: rgba(var(--accent-rgb), 0.08);
+    border-radius: 12px;
+    padding: 11px 12px;
+    font: inherit;
+    color: var(--text);
+    outline: none;
+}
+
+.organization-form textarea,
+.organization-inline-field textarea {
+    min-height: 92px;
+    resize: vertical;
+}
+
+.organization-inline-description {
+    width: 100%;
+}
+
+.organization-form input:focus,
+.organization-form textarea:focus,
+.organization-inline-field input:focus,
+.organization-inline-field textarea:focus {
+    border-color: rgba(var(--accent-rgb), 0.82);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+
+.organization-form-wide {
+    grid-column: 1 / -1;
+}
+
+.organization-field-error {
+    color: #b42318;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.organization-list {
+    display: grid;
+    gap: 16px;
+}
+
+.organization-card {
+    border: 1px solid rgba(var(--accent-rgb), 0.28);
+    border-radius: 18px;
+    padding: 18px;
+    display: grid;
+    gap: 14px;
+    background: rgba(var(--accent-rgb), 0.05);
+}
+
+.organization-card-summary p,
+.organization-description {
+    margin: 6px 0 0;
+}
+
+.organization-status {
+    flex: 0 0 auto;
+    border: 1px solid rgba(var(--success-rgb), 0.4);
+    border-radius: 999px;
+    padding: 6px 10px;
+    color: var(--success-text);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.organization-status.is-inactive {
+    border-color: rgba(180, 35, 24, 0.34);
+    color: #b42318;
+}
+
+.organization-meta {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.organization-meta div {
+    min-width: 0;
+}
+
+.organization-meta dt {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.organization-meta dd {
+    margin: 4px 0 0;
+    color: var(--text);
+    overflow-wrap: anywhere;
+}
+
+.organization-danger-btn {
+    justify-self: start;
+    color: #b42318;
+    border-color: rgba(180, 35, 24, 0.34);
+}
+
+.page[data-theme="dark"] .organization-form input,
+.page[data-theme="dark"] .organization-form textarea,
+.page[data-theme="dark"] .organization-inline-field input,
+.page[data-theme="dark"] .organization-inline-field textarea,
+.page[data-theme="dark"] .organizations-tree-item,
+.page[data-theme="dark"] .organizations-tree-child,
+.page[data-theme="dark"] .organizations-tree-pagination button {
+    color: var(--heading);
+    background: rgba(24, 24, 24, 0.75);
+    border-color: rgba(var(--accent-rgb), 0.56);
+}
+
+@media (max-width: 1100px) {
+    .organizations-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .organizations-tree {
+        position: static;
+    }
+}
+
+@media (max-width: 760px) {
+    .organization-panel,
+    .organization-card,
+    .organizations-tree {
+        padding: 18px;
+    }
+
+    .organization-panel-head,
+    .organization-card-summary {
+        flex-direction: column;
+    }
+
+    .organization-card-actions {
+        justify-content: flex-start;
+    }
+
+    .organization-form,
+    .organization-meta {
+        grid-template-columns: 1fr;
+    }
+}

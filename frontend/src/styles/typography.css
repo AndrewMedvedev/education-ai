@@ -1,0 +1,376 @@
+/* Typography and reading rhythm for every route except the landing page. */
+.page.is-inner-page main {
+  font-size: 1.04rem;
+  letter-spacing: 0.008em;
+}
+
+.page.is-inner-page main p,
+.page.is-inner-page main li {
+  font-size: 1rem;
+  line-height: 1.72;
+  letter-spacing: 0.012em;
+}
+
+.page.is-inner-page main h1 {
+  font-size: clamp(1.8rem, 3.4vw, 2.75rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.page.is-inner-page main h2 {
+  font-size: clamp(1.42rem, 2.4vw, 2rem);
+  line-height: 1.28;
+  letter-spacing: -0.016em;
+}
+
+.page.is-inner-page main h3 {
+  font-size: clamp(1.08rem, 1.8vw, 1.35rem);
+  line-height: 1.38;
+  letter-spacing: -0.008em;
+}
+
+.page.is-inner-page main button,
+.page.is-inner-page main input,
+.page.is-inner-page main textarea,
+.page.is-inner-page main select {
+  font-size: 0.96rem;
+  line-height: 1.45;
+}
+
+.page.is-inner-page .section-top {
+  margin-bottom: 8px;
+}
+
+.page.is-inner-page .section-top span {
+  color: var(--eyebrow);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+}
+
+.page.is-inner-page .section-top h2 {
+  color: var(--heading);
+}
+
+.page.is-inner-page .course-category {
+  color: var(--info-text);
+  font-size: 0.88rem;
+  letter-spacing: 0.09em;
+}
+
+.page.is-inner-page .lesson-summary {
+  margin-top: 16px;
+  color: var(--ink-accent);
+  font-size: 1.08rem;
+  line-height: 1.68;
+  letter-spacing: 0.01em;
+}
+
+.page.is-inner-page .course-nav-tree-head strong {
+  font-size: 1.04rem;
+  line-height: 1.4;
+}
+
+.page.is-inner-page .course-nav-block-btn {
+  gap: 10px;
+  padding: 9px 0;
+}
+
+.page.is-inner-page .course-nav-block-btn strong {
+  font-size: 0.98rem;
+  line-height: 1.45;
+}
+
+.page.is-inner-page .course-nav-item-list {
+  gap: 5px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.page.is-inner-page .course-nav-item-btn {
+  min-height: 42px;
+  gap: 10px;
+  padding: 8px 10px;
+}
+
+.page.is-inner-page .course-nav-item-number {
+  color: var(--info-text);
+  font-size: 0.88rem;
+}
+
+.page.is-inner-page .course-nav-item-title {
+  font-size: 0.94rem;
+  line-height: 1.42;
+}
+
+.page.is-inner-page .lesson-main-card {
+  padding: 6px;
+}
+
+.page.is-inner-page .practice-main-card {
+  padding: 28px;
+}
+
+.page.is-inner-page .lesson-markdown {
+  margin-top: 18px;
+  padding: clamp(20px, 2.6vw, 32px);
+  border-color: rgba(var(--accent-rgb), 0.38);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.12));
+}
+
+.page.is-inner-page .lesson-markdown h2,
+.page.is-inner-page .lesson-markdown h3,
+.page.is-inner-page .lesson-markdown h4 {
+  font-family: "Unbounded", sans-serif;
+}
+
+.page.is-inner-page .lesson-markdown h2 {
+  margin: 34px 0 16px;
+  color: var(--heading);
+  font-size: clamp(1.3rem, 2vw, 1.65rem);
+  line-height: 1.38;
+}
+
+.page.is-inner-page .lesson-markdown h3 {
+  margin: 28px 0 13px;
+  color: var(--ink-accent);
+  font-size: clamp(1.08rem, 1.5vw, 1.28rem);
+  line-height: 1.45;
+}
+
+.page.is-inner-page .lesson-markdown h4 {
+  margin: 24px 0 11px;
+  color: var(--info-text);
+  font-size: 1.04rem;
+  line-height: 1.48;
+}
+
+.page.is-inner-page .lesson-markdown p,
+.page.is-inner-page .lesson-markdown li {
+  color: var(--text);
+  font-size: clamp(1rem, 1.15vw, 1.08rem);
+  line-height: 1.82;
+  letter-spacing: 0.014em;
+}
+
+.page.is-inner-page .lesson-markdown p {
+  margin: 0 0 18px;
+}
+
+.page.is-inner-page .lesson-markdown ul,
+.page.is-inner-page .lesson-markdown ol {
+  margin: 14px 0 22px;
+  padding-left: 28px;
+}
+
+.page.is-inner-page .lesson-markdown li {
+  padding-left: 5px;
+}
+
+.page.is-inner-page .lesson-markdown li + li {
+  margin-top: 8px;
+}
+
+.page.is-inner-page .lesson-markdown li::marker {
+  color: var(--info-text);
+  font-weight: 800;
+}
+
+.page.is-inner-page .lesson-markdown strong {
+  color: var(--ink-accent);
+  font-weight: 800;
+}
+
+.page.is-inner-page .lesson-markdown em {
+  color: var(--info-text);
+}
+
+.page.is-inner-page .lesson-markdown a {
+  color: #456fa8;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.page.is-inner-page .lesson-markdown blockquote {
+  margin: 22px 0;
+  border-left: 4px solid #c98245;
+  border-radius: 0 12px 12px 0;
+  background: rgba(201, 130, 69, 0.11);
+  padding: 14px 18px;
+}
+
+.page.is-inner-page .lesson-markdown blockquote p {
+  margin: 0;
+  color: #79502f;
+}
+
+.page.is-inner-page .lesson-markdown blockquote strong {
+  color: #9a5f2d;
+}
+
+.page.is-inner-page .lesson-markdown hr {
+  height: 1px;
+  margin: 30px 0;
+  border: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(var(--accent-rgb), 0.7),
+    transparent
+  );
+}
+
+.page.is-inner-page .lesson-markdown table {
+  width: 100%;
+  max-width: 100%;
+  margin: 22px 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.page.is-inner-page .lesson-markdown th,
+.page.is-inner-page .lesson-markdown td {
+  padding: 12px 14px;
+  font-size: 0.96rem;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.page.is-inner-page .lesson-markdown th {
+  color: var(--ink-accent);
+  background: rgba(var(--accent-rgb), 0.16);
+}
+
+/* Habr-like code surface and token palette. */
+.page.is-inner-page .lesson-markdown pre {
+  width: 100%;
+  max-width: 100%;
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid rgba(91, 111, 138, 0.44);
+  border-radius: 14px;
+  background: #202631;
+  color: #d8dee9;
+  box-shadow:
+    0 14px 32px rgba(31, 38, 49, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  tab-size: 4;
+}
+
+.page.is-inner-page .lesson-markdown pre code {
+  display: block;
+  min-width: max-content;
+  color: #d8dee9;
+  font-size: clamp(0.9rem, 1.05vw, 0.98rem);
+  line-height: 1.72;
+  letter-spacing: 0.005em;
+}
+
+.page.is-inner-page .syntax-highlighted-code::before {
+  content: attr(data-language);
+  display: block;
+  width: fit-content;
+  margin: -8px 0 13px;
+  border: 1px solid rgba(171, 178, 191, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.055);
+  color: #8f9baa;
+  padding: 3px 9px;
+  font-family: "Manrope", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.syntax-comment {
+  color: #7f8c98;
+  font-style: italic;
+}
+
+.syntax-string {
+  color: #cbaacb;
+}
+
+.syntax-number,
+.syntax-decorator {
+  color: #d19a66;
+}
+
+.syntax-keyword,
+.syntax-preprocessor {
+  color: #c678dd;
+  font-weight: 700;
+}
+
+.syntax-type {
+  color: #56b6c2;
+}
+
+.syntax-literal {
+  color: #e06c75;
+  font-weight: 700;
+}
+
+.syntax-builtin,
+.syntax-function {
+  color: #61afef;
+}
+
+.syntax-class,
+.syntax-property {
+  color: #e5c07b;
+}
+
+.syntax-operator {
+  color: #56b6c2;
+}
+
+.syntax-punctuation {
+  color: #abb2bf;
+}
+
+.syntax-bracket {
+  color: #d7ba7d;
+  font-weight: 700;
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown h3 {
+  color: #e5c07b;
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown h4,
+.page[data-theme="dark"].is-inner-page .lesson-markdown em,
+.page[data-theme="dark"].is-inner-page .lesson-markdown a {
+  color: #8fc7ff;
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown blockquote p {
+  color: #e5c5a7;
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown blockquote {
+  border-left-color: #d0935f;
+  background: rgba(208, 147, 95, 0.12);
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown blockquote strong {
+  color: #e0a66c;
+}
+
+.page[data-theme="dark"].is-inner-page .lesson-markdown pre {
+  border-color: rgba(143, 155, 170, 0.3);
+  background: #171c24;
+}

@@ -1,0 +1,8 @@
+Generic single-database configuration.
+Alembic migrations for the backend database.
+
+Run from backend:
+
+    alembic upgrade head
+
+The database URL is read from COURSES_DATABASE_URL, with sqlite:///./courses.db as fallback.

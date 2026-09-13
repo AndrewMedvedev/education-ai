@@ -1,0 +1,247 @@
+.models-page {
+    display: grid;
+    gap: 22px;
+}
+
+.models-page .section-top {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: start;
+}
+
+.model-message {
+    padding: 16px 18px;
+}
+
+.model-message p {
+    margin: 0;
+    color: var(--success-text);
+    font-weight: 700;
+}
+
+.model-message.is-error p,
+.model-field-error {
+    color: #b42318;
+}
+
+.model-panel,
+.model-create-box,
+.model-card {
+    display: grid;
+    gap: 18px;
+}
+
+.model-panel {
+    padding: 24px;
+}
+
+.model-create-box,
+.model-card {
+    border: 1px solid rgba(var(--accent-rgb), 0.28);
+    border-radius: 18px;
+    padding: 18px;
+    background: rgba(var(--accent-rgb), 0.05);
+}
+
+.model-panel h3,
+.model-panel h4,
+.model-card h4 {
+    margin: 0;
+    color: var(--heading);
+}
+
+.model-panel-head,
+.model-card-summary,
+.model-form-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.model-form-actions {
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.model-kicker,
+.model-muted,
+.model-card-title p,
+.model-context-preview span {
+    color: var(--muted);
+}
+
+.model-kicker {
+    display: inline-flex;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.model-muted {
+    margin: 0;
+    font-weight: 700;
+}
+
+.model-list {
+    display: grid;
+    gap: 16px;
+}
+
+.model-card-title {
+    min-width: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.model-description-empty,
+.model-description-item p {
+    margin: 0;
+}
+
+.model-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+
+.model-form label {
+    display: grid;
+    gap: 7px;
+}
+
+.model-form label > span {
+    color: var(--text);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.model-form input,
+.model-form textarea {
+    width: 100%;
+    border: 1px solid rgba(var(--accent-rgb), 0.36);
+    background: rgba(var(--accent-rgb), 0.08);
+    border-radius: 12px;
+    padding: 11px 12px;
+    font: inherit;
+    color: var(--text);
+    outline: none;
+}
+
+.model-form textarea {
+    min-height: 92px;
+    resize: vertical;
+}
+
+.model-form .model-context-input {
+    min-height: 150px;
+}
+
+.model-form input:focus,
+.model-form textarea:focus {
+    border-color: rgba(var(--accent-rgb), 0.82);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12);
+}
+
+.model-form-wide {
+    grid-column: 1 / -1;
+}
+
+.model-field-error {
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.model-description-empty {
+    color: var(--muted);
+}
+
+.model-description-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px;
+}
+
+.model-description-item {
+    min-width: 0;
+    border: 1px solid rgba(var(--accent-rgb), 0.22);
+    border-radius: 14px;
+    padding: 11px 12px;
+    background: rgba(var(--accent-rgb), 0.06);
+    display: grid;
+    gap: 6px;
+}
+
+.model-description-item span,
+.model-context-chip span {
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.model-description-item p {
+    color: var(--text);
+    line-height: 1.45;
+}
+
+.model-card-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.model-context-chip {
+    max-width: 100%;
+    border: 1px solid rgba(var(--accent-rgb), 0.24);
+    border-radius: 999px;
+    padding: 8px 11px;
+    background: rgba(var(--accent-rgb), 0.07);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-context-chip strong {
+    color: var(--text);
+    font-size: 0.88rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-danger-btn {
+    color: #b42318;
+    border-color: rgba(180, 35, 24, 0.34);
+}
+
+.page[data-theme="dark"] .model-form input,
+.page[data-theme="dark"] .model-form textarea {
+    color: var(--heading);
+    background: rgba(24, 24, 24, 0.75);
+    border-color: rgba(var(--accent-rgb), 0.56);
+}
+
+@media (max-width: 760px) {
+    .model-panel,
+    .model-create-box,
+    .model-card {
+        padding: 18px;
+    }
+
+    .model-panel-head,
+    .model-card-summary {
+        flex-direction: column;
+    }
+
+    .model-form {
+        grid-template-columns: 1fr;
+    }
+}

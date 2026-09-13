@@ -1,0 +1,58 @@
+groups:
+  - name: backend-errors
+    interval: 30s
+    rules:
+      # Критические ошибки / исключения
+      - alert: BackendHighErrorRate
+        expr: |
+          sum(rate({container_name="backend"} |= "level" | json | level="error" [5m])) > 5
+        for: 2m
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Высокий уровень ошибок в backend"
+          description: "{{ $value }} ошибок за 5 минут. Проверьте логи."
+          runbook_url: "https://wiki.yourcompany.com/backend-errors"
+
+      # Паники и FATAL
+      - alert: BackendPanicOrFatal
+        expr: |
+          count_over_time({container_name="backend"} |= "level" | json | level=~"panic|critical|fatal" [10m]) > 0
+        for: 30s
+        labels:
+          severity: critical
+          service: backend
+        annotations:
+          summary: "Паника или FATAL в backend!"
+          description: "Обнаружена критическая ошибка, требующая немедленного внимания."
+
+      # 5xx ответы
+      - alert: BackendHigh5xxRate
+        expr: |
+          sum(rate({container_name="backend"} |= "level" | json | status_code=~"5.."[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокий процент 5xx ответов"
+
+      # Медленные запросы (P95 > 2 секунды)
+      - alert: BackendSlowRequests
+        expr: |
+          histogram_quantile(0.95, sum(rate({container_name="backend"} |= "level" | json | duration_ms [5m]))) > 2000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Медленные запросы (P95 > 2s)"
+
+      # Нет логов от backend (сервис упал / не работает)
+      - alert: BackendNoLogs
+        expr: |
+          absent_over_time({container_name="backend"}[10m])
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend не отправляет логи более 10 минут"

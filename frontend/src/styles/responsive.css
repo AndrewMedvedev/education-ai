@@ -1,0 +1,458 @@
+@media (min-width: 1101px) and (max-width: 1300px) {
+    .lesson-view-grid.is-learning-layout,
+    .lesson-view-grid.has-lesson-chat {
+        grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .lesson-view-grid.generated-course-learning-grid,
+    .lesson-view-grid.has-lesson-chat.generated-course-learning-grid {
+        grid-template-columns: 280px minmax(0, 1fr);
+    }
+
+    .lesson-view-grid.is-course-edit-layout {
+        grid-template-columns: 300px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 1300px) {
+    .lesson-chat-resizer {
+        display: none;
+    }
+
+    .lesson-chat-backdrop {
+        position: fixed;
+        z-index: 89;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: rgba(20, 18, 16, 0.46);
+        padding: 0;
+        cursor: pointer;
+        backdrop-filter: blur(2px);
+    }
+
+    .lesson-page-ai-chat,
+    .lesson-view-grid > .lesson-page-ai-chat,
+    .generated-course-learning-grid > .lesson-page-ai-chat {
+        position: fixed;
+        z-index: 90;
+        inset: 0 0 0 auto;
+        width: min(480px, 100vw);
+        height: 100dvh;
+        min-height: 0;
+        max-height: 100dvh;
+        border-radius: 18px 0 0 18px;
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-right: max(12px, env(safe-area-inset-right));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    .lesson-chat-open-button {
+        right: max(40px, env(safe-area-inset-right));
+        left: auto;
+    }
+}
+
+@media (max-width: 1100px) {
+    .auth-layout {
+        grid-template-columns: 1fr;
+        gap: 28px;
+    }
+
+    .auth-intro {
+        max-width: 620px;
+    }
+
+    .hero-grid,
+    .track-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .home-usp {
+        grid-template-columns: 1fr;
+    }
+
+    .courses-catalog-grid,
+    .creator-grid,
+    .teacher-grid,
+    .course-details-grid,
+    .profile-layout,
+    .profile-stats-grid,
+    .profile-info-grid,
+    .block-view-grid,
+    .lesson-view-grid,
+    .practice-view-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-view-grid.is-learning-layout,
+    .lesson-view-grid.generated-course-learning-grid,
+    .lesson-view-grid.has-lesson-chat {
+        grid-template-columns: 1fr;
+    }
+
+    .course-nav-tree,
+    .lesson-main-card,
+    .practice-main-card {
+        position: static;
+        min-height: auto;
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .courses-row {
+        grid-template-columns: 1fr;
+    }
+
+    .courses-catalog-cta {
+        grid-template-columns: 1fr;
+    }
+
+    .courses-catalog-cta .btn {
+        width: fit-content;
+    }
+
+    .point-list,
+    .flow-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .course-leaderboard-card {
+        grid-column: 1 / -1;
+    }
+
+    .course-editor-panel.has-ai-editor .course-editor-with-ai {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-editor-block-row.has-ai {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-ai-editor {
+        position: static;
+    }
+
+    .lesson-editor-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-editor-outline {
+        position: static;
+    }
+
+    .lesson-editor-outline ol {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+    }
+
+    .author-stats-grid,
+    .footer {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 980px) {
+    .header {
+        grid-template-columns: 1fr auto;
+        align-items: start;
+    }
+
+    .header > .nav {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-self: stretch;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 760px) {
+    .lesson-page-ai-chat,
+    .lesson-view-grid > .lesson-page-ai-chat,
+    .generated-course-learning-grid > .lesson-page-ai-chat {
+        width: 100vw;
+        border-width: 0;
+        border-radius: 0;
+        padding-left: max(10px, env(safe-area-inset-left));
+    }
+
+    .lesson-chat-open-button {
+        top: auto;
+        right: max(28px, env(safe-area-inset-right));
+        bottom: max(32px, env(safe-area-inset-bottom));
+        left: auto;
+        transform: none;
+    }
+
+    .lesson-chat-open-button:hover {
+        transform: translateY(-2px);
+    }
+
+    .lesson-chat-quick-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .header {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .header-actions {
+        width: 100%;
+        justify-content: space-between;
+        margin-left: 0;
+    }
+
+    .auth-view {
+        min-height: auto;
+        padding-top: 24px;
+    }
+
+    .auth-layout {
+        gap: 22px;
+    }
+
+    .auth-card {
+        padding: 18px;
+    }
+
+    .auth-intro h1 {
+        font-size: 1.55rem;
+    }
+
+    .nav {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        overflow: visible;
+        gap: 8px;
+        font-size: 0.9rem;
+    }
+
+    .nav-link {
+        min-height: 34px;
+        padding: 7px 9px;
+    }
+
+    .hero-grid,
+    .track-grid,
+    .courses-catalog-grid,
+    .creator-grid,
+    .teacher-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .hero-left,
+    .hero-right,
+    .point-list article,
+    .track-card,
+    .flow-grid article,
+    .course-tab-card,
+    .creator-form-card,
+    .creator-library-card,
+    .creator-preview-card,
+    .teacher-create-card,
+    .teacher-courses-card,
+    .teacher-groups-card,
+    .teacher-students-card,
+    .teacher-leaderboard-card,
+    .course-details-main,
+    .course-details-modules,
+    .profile-user-card,
+    .profile-nav-card,
+    .profile-track-card,
+    .profile-detail-card,
+    .profile-info-card,
+    .profile-stat-card,
+    .profile-edit-card,
+    .block-main-card,
+    .block-lessons-card,
+    .block-practice-card,
+    .lesson-main-card,
+    .lesson-practice-card,
+    .practice-main-card {
+        padding: 18px;
+    }
+
+    .profile-badges,
+    .profile-summary-grid,
+    .profile-edit-form,
+    .profile-avatar-edit,
+    .profile-course-edit-form,
+    .course-stats-grid,
+    .course-editor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-content-editor-head,
+    .lesson-editor-block-head {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-content-editor-head {
+        display: grid;
+    }
+
+    .lesson-editor-toolbar,
+    .lesson-editor-block-head {
+        align-items: stretch;
+    }
+
+    .lesson-editor-palette {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-insert-panel > div:first-child {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .lesson-editor-mode-switch {
+        width: 100%;
+    }
+
+    .lesson-editor-mode-switch button {
+        flex: 1 1 0;
+    }
+
+    .lesson-editor-outline ol {
+        grid-template-columns: 1fr;
+    }
+
+    .lesson-editor-toolbar .btn,
+    .lesson-editor-block-head button {
+        flex: 1 1 auto;
+    }
+
+    .lesson-nav-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .teacher-add-student {
+        grid-template-columns: 1fr;
+    }
+
+    .teacher-student-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .lesson-nav-btn {
+        width: 100%;
+    }
+
+    .section-top {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .cta,
+    .footer-bottom,
+    .author-dashboard-head,
+    .profile-learner-create,
+    .profile-my-courses-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .home-usp-grid,
+    .author-stats-grid,
+    .footer {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* AI Models Grid */
+.ai-models-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.ai-model-card {
+    position: relative;
+    padding: 20px;
+    border: 2px solid var(--glass-border);
+    border-radius: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--glass-shadow);
+}
+
+.ai-model-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(79, 67, 48, 0.1);
+}
+
+.ai-model-card.is-selected {
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.2);
+}
+
+.ai-model-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 4px 8px;
+    background: var(--accent);
+    color: var(--text-solid);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.ai-model-card h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--heading);
+}
+
+.ai-model-description {
+    margin: 0 0 16px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.ai-model-pros,
+.ai-model-cons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.ai-model-pro {
+    padding: 4px 8px;
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success-text);
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.ai-model-con {
+    padding: 4px 8px;
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.page[data-theme="dark"] .ai-model-con {
+    background: rgba(220, 53, 69, 0.2);
+    color: #ff6b7a;
+}
