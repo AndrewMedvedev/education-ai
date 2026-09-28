@@ -40,6 +40,8 @@
     --glass-inset: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(255,255,255,0.35);
     --brand-gradient: linear-gradient(135deg, #00B0F0 0%, #034EA2 55%, #2B1F6E 100%);
     --on-accent: #FFFFFF;
+    --status-neutral: #6D7886;
+    --status-neutral-rgb: 109, 120, 134;
 }
 
 :root[data-theme="dark"],
@@ -85,6 +87,8 @@
     --glass-inset: inset 0 1px 0 rgba(255,255,255,0.09), inset 0 -1px 0 rgba(255,255,255,0.05);
     --brand-gradient: linear-gradient(135deg, #00B0F0 0%, #034EA2 55%, #2B1F6E 100%);
     --on-accent: #FFFFFF;
+    --status-neutral: #A9B2C2;
+    --status-neutral-rgb: 169, 178, 194;
 }
 
 * {

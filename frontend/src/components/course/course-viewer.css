@@ -1554,3 +1554,211 @@
         flex-direction: column;
     }
 }
+
+/* ============================================================
+   Карта приглашений курса (CourseInvites.jsx)
+   ============================================================ */
+
+.course-invites {
+    border-top: 1px solid var(--line);
+    margin-top: 24px;
+    padding-top: 20px;
+}
+
+.course-invites-head h3 {
+    color: var(--heading);
+    margin: 0;
+}
+
+.course-invites-head p {
+    margin: 8px 0 0;
+}
+
+.course-invites-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.course-invites-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.course-invites-field span {
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.course-invites-field input,
+.course-invites-field select {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    min-height: 42px;
+    padding: 10px 12px;
+    width: 100%;
+}
+
+.course-invites-field input:focus,
+.course-invites-field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.16);
+    outline: none;
+}
+
+.course-invites-submit {
+    min-height: 42px;
+    white-space: nowrap;
+}
+
+.course-invites-submit:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.course-invites-error {
+    color: var(--danger-text, #b45f6d);
+    font-weight: 700;
+    margin: 12px 0 0;
+}
+
+.course-invites-state {
+    margin-top: 16px;
+}
+
+.course-invites-empty {
+    border: 1px dashed var(--line-strong);
+    border-radius: 18px;
+    background: rgba(var(--accent-rgb), 0.04);
+    margin-top: 16px;
+    padding: 16px;
+}
+
+.course-invites-empty strong {
+    color: var(--heading);
+    display: block;
+}
+
+.course-invites-empty p {
+    color: var(--muted);
+    margin: 6px 0 0;
+}
+
+.course-invites-list {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+}
+
+.course-invites-list-head,
+.course-invite-item {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.6fr) minmax(0, 1fr) auto auto
+        minmax(0, 1.2fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.course-invites-list-head {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.course-invite-item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(var(--accent-rgb), 0.04);
+    padding: 12px 14px;
+}
+
+.course-invite-email {
+    color: var(--text);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.course-invite-role,
+.course-invite-date {
+    color: var(--muted);
+}
+
+.course-invite-status {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    justify-self: start;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.course-invite-status.is-pending {
+    border-color: rgba(var(--status-neutral-rgb), 0.4);
+    background: rgba(var(--status-neutral-rgb), 0.14);
+    color: var(--status-neutral);
+}
+
+.course-invite-status.is-accepted {
+    border-color: rgba(var(--success-rgb), 0.42);
+    background: rgba(var(--success-rgb), 0.14);
+    color: var(--success-text);
+}
+
+.course-invite-status.is-rejected,
+.course-invite-status.is-expired {
+    border-color: rgba(var(--danger-rgb, 190, 80, 100), 0.42);
+    background: rgba(var(--danger-rgb, 190, 80, 100), 0.12);
+    color: var(--danger-text, #b45f6d);
+}
+
+.course-invite-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+.course-invite-action {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+}
+
+.course-invite-action.is-danger {
+    border-color: rgba(var(--danger-rgb, 190, 80, 100), 0.48);
+    background: rgba(var(--danger-rgb, 190, 80, 100), 0.08);
+    color: var(--danger-text, #b45f6d);
+}
+
+@media (max-width: 720px) {
+    .course-invites-form {
+        grid-template-columns: 1fr;
+    }
+
+    .course-invites-list-head {
+        display: none;
+    }
+
+    .course-invite-item {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .course-invite-item > [data-label]::before {
+        color: var(--muted);
+        content: attr(data-label) ": ";
+        font-weight: 700;
+    }
+}

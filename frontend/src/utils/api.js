@@ -503,6 +503,75 @@ export async function acceptInvitation({
   );
 }
 
+// Курс-специфичные приглашения (карта приглашений в карточке курса).
+//
+// TODO: backend endpoint не реализован. В backend сейчас есть только заглушка
+// `POST /invitations` и рабочий `POST /invitations/accept`
+// (backend/src/iam/api/v1/invitations.py). Ниже — предложенные роуты,
+// которые нужно согласовать с backend перед подключением:
+//   GET    /course/{course_id}/invitations?page=&size=&status=
+//   POST   /course/{course_id}/invitations                  { email, role }
+//   POST   /course/{course_id}/invitations/{invitation_id}/resend
+//   DELETE /course/{course_id}/invitations/{invitation_id}
+// Роли: student | teacher | moderator. Статусы: pending | accepted | rejected | expired.
+
+export async function listCourseInvitations(
+  courseId,
+  { page = 1, size = 20, status = "" } = {},
+  options = {},
+) {
+  const query = new URLSearchParams({
+    page: String(page),
+    size: String(size),
+  });
+  if (status) {
+    query.set("status", status);
+  }
+
+  return apiFetch(
+    `/course/${encodeURIComponent(courseId)}/invitations?${query.toString()}`,
+    { ...options, method: "GET" },
+  );
+}
+
+export async function createCourseInvitation(
+  courseId,
+  { email, role },
+  options = {},
+) {
+  return apiFetch(`/course/${encodeURIComponent(courseId)}/invitations`, {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    body: JSON.stringify({ email, role }),
+  });
+}
+
+export async function resendCourseInvitation(
+  courseId,
+  invitationId,
+  options = {},
+) {
+  return apiFetch(
+    `/course/${encodeURIComponent(courseId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
+    { ...options, method: "POST" },
+  );
+}
+
+export async function cancelCourseInvitation(
+  courseId,
+  invitationId,
+  options = {},
+) {
+  return apiFetch(
+    `/course/${encodeURIComponent(courseId)}/invitations/${encodeURIComponent(invitationId)}`,
+    { ...options, method: "DELETE" },
+  );
+}
+
 // Внутренний системный метод: /permissions не должен иметь пользовательского экрана.
 // Он предназначен только для служебной загрузки справочника прав и условного
 // рендера функциональности админских интерфейсов, если такой UI появится.
