@@ -914,7 +914,7 @@
     gap: 10px;
     min-height: 380px;
     box-shadow:
-        0 16px 40px rgba(79, 67, 48, 0.1),
+        0 16px 40px rgba(var(--accent-rgb), 0.1),
         var(--glass-inset);
 }
 

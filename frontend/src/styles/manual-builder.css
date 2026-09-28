@@ -1880,17 +1880,17 @@
    ============================================================ */
 
 .page[data-theme="dark"] .manual-builder-view {
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .manual-builder-view .glass-card,
 .page[data-theme="dark"] .manual-preview-wrapper,
 .page[data-theme="dark"] .manual-modal {
-    border-color: rgba(233, 222, 203, 0.24);
+    border-color: rgba(var(--accent-rgb), 0.24);
 
     background: transparent;
 
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .manual-builder-view .glass-card::before,
@@ -1914,7 +1914,7 @@
 .page[data-theme="dark"] .manual-modal-head h3,
 .page[data-theme="dark"] .manual-dropzone-start strong,
 .page[data-theme="dark"] .manual-dropzone-compact strong {
-    color: #fff2df;
+    color: var(--heading);
 }
 
 .page[data-theme="dark"] .manual-card-head span,
@@ -1924,56 +1924,52 @@
 .page[data-theme="dark"] .manual-modal-head span,
 .page[data-theme="dark"] .manual-preview-head span,
 .page[data-theme="dark"] .manual-selection-toolbar > span {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .manual-dropzone {
-    border-color: rgba(203, 170, 203, 0.34);
+    border-color: rgba(var(--accent-rgb), 0.34);
 
     background: rgba(255, 255, 255, 0.025);
 
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .manual-dropzone:hover,
 .page[data-theme="dark"] .manual-dropzone.is-dragging {
-    border-color: rgba(203, 170, 203, 0.78);
-    background: rgba(203, 170, 203, 0.09);
+    border-color: rgba(var(--accent-rgb), 0.78);
+    background: rgba(var(--accent-rgb), 0.09);
 }
 
 .page[data-theme="dark"] .manual-dropzone-start > span,
 .page[data-theme="dark"] .manual-dropzone-compact > span {
-    background: rgba(203, 170, 203, 0.12);
-    color: #cbaacb;
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent-soft);
 }
 
 /* Dark buttons */
 
 .page[data-theme="dark"] .manual-builder-view .btn-outline {
-    border-color: rgba(203, 170, 203, 0.42);
+    border-color: rgba(var(--accent-rgb), 0.42);
 
     background: rgba(255, 255, 255, 0.035);
 
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"]
     .manual-builder-view
     .btn-outline:hover:not(:disabled) {
-    border-color: rgba(203, 170, 203, 0.78);
+    border-color: rgba(var(--accent-rgb), 0.78);
     background: rgba(255, 255, 255, 0.08);
 }
 
 .page[data-theme="dark"] .manual-builder-view .btn-solid {
-    border-color: rgba(203, 170, 203, 0.5);
+    border-color: transparent;
 
-    background: rgba(203, 170, 203, 0.56);
+    background: var(--brand-gradient);
 
-    color: #fff2df;
-}
-
-.page[data-theme="dark"] .manual-builder-view .btn-solid:hover:not(:disabled) {
-    background: rgba(203, 170, 203, 0.72);
+    color: var(--on-accent);
 }
 
 /* Dark files / lessons / modules */
@@ -1994,7 +1990,7 @@
 .page[data-theme="dark"] .manual-lesson-card.is-selected,
 .page[data-theme="dark"] .manual-module-item:hover,
 .page[data-theme="dark"] .manual-module-item.is-active {
-    border-color: rgba(203, 170, 203, 0.66);
+    border-color: rgba(var(--accent-rgb), 0.66);
     background: rgba(255, 255, 255, 0.07);
 }
 
@@ -2002,7 +1998,7 @@
 .page[data-theme="dark"] .manual-lesson-card strong,
 .page[data-theme="dark"] .manual-module-item strong,
 .page[data-theme="dark"] .manual-modal-file strong {
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .manual-file-name small,
@@ -2011,7 +2007,7 @@
 .page[data-theme="dark"] .manual-module-item p,
 .page[data-theme="dark"] .manual-module-item > div > span,
 .page[data-theme="dark"] .manual-module-item ul {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 /* Dark checkboxes */
@@ -2019,7 +2015,7 @@
 .page[data-theme="dark"] .manual-file-check input,
 .page[data-theme="dark"] .manual-lesson-card input,
 .page[data-theme="dark"] .manual-module-item input {
-    border-color: rgba(203, 170, 203, 0.46);
+    border-color: rgba(var(--accent-rgb), 0.46);
 
     background: rgba(255, 255, 255, 0.04);
 }
@@ -2027,14 +2023,14 @@
 .page[data-theme="dark"] .manual-file-check input:checked,
 .page[data-theme="dark"] .manual-lesson-card input:checked,
 .page[data-theme="dark"] .manual-module-item input:checked {
-    border-color: #cbaacb;
-    background: rgba(203, 170, 203, 0.74);
+    border-color: var(--accent-soft);
+    background: rgba(var(--accent-rgb), 0.74);
 }
 
 .page[data-theme="dark"] .manual-file-check input:checked::after,
 .page[data-theme="dark"] .manual-lesson-card input:checked::after,
 .page[data-theme="dark"] .manual-module-item input:checked::after {
-    color: #fff2df;
+    color: var(--on-accent);
 }
 
 /* Dark inputs */
@@ -2046,21 +2042,21 @@
 
     background: rgba(255, 255, 255, 0.035);
 
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .course-editor-field input:focus,
 .page[data-theme="dark"] .course-editor-field textarea:focus,
 .page[data-theme="dark"] .course-editor-field select:focus {
-    border-color: rgba(203, 170, 203, 0.72);
+    border-color: rgba(var(--accent-rgb), 0.72);
     background: rgba(255, 255, 255, 0.07);
 
-    box-shadow: 0 0 0 3px rgba(203, 170, 203, 0.1);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
 }
 
 .page[data-theme="dark"] .course-editor-field > span,
 .page[data-theme="dark"] .manual-modal-files > span {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .manual-modal-file {
@@ -2076,12 +2072,12 @@
 .page[data-theme="dark"] .manual-lesson-preview h2,
 .page[data-theme="dark"] .manual-lesson-preview h3,
 .page[data-theme="dark"] .manual-lesson-preview h4 {
-    color: #fff2df;
+    color: var(--heading);
 }
 
 .page[data-theme="dark"] .manual-lesson-preview p,
 .page[data-theme="dark"] .manual-lesson-preview li {
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .manual-lesson-preview pre {
@@ -2090,8 +2086,8 @@
 }
 
 .page[data-theme="dark"] .manual-lesson-preview code {
-    background: rgba(203, 170, 203, 0.1);
-    color: #d8c9b1;
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent-soft);
 }
 
 /* Dark modal */
@@ -2492,19 +2488,19 @@
 
 .page[data-theme="dark"] .manual-instruction-card h3,
 .page[data-theme="dark"] .manual-block-content strong {
-    color: #fff2df;
+    color: var(--heading);
 }
 
 .page[data-theme="dark"] .manual-instruction-card ol,
 .page[data-theme="dark"] .manual-instruction-label,
 .page[data-theme="dark"] .manual-block-content small {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .manual-instruction-icon,
 .page[data-theme="dark"] .manual-module-badge {
-    color: #cbaacb;
-    background: rgba(203, 170, 203, 0.09);
+    color: var(--accent-soft);
+    background: rgba(var(--accent-rgb), 0.09);
 }
 
 /* Sidebar layout for course structure */
@@ -2797,7 +2793,7 @@
 }
 
 .page[data-theme="dark"] .manual-block-proposal {
-    background: rgba(203, 170, 203, 0.06);
+    background: rgba(var(--accent-rgb), 0.06);
 }
 
 .page[data-theme="dark"] .manual-block-proposal-head {
@@ -2863,7 +2859,7 @@
 }
 
 .page[data-theme="dark"] .manual-block-preview-card.is-selected {
-    border-color: rgba(203, 170, 203, 0.66);
+    border-color: rgba(var(--accent-rgb), 0.66);
     background: rgba(255, 255, 255, 0.07);
 }
 
@@ -2872,17 +2868,17 @@
 }
 
 .page[data-theme="dark"] .manual-block-select input {
-    border-color: rgba(203, 170, 203, 0.46);
+    border-color: rgba(var(--accent-rgb), 0.46);
     background: rgba(255, 255, 255, 0.04);
 }
 
 .page[data-theme="dark"] .manual-block-select input:checked {
-    border-color: #cbaacb;
-    background: rgba(203, 170, 203, 0.74);
+    border-color: var(--accent-soft);
+    background: rgba(var(--accent-rgb), 0.74);
 }
 
 .page[data-theme="dark"] .manual-block-select strong {
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .manual-content {

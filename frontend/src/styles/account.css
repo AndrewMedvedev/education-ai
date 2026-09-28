@@ -985,8 +985,8 @@
 }
 
 .page[data-theme="dark"] .teacher-field select option {
-    background: #071523;
-    color: #f2e7d4;
+    background: var(--bg-dark);
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .teacher-student-actions small,
@@ -1016,7 +1016,7 @@
 .track-meta {
     margin-top: 18px;
     padding-top: 14px;
-    border-top: 1px solid rgba(206, 195, 178, 0.86);
+    border-top: 1px solid rgba(var(--accent-rgb), 0.18);
     display: flex;
     flex-direction: column;
     gap: 6px;
