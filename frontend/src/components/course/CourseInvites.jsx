@@ -5,8 +5,8 @@
  * (student / teacher / moderator) и список уже отправленных приглашений
  * со статусами и действиями «повторно отправить» / «отменить».
  *
- * Рендерится только для пользователей с правом управления курсом
- * (course:update) — без права компонент возвращает null.
+ * Рендерится для пользователей с правом управления курсом (course:update),
+ * а в демо-режиме (IS_INVITATION_MOCK) — на любом курсе, с пометкой о моках.
  */
 import { useEffect, useState } from "react";
 
@@ -15,6 +15,7 @@ import {
   INVITATION_ROLE_LABELS,
   INVITATION_ROLES,
   INVITATION_STATUS_LABELS,
+  IS_INVITATION_MOCK,
 } from "../../services/invitationApi";
 import { isValidEmail, useInvitationStore } from "../../stores/invitationStore";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -65,19 +66,29 @@ export default function CourseInvites({ courseId }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!courseId || !canUpdateCourse) return undefined;
+    // В демо-режиме блок показываем и без права управления курсом.
+    if (!courseId || (!canUpdateCourse && !IS_INVITATION_MOCK)) return undefined;
 
     const controller = new AbortController();
     loadInvitations(courseId, { signal: controller.signal }).catch(() => {});
     return () => controller.abort();
   }, [courseId, canUpdateCourse, loadInvitations]);
 
-  if (!canUpdateCourse || !courseId) {
+  if (!courseId || (!canUpdateCourse && !IS_INVITATION_MOCK)) {
     return null;
   }
 
   const trimmedEmail = email.trim();
-  const canSubmit = isValidEmail(trimmedEmail) && Boolean(role) && !isSubmitting;
+  const isInvitationEndpointUnavailable = error.includes(
+    "пока не подключён на сервере",
+  );
+  const isCreateDisabled = IS_INVITATION_MOCK;
+  const canSubmit =
+    isValidEmail(trimmedEmail) &&
+    Boolean(role) &&
+    !isSubmitting &&
+    !isCreateDisabled &&
+    !isInvitationEndpointUnavailable;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -140,6 +151,11 @@ export default function CourseInvites({ courseId }) {
         <p className="course-viewer-muted">
           Пригласите студентов и преподавателей по email и назначьте роль.
         </p>
+        {IS_INVITATION_MOCK && (
+          <p className="course-invites-demo" role="status">
+            Демо-режим: данные замоканы, создание приглашений недоступно.
+          </p>
+        )}
       </div>
 
       <form className="course-invites-form" onSubmit={handleSubmit} noValidate>
@@ -178,6 +194,9 @@ export default function CourseInvites({ courseId }) {
           type="submit"
           className="btn btn-solid course-invites-submit"
           disabled={!canSubmit}
+          title={
+            isCreateDisabled ? "Создание недоступно в демо-режиме" : undefined
+          }
         >
           {isSubmitting ? "Отправляем…" : "Пригласить"}
         </button>
@@ -203,7 +222,7 @@ export default function CourseInvites({ courseId }) {
         <p className="course-viewer-muted course-invites-state">
           Загрузка приглашений…
         </p>
-      ) : invitations.length === 0 ? (
+      ) : error && invitations.length === 0 ? null : invitations.length === 0 ? (
         <div className="course-invites-empty">
           <strong>Пока нет приглашений</strong>
           <p>Отправьте первое приглашение — оно появится здесь со статусом «Ожидает».</p>

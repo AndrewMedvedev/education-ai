@@ -4,8 +4,12 @@
  * Тонкая обёртка над `utils/api.js`: нормализует ответы backend и превращает
  * неуспешные ответы в Error с человекочитаемым `userMessage`.
  *
- * TODO: backend endpoint не реализован — роуты согласованы в utils/api.js,
- * функции ниже уже готовы к подключению без правок компонентов.
+ * Пока backend-эндпоинты карты приглашений не реализованы, слой умеет
+ * работать в демо-режиме (in-memory мок): список приглашений виден,
+ * «повторить» и «отменить» работают, создание нового приглашения запрещено.
+ *
+ * Отключить мок и вернуться к реальному API: VITE_USE_INVITATION_MOCK=false
+ * (по умолчанию мок включён, чтобы интерфейс был живым без backend).
  */
 import {
   cancelCourseInvitation,
@@ -13,6 +17,130 @@ import {
   listCourseInvitations,
   resendCourseInvitation,
 } from "../utils/api";
+import { IS_API_MOCK } from "./apiMock";
+
+/**
+ * Демо-режим карты приглашений. Явный флаг VITE_USE_INVITATION_MOCK имеет
+ * приоритет, иначе повторяем решение общего мок-слоя (`services/apiMock.js`) —
+ * так одного VITE_USE_API_MOCK=false достаточно, чтобы вернуть реальный API.
+ */
+const invitationMockFlag = import.meta.env.VITE_USE_INVITATION_MOCK;
+
+export const IS_INVITATION_MOCK =
+  invitationMockFlag === undefined || invitationMockFlag === ""
+    ? IS_API_MOCK
+    : String(invitationMockFlag).toLowerCase() === "true";
+
+const MOCK_INVITED_BY = "admin";
+const MOCK_DAY_MS = 24 * 60 * 60 * 1000;
+
+function mockDelay(ms = 160) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function buildMockSeed() {
+  const now = Date.now();
+
+  return [
+    {
+      id: "mock-1",
+      email: "student@example.com",
+      role: "student",
+      status: "pending",
+      createdAt: new Date(now - MOCK_DAY_MS).toISOString(),
+      invitedBy: MOCK_INVITED_BY,
+    },
+    {
+      id: "mock-2",
+      email: "teacher@example.com",
+      role: "teacher",
+      status: "accepted",
+      createdAt: new Date(now - 3 * MOCK_DAY_MS).toISOString(),
+      invitedBy: MOCK_INVITED_BY,
+    },
+    {
+      id: "mock-3",
+      email: "moderator@example.com",
+      role: "moderator",
+      status: "rejected",
+      createdAt: new Date(now - 5 * MOCK_DAY_MS).toISOString(),
+      invitedBy: MOCK_INVITED_BY,
+    },
+    {
+      id: "mock-4",
+      email: "expired@example.com",
+      role: "student",
+      status: "expired",
+      createdAt: new Date(now - 10 * MOCK_DAY_MS).toISOString(),
+      invitedBy: MOCK_INVITED_BY,
+    },
+  ];
+}
+
+/** In-memory хранилище моков: живёт до перезагрузки страницы. */
+const mockInvitationsByCourse = new Map();
+
+function mockKey(courseId) {
+  return String(courseId ?? "demo-course");
+}
+
+/**
+ * Возвращает список приглашений курса из мока. Для первого обращения
+ * курс инициализируется предустановленным набором из четырёх записей.
+ */
+export function getMockInvitations(courseId) {
+  const key = mockKey(courseId);
+
+  if (!mockInvitationsByCourse.has(key)) {
+    mockInvitationsByCourse.set(key, buildMockSeed());
+  }
+
+  return mockInvitationsByCourse.get(key);
+}
+
+function cloneInvitation(invitation) {
+  return { ...invitation };
+}
+
+function createMockReadOnlyError() {
+  const error = new Error(
+    "Создание приглашений недоступно в демо-режиме (нет бэкенда).",
+  );
+  error.code = "MOCK_READ_ONLY";
+  error.userMessage = error.message;
+  return error;
+}
+
+async function getMockInvitationPage(
+  courseId,
+  { page = 1, size = 20, status = "" } = {},
+) {
+  await mockDelay();
+
+  const all = getMockInvitations(courseId);
+  const filtered = status
+    ? all.filter((invitation) => invitation.status === status)
+    : all;
+  const safeSize = Math.max(1, Number(size) || 20);
+  const safePage = Math.max(1, Number(page) || 1);
+  const start = (safePage - 1) * safeSize;
+  const items = filtered.slice(start, start + safeSize).map(cloneInvitation);
+  const total = filtered.length;
+  const pages = Math.max(1, Math.ceil(total / safeSize));
+
+  return {
+    items,
+    page: safePage,
+    size: safeSize,
+    total,
+    pages,
+    total_pages: pages,
+    has_next: safePage < pages,
+    has_prev: safePage > 1,
+  };
+}
 
 export const INVITATION_ROLES = ["student", "teacher", "moderator"];
 
@@ -92,6 +220,10 @@ export async function getCourseInvitations(
   { page = 1, size = 20, status = "" } = {},
   options = {},
 ) {
+  if (IS_INVITATION_MOCK) {
+    return getMockInvitationPage(courseId, { page, size, status });
+  }
+
   const response = await listCourseInvitations(
     courseId,
     { page, size, status },
@@ -99,6 +231,15 @@ export async function getCourseInvitations(
   );
 
   if (!response.ok) {
+    if (response.status === 404) {
+      const error = new Error(
+        "Список приглашений курса пока не подключён на сервере (endpoint не найден).",
+      );
+      error.status = response.status;
+      error.userMessage = error.message;
+      throw error;
+    }
+
     throw await parseError(response, "Не удалось загрузить приглашения курса.");
   }
 
@@ -106,6 +247,11 @@ export async function getCourseInvitations(
 }
 
 export async function inviteToCourse(courseId, { email, role }, options = {}) {
+  if (IS_INVITATION_MOCK) {
+    // Демо-режим: приглашения создаются только на backend, которого нет.
+    throw createMockReadOnlyError();
+  }
+
   const response = await createCourseInvitation(courseId, { email, role }, options);
 
   if (!response.ok) {
@@ -117,6 +263,29 @@ export async function inviteToCourse(courseId, { email, role }, options = {}) {
 }
 
 export async function resendInvitation(courseId, invitationId, options = {}) {
+  if (IS_INVITATION_MOCK) {
+    await mockDelay();
+
+    const list = getMockInvitations(courseId);
+    const index = list.findIndex((item) => item.id === invitationId);
+    const current = list[index];
+
+    if (index === -1) {
+      const error = new Error("Приглашение не найдено в демо-данных.");
+      error.userMessage = error.message;
+      throw error;
+    }
+
+    const updated = {
+      ...current,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+    };
+    list[index] = updated;
+
+    return cloneInvitation(updated);
+  }
+
   const response = await resendCourseInvitation(courseId, invitationId, options);
 
   if (!response.ok) {
@@ -131,6 +300,22 @@ export async function resendInvitation(courseId, invitationId, options = {}) {
 }
 
 export async function cancelInvitation(courseId, invitationId, options = {}) {
+  if (IS_INVITATION_MOCK) {
+    await mockDelay();
+
+    const list = getMockInvitations(courseId);
+    const index = list.findIndex((item) => item.id === invitationId);
+
+    if (index === -1) {
+      const error = new Error("Приглашение не найдено в демо-данных.");
+      error.userMessage = error.message;
+      throw error;
+    }
+
+    list.splice(index, 1);
+    return;
+  }
+
   const response = await cancelCourseInvitation(courseId, invitationId, options);
 
   if (!response.ok) {

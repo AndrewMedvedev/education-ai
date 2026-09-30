@@ -1,5 +1,6 @@
 import { getMediaId } from "./media";
 import { getLocalStorage } from "./storage";
+import { resolveApiMock } from "../services/apiMock";
 
 const SESSION_KEY = "aicolab_session";
 const API_BASE = "/api/v1";
@@ -433,6 +434,13 @@ export async function apiFetch(
   options = {},
   { auth = true, retry = true, clearOnUnauthorized = true } = {},
 ) {
+  // Демо-режим без backend: часть запросов обслуживает локальный мок.
+  // Отключается переменной окружения VITE_USE_API_MOCK=false.
+  const mockedResponse = resolveApiMock(path, options);
+  if (mockedResponse) {
+    return mockedResponse;
+  }
+
   const url = `${API_BASE}${path}`;
   const headers = { ...options.headers };
   let { access, expiresAt } = getTokens();
