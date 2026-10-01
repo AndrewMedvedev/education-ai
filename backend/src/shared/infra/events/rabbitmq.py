@@ -1,6 +1,6 @@
 import logging
 
-from faststream.rabbit import RabbitBroker
+from faststream.rabbit import RabbitBroker, RabbitExchange
 
 from src.shared.domain.events import Event
 
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class RabbitMQEventPublisher:
-    def __init__(self, broker: RabbitBroker, exchange: str) -> None:
+    def __init__(self, broker: RabbitBroker, exchange: RabbitExchange) -> None:
         self._broker = broker
         self._exchange = exchange
 

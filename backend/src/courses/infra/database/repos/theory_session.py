@@ -9,8 +9,8 @@ from ....application.dtos import LessonTheorySessionFilters
 from ....domain.entities import (
     LessonTheorySession,
 )
-from ...mappers import LessonTheorySessionMapper
-from ...models import LessonTheorySessionOrm
+from ..mappers import LessonTheorySessionMapper
+from ..models import LessonTheorySessionOrm
 
 logger = logging.getLogger(__name__)
 

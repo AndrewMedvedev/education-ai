@@ -6,9 +6,9 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_service import LLMTextService, Runtime
-from src.shared.infra.services import SrvBaseClient
 
 from ...application.repos import ChatRepository
+from ...infra.services.client import SrvCourseClient
 from ..middlewares import (
     ChatCheckpointerMiddleware,
     LemmatizationMiddleware,
@@ -30,7 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 class InterviewerAgent:
-    def __init__(self, repo: ChatRepository, session: AsyncSession, client: SrvBaseClient):
+    def __init__(
+        self,
+        repo: ChatRepository,
+        session: AsyncSession,
+        client: SrvCourseClient,
+    ):
         self._client = client
         self._repo = repo
         self._session = session
@@ -64,7 +69,12 @@ class InterviewerAgent:
                 StopInterview(),
             ],
             runtime=Runtime(
-                context=context, state=State(chat_id=chat_id, db_session=self._session)
+                context=context,
+                state=State(
+                    chat_id=chat_id,
+                    db_session=self._session,
+                    client=self._client,
+                ),
             ),
         )
         result = await agent.invoke(messages=[{"role": "user", "content": context.prompt}])

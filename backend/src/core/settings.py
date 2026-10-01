@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import pytz  # type: ignore  # ruff:ignore[blanket-type-ignore]
+import pytz  # type: ignore
 from dotenv import load_dotenv
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +22,7 @@ INSTALLED_MODULES: tuple[str, ...] = (  # Добавь сюда модуль к�
     "llm_router",
     "organization",
     "media",
+    "notifications",
 )
 TEMPLATES_DIR = BASE_DIR / "templates"
 # Имя основного S3 бакета
@@ -45,6 +46,7 @@ class LangSmithConfig(BaseSettings):
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
+    name: str = Field(description="Название приложения.", examples=[""])
     port: int = 8000
     version: str = Field(description="Актуальная версия приложения.", examples=["12.5.1"])
 
@@ -58,7 +60,7 @@ class SuperAdminConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SUPER_ADMIN_")
 
     email: str = "admin@admin.com"
-    password: str = "admin"
+    password: str = "admin"  # noqa: S105
     username: str = "admin"
     full_name: str = Field(
         default="Админов Админ Админович", description="ФИО для нормального отображения в системе."
@@ -66,7 +68,7 @@ class SuperAdminConfig(BaseSettings):
 
 
 class Settings(BaseSettings):
-    secret_key: str = "<SECRET_KEY>"
+    secret_key: str = "<SECRET_KEY>"  # noqa: S105
     frontend_url: str = "http://localhost:3000"
     base_llm_router_url: str = "http://localhost:8000/api/v1/"
     attachments_url: str = "http://localhost:8000/api/v1/attachments/"

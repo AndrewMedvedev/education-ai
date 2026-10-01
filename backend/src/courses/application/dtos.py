@@ -5,11 +5,11 @@ from typing import Any, Literal
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from src.shared.application.dtos import BaseQueryParamFilters
 
-from ..domain.vo import ContentType, DifficultyLevel
+from ..domain.vo import ContentType, DifficultyLevel, MemberRole
 
 
 class Chat(BaseModel):
@@ -93,3 +93,9 @@ class EditLessonSchema(BaseModel):
 class LessonTheorySessionFilters(BaseQueryParamFilters):
     created_from: datetime | None = None
     created_to: datetime | None = None
+
+
+class InvitationCreate(BaseModel):
+    course_id: UUID
+    email: EmailStr
+    role: MemberRole

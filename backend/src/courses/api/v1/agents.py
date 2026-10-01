@@ -2,30 +2,29 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 import json
 from dataclasses import asdict
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, File, Form, UploadFile, status
 from pydantic import TypeAdapter
 
-from src.iam.dependencies import require_permissions
-from src.iam.dependencies.identity import CurrentIdentity
-
-from ...agents.schemas import AnyKnowledgeTest, Context, PracticeResult
-from ...application.dtos import Chat, EditorChat, MentorChat
-from ...dependencies.agents import (
+from src.courses.agents.schemas import AnyKnowledgeTest, Context, PracticeResult
+from src.courses.application.dtos import Chat, EditorChat, MentorChat
+from src.courses.dependencies.agents import (
     EditorAgentDep,
     InterviewerAgentDep,
     MentorAgentDep,
     PracticeAgentDep,
     TesterAgentDep,
 )
-from ...domain.entities import FileUploadAssignment
-from ...domain.permissions.courses import COURSE_READ, CREATE, UPDATE
-from ...utils.docs_processing import read_upload_with_limit
+from src.courses.dependencies.services import CheckAccessDep
+from src.courses.domain.permissions.courses import READ, UPDATE
+from src.courses.domain.vo import FileUploadAssignment
+from src.courses.utils.docs_processing import read_upload_with_limit
+from src.iam.dependencies.identity import CurrentIdentity
 
 router = APIRouter(prefix="/agent", tags=["Agents"])
 
@@ -33,7 +32,6 @@ router = APIRouter(prefix="/agent", tags=["Agents"])
 @router.post(
     "/interviewer",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(CREATE.code))],
 )
 async def chat_with_interviewer(
     request: Chat,
@@ -61,14 +59,19 @@ async def chat_with_interviewer(
 @router.post(
     "/editor",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(UPDATE.code))],
 )
 async def chat_with_editor(
     request: EditorChat,
     agent: EditorAgentDep,
     identity: CurrentIdentity,
+    check_access: CheckAccessDep,
 ) -> Chat:
     """Обрабатывает HTTP-запрос `chat_with_editor` и связывает API с сервисным слоем."""
+    await check_access.course(
+        identity=identity,
+        permission=UPDATE,
+        course_id=request.course_id,
+    )
     result = await agent.call_agent(
         context=Context(
             course_id=request.course_id,
@@ -89,14 +92,19 @@ async def chat_with_editor(
 @router.post(
     "/mentor",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(COURSE_READ.code))],
 )
 async def chat_with_mentor(
     request: MentorChat,
     agent: MentorAgentDep,
     identity: CurrentIdentity,
+    check_access: CheckAccessDep,
 ) -> Chat:
     """Обрабатывает HTTP-запрос `chat_with_mentor` и связывает API с сервисным слоем."""
+    await check_access.course(
+        identity=identity,
+        permission=READ,
+        course_id=request.course_id,
+    )
     result = await agent.call_agent(
         chat=request,
         context=Context(
@@ -116,15 +124,20 @@ async def chat_with_mentor(
 @router.post(
     "/test/{module_id}/{lesson_id}",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(COURSE_READ.code))],
 )
 async def create_test(
     module_id: UUID,
     lesson_id: UUID,
     agent: TesterAgentDep,
     identity: CurrentIdentity,
+    check_access: CheckAccessDep,
 ) -> dict[str, Any]:
     """Обрабатывает HTTP-запрос `chat_with_mentor` и связывает API с сервисным слоем."""
+    await check_access.module(
+        identity=identity,
+        permission=READ,
+        module_id=module_id,
+    )
     return await agent.call_agent_creator(
         user_id=identity.id,
         module_id=module_id,
@@ -135,7 +148,6 @@ async def create_test(
 @router.post(
     "/check/test/{practice_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(COURSE_READ.code))],
 )
 async def check_test(
     practice: AnyKnowledgeTest,
@@ -155,15 +167,20 @@ async def check_test(
 @router.post(
     "/practice/{module_id}/{lesson_id}",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(COURSE_READ.code))],
 )
 async def create_practice(
     module_id: UUID,
     lesson_id: UUID,
     agent: PracticeAgentDep,
     identity: CurrentIdentity,
+    check_access: CheckAccessDep,
 ) -> dict[str, Any]:
     """Обрабатывает HTTP-запрос `chat_with_mentor` и связывает API с сервисным слоем."""
+    await check_access.module(
+        identity=identity,
+        permission=READ,
+        module_id=module_id,
+    )
     return await agent.call_agent_creator(
         user_id=identity.id,
         module_id=module_id,
@@ -174,14 +191,13 @@ async def create_practice(
 @router.post(
     "/check/practice/{practice_id}",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(COURSE_READ.code))],
 )
 async def check_practice(
     practice_id: UUID,
     agent: PracticeAgentDep,
     _identity: CurrentIdentity,
-    file: UploadFile = File(...),
-    practice: str = Form(),
+    file: Annotated[UploadFile, File()],
+    practice: Annotated[str, Form()],
 ) -> PracticeResult:
     """Обрабатывает HTTP-запрос `chat_with_mentor` и связывает API с сервисным слоем."""
     practice_obj = TypeAdapter(FileUploadAssignment).validate_json(practice)

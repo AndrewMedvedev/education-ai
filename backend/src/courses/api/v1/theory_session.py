@@ -5,13 +5,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from src.courses.application.dtos import LessonTheorySessionEditSchema, LessonTheorySessionFilters
+from src.courses.dependencies.base import DBSession, TheorySessionRepoDep
+from src.courses.dependencies.services import CheckAccessDep
+from src.courses.domain.entities import LessonTheorySession
+from src.courses.domain.permissions.courses import READ as READ_COURSE
+from src.courses.domain.permissions.theory_session import READ
 from src.iam.dependencies import require_permissions
 from src.iam.dependencies.identity import CurrentIdentity
-
-from ...application.dtos import LessonTheorySessionEditSchema, LessonTheorySessionFilters
-from ...dependencies.base import DBSession, TheorySessionRepoDep
-from ...domain.entities import LessonTheorySession
-from ...domain.permissions.theory_session import READ
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +25,16 @@ router = APIRouter(prefix="/theory/session", tags=["Theory Session"])
 )
 async def create(
     identity: CurrentIdentity,
+    check_access: CheckAccessDep,
     repo: TheorySessionRepoDep,
     session: DBSession,
     lesson_id: UUID,
 ) -> LessonTheorySession:
+    await check_access.lesson(
+        identity=identity,
+        permission=READ_COURSE,
+        lesson_id=lesson_id,
+    )
     result = await repo.create(LessonTheorySession(lesson_id=lesson_id, user_id=identity.id))
     await session.commit()
     return result
@@ -60,7 +67,14 @@ async def update(
 async def get(
     user_id: UUID,
     repo: TheorySessionRepoDep,
+    check_access: CheckAccessDep,
+    identity: CurrentIdentity,
     lesson_id: UUID,
     filters: Annotated[LessonTheorySessionFilters, Query()],
 ) -> list[LessonTheorySession]:
+    await check_access.lesson(
+        identity=identity,
+        permission=READ,
+        lesson_id=lesson_id,
+    )
     return await repo.find(lesson_id=lesson_id, user_id=user_id, filters=filters)

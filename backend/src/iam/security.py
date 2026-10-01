@@ -6,6 +6,7 @@ import os
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from functools import partial
 from uuid import UUID, uuid4
 
 import jwt
@@ -71,10 +72,12 @@ async def validate_password_strength_async(
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         crypto_executor,
-        validate_password_strength,
-        password,
-        email,
-        min_score,
+        partial(
+            validate_password_strength,
+            password,
+            email,
+            min_score=min_score,
+        ),
     )
 
 
@@ -107,7 +110,7 @@ def create_access_token(
     *,
     identity_id: UUID,
     identity_type: IdentityType,
-    organization_id: UUID,
+    organization_id: UUID | None,
     roles: set[str],
     permissions: set[str],
     email: Email | None = None,
@@ -126,10 +129,12 @@ def create_access_token(
         "jti": str(uuid4()),
         # Кастомные поля
         "idt": identity_type.value,
-        "org_id": str(organization_id),
         "roles": list(roles),
         "perms": list(permissions),
     }
+
+    if organization_id is not None:
+        payload["org_id"] = str(organization_id)
 
     # Специфичные для пользователя поля
     if email is not None:
@@ -141,7 +146,7 @@ def create_access_token(
     return jwt.encode(payload=payload, key=settings.secret_key, algorithm=jwt_config.algorithm)
 
 
-def create_refresh_token(user_id: UUID, membership_id: UUID) -> str:
+def create_refresh_token(user_id: UUID, membership_id: UUID | None) -> str:
     """Выпускает долгоживущий токен для получения новой пары access + refresh."""
 
     now = current_datetime()
@@ -154,9 +159,10 @@ def create_refresh_token(user_id: UUID, membership_id: UUID) -> str:
         "iat": now.timestamp(),
         "typ": "refresh",
         "jti": str(uuid4()),
-        # Кастомные поля
-        "mid": str(membership_id),
     }
+
+    if membership_id is not None:
+        payload["mid"] = str(membership_id)
 
     return jwt.encode(payload=payload, key=settings.secret_key, algorithm=jwt_config.algorithm)
 
@@ -192,15 +198,21 @@ def validate_password_strength(
 
     result = zxcvbn_rs_py.zxcvbn(password, user_inputs=sanitized_inputs)
 
-    if result < min_score:
-        warning = result.feedback.warning.value if result.feedback.warning else None
-        suggestions = (
-            [suggestion.value for suggestion in result.feedback.suggestions]
-            if result.feedback.suggestions
-            else []
-        )
+    if int(result.score) < min_score:
+        feedback = result.feedback
 
-        raise WeakPasswordError("Password is too weak.", suggestions=suggestions, warning=warning)
+        warning = None
+        suggestions: list[str] = []
+
+        if feedback is not None:
+            warning = str(feedback.warning) if feedback.warning else None
+            suggestions = [str(suggestion) for suggestion in feedback.suggestions]
+
+        raise WeakPasswordError(
+            "Password is too weak.",
+            suggestions=suggestions,
+            warning=warning,
+        )
 
 
 def generate_client_id() -> str:

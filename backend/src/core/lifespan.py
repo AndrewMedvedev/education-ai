@@ -5,6 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from qdrant_client import models
 
+from src.shared.utils.cli import run_cli_command
+
 from .logging import configure_logging
 from .others import thread_executor
 from .qdrant import qdrant_client
@@ -23,8 +25,6 @@ _BOOTSTRAP_COMMANDS: tuple[tuple[str, ...], ...] = (
 
 async def _run_bootstrap_commands() -> None:
     """Запускает команды необходимые для старта приложения."""
-
-    from src.shared.utils.cli import run_cli_command  # ruff: ignore[import-outside-top-level]
 
     for cmd in _BOOTSTRAP_COMMANDS:
         full_cmd = (sys.executable, "-m", *cmd)

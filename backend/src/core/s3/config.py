@@ -1,7 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ..settings import ENV_FILE  # ruff: ignore[unused-import]
-
 
 class S3Config(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="S3_")

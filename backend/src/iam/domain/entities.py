@@ -7,6 +7,7 @@ from uuid import UUID
 
 from typing_extensions import Doc
 
+from src.core.settings import settings
 from src.shared.domain.entities import Entity
 from src.shared.domain.exceptions import InvariantViolationError
 from src.shared.domain.helpers import apply_changes
@@ -141,7 +142,7 @@ class Membership(Entity):
             raise InvariantViolationError("Expired membership cannot be active.")
 
     @property
-    def is_expired(self) -> None:
+    def is_expired(self) -> bool:
         return self.expires_at is not None and self.expires_at <= current_datetime()
 
     def extend(self, expires_at: datetime) -> None:
@@ -227,10 +228,10 @@ class Role(Entity):
     organization_id: UUID | None = None
 
     def update(
-            self,
-            name: str | None = None,
-            code: str | None = None,
-            description: str | None = None,
+        self,
+        name: str | None = None,
+        code: str | None = None,
+        description: str | None = None,
     ) -> None:
         if self.is_default:
             raise InvariantViolationError("Default role cannot be updated.")
@@ -242,16 +243,15 @@ class Role(Entity):
 
     def grant_permission(self, grant: str, scope: PermissionScope) -> None:
 
-        grant = PermissionGrant(permission=grant, scope=scope)
+        grant = PermissionGrant(permission=grant, scope=scope)  # pyright: ignore[reportAssignmentType]
         if grant in self.permissions:
             return
 
-        self.permissions.add(grant)
+        self.permissions.add(grant)  # pyright: ignore[reportArgumentType]
         self.updated_at = current_datetime()
 
     def revoke_permission(self, grant: str, scope: PermissionScope) -> None:
-
-        grant = PermissionGrant(permission=grant, scope=scope)
+        grant = PermissionGrant(permission=grant, scope=scope)  # pyright: ignore[reportAssignmentType]
         if grant not in self.permissions:
             return
 
@@ -279,8 +279,8 @@ class Invitation(Entity):
     token: str = field(default_factory=_generate_invite_token)
     invited_by: UUID
 
-    granted_roles: set[RoleId]
-    organization_id: UUID
+    granted_roles: set[RoleId] | None = None
+    organization_id: UUID | None = None
     expires_at: datetime
 
     used_at: datetime | None = None
@@ -292,11 +292,11 @@ class Invitation(Entity):
 
     @classmethod
     def create(
-            cls,
-            email: Email,
-            invited_by: UUID,
-            granted_roles: set[RoleId],
-            organization_id: UUID,
+        cls,
+        email: Email,
+        invited_by: UUID,
+        granted_roles: set[RoleId] | None = None,
+        organization_id: UUID | None = None,
     ) -> Self:
         expires_at = get_expiration_time(expires_in=timedelta(days=INVITATION_EXPIRES_IN_DAYS))
         invitation = cls(
@@ -315,8 +315,9 @@ class Invitation(Entity):
                 invitation_id=self.id,
                 email=self.email,
                 granted_roles=self.granted_roles,
-                counterparty_id=self.organization_id,
+                organization_id=self.organization_id,
                 invited_by=self.invited_by,
+                url=f"{settings.frontend_url}/auth/invite/accept/{self.token}",
             )
         )
 

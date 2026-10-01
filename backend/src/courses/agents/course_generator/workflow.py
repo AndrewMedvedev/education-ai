@@ -7,6 +7,7 @@ from langchain_core.runnables import RunnableConfig
 
 from src.core.database import session_factory
 
+from ...infra.services import course_client
 from ..schemas import RuntimeContext
 from .helper import invoke_or_resume
 from .nodes import Context, agent
@@ -34,7 +35,7 @@ async def generate_course(generation_context: dict[str, Any]) -> dict[str, str]:
                         "thread_id": f"course:{context.course_id}",
                     }
                 ),
-                context=RuntimeContext(db_session=session),
+                context=RuntimeContext(db_session=session, client=course_client),
             )
             return {"course_id": str(context.course_id)}
     except Exception:

@@ -6,13 +6,12 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_service import Runtime
-from src.shared.infra.services import SrvBaseClient
 
 from ...application.dtos import EditorChat
 from ...application.repos import ChatRepository
 from ...domain.entities import AnyContentBlock
-from ...domain.vo import ContentType
-from ..course_generator.subagents.theorist import generate_image, generate_text
+from ...infra.services.client import SrvCourseClient
+from ..course_generator.subagents.theorist import generate_text
 from ..middlewares import (
     ChatCheckpointerMiddleware,
     SummarizationMiddleware,
@@ -25,7 +24,12 @@ logger = logging.getLogger(__name__)
 
 
 class EditorAgent:
-    def __init__(self, repo: ChatRepository, session: AsyncSession, client: SrvBaseClient):
+    def __init__(
+        self,
+        repo: ChatRepository,
+        session: AsyncSession,
+        client: SrvCourseClient,
+    ):
         self._client = client
         self._repo = repo
         self._session = session

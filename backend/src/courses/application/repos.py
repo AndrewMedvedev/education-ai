@@ -1,5 +1,3 @@
-# ruff: file-ignore[unnecessary-placeholder]
-
 """
 Протоколы (Protocol) для репозиториев.
 
@@ -22,10 +20,11 @@ from typing import Any
 
 from uuid import UUID
 
+from src.courses.domain.vo import MemberRole
 from src.shared.application.dtos import Page, Pagination
 from src.shared.application.repos import Repository
+from src.shared.domain.vo import Email
 
-# Поправьте пути импортов под структуру своего проекта при необходимости.
 from ..domain.entities import (
     AnyContentBlock,
     BasicInfo,
@@ -34,12 +33,13 @@ from ..domain.entities import (
     CourseBasicInfo,
     Document,
     Entity,
+    Invitation,
     Lesson,
     LessonBasicInfo,
+    Member,
     Module,
     ModuleBasicInfo,
     Practice,
-    Student,
 )
 
 
@@ -84,6 +84,8 @@ class LessonRepository(BasicInfoProtocol[Lesson, LessonBasicInfo]):
     async def assign_module(self, lesson_id: UUID, module_id: UUID) -> None:
         """Привязывает один урок к модулю и фиксирует его принадлежность."""
 
+    async def read_course_id(self, lesson_id: UUID) -> UUID | None: ...
+
 
 class ModuleRepository(BasicInfoProtocol[Module, ModuleBasicInfo]):
     """
@@ -97,11 +99,12 @@ class ModuleRepository(BasicInfoProtocol[Module, ModuleBasicInfo]):
 
     async def assign_course(self, module_id: UUID, course_id: UUID) -> None:
         """Привязывает модуль к курсу и сохраняет структуру курса."""
-        ...
 
     async def select_lessons_by_id_module(self, module_id: UUID) -> list[BasicInfo]:
         """Выбирает краткие данные уроков, входящих в указанный модуль."""
         ...
+
+    async def read_course_id(self, module_id: UUID) -> UUID | None: ...
 
 
 class CourseRepository(BasicInfoProtocol[Course, CourseBasicInfo]):
@@ -133,6 +136,8 @@ class CourseRepository(BasicInfoProtocol[Course, CourseBasicInfo]):
         user_id: UUID,
         pagination: Pagination,
     ) -> Page[Course]: ...
+
+    async def read_creator_id(self, course_id: UUID) -> UUID | None: ...
 
 
 class DocumentRepository(Repository[Document]):
@@ -220,5 +225,19 @@ class PracticeRepository(Repository[Practice]):
         ...
 
 
-class StudentRepository(Repository[Student]):
-    async def read(self, user_id: UUID, course_id: UUID) -> Student | None: ...
+class MemberRepository(Repository[Member]):
+    async def read(self, user_id: UUID, course_id: UUID) -> Member | None: ...
+
+    async def exists(self, user_id: UUID, course_id: UUID) -> bool: ...
+
+    async def read_role(self, user_id: UUID, course_id: UUID) -> MemberRole | None: ...
+
+
+class InvitationRepository(Repository[Invitation]):
+    async def get_by_token(self, token: str) -> Invitation | None: ...
+
+    async def get_active(
+        self,
+        email: Email,
+        course_id: UUID,
+    ) -> Invitation | None: ...

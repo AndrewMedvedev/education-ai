@@ -11,14 +11,14 @@ from langgraph.runtime import Runtime
 from sqlalchemy.exc import IntegrityError
 
 from src.core.database import session_factory
+from src.courses.agents.schemas import Context, RuntimeContext
+from src.courses.application.domain_dtos import LessonDict, ModuleDict, ModuleStructureDict
+from src.courses.application.mappers import dict_to_module, model_to_typed_dict, module_to_dict
+from src.courses.domain.entities import Module
+from src.courses.infra.database.repos.module import SqlModuleRepository
+from src.courses.infra.services.client import SrvCourseClient
 from src.llm_service import LLMTextService
 
-from ....application.domain_dtos import LessonDict, ModuleDict, ModuleStructureDict
-from ....application.mappers import dict_to_module, model_to_typed_dict, module_to_dict
-from ....domain.entities import Module
-from ....infra.database.repos.module import SqlModuleRepository
-from ....infra.services import course_client
-from ...schemas import Context, RuntimeContext
 from ..few_shots import MODULE_STRUCTURE_FEW_SHOT
 from ..helper import invoke_or_resume
 from ..serializer import checkpointer
@@ -42,11 +42,12 @@ class AgentState(TypedDict):
 
 async def plan_module_structure(
     state: AgentState,
+    runtime: Runtime[RuntimeContext],
 ) -> dict[str, ModuleStructureDict | ModuleDict]:
     """Планирование структуры модуля"""
 
     module_structure_planner = LLMTextService(
-        client=course_client,
+        client=runtime.context.client,
         system_prompt=MODULE_STRUCTURE_PROMPT,
     )
     prompt_template = f"""\
@@ -123,15 +124,15 @@ async def plan_module_structure(
 
 async def save_module(state: AgentState, runtime: Runtime[RuntimeContext]) -> None:
     """Сохраняет модуль, чтобы результат был доступен после завершения операции."""
-    module_repos = SqlModuleRepository(runtime.context.db_session)  # pyright: ignore[reportArgumentType]
-    module = dict_to_module(state["module"])  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    module_repos = SqlModuleRepository(runtime.context.db_session)
+    module = dict_to_module(state["module"])  # type: ignore
     try:
         await module_repos.create(module)
         logger.info("Saving module '%s' to database ...", module.title)
 
-        await runtime.context.db_session.commit()  # pyright: ignore[reportOptionalMemberAccess]
+        await runtime.context.db_session.commit()
     except IntegrityError:
-        await runtime.context.db_session.rollback()  # pyright: ignore[reportOptionalMemberAccess]
+        await runtime.context.db_session.rollback()
         logger.info("Module %s alredy exsists", module.title)
 
 
@@ -143,6 +144,7 @@ async def build_lesson(
     module_id: UUID,
     audience_description: str,
     learning_objectives: list[str],
+    client: SrvCourseClient,
 ) -> tuple[int, LessonDict]:
     """Собирает урок из входных данных для следующего шага сценария."""
     lesson_thread_id = (
@@ -163,15 +165,18 @@ async def build_lesson(
                 "lesson_description": lesson_description,
             },
             config=RunnableConfig(configurable={"thread_id": lesson_thread_id}),
-            context=RuntimeContext(db_session=session),
+            context=RuntimeContext(db_session=session, client=client),
         )
         return order, result["lesson"]
 
 
-async def generate_lessons(state: AgentState) -> dict[str, ModuleDict]:
+async def generate_lessons(
+    state: AgentState,
+    runtime: Runtime[RuntimeContext],
+) -> dict[str, ModuleDict]:
     """Генерация уроков по структуре модуля"""
 
-    module_structure, module = state["module_structure"], state["module"]  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    module_structure, module = state["module_structure"], state["module"]  # type: ignore
     start_time = time.monotonic()
     total_modules = len(module_structure["lessons_descriptions"])
     logger.info("Start generate %s lessons ...", total_modules)
@@ -186,6 +191,7 @@ async def generate_lessons(state: AgentState) -> dict[str, ModuleDict]:
                     module_id=module["id"],
                     audience_description=state["audience_description"],
                     learning_objectives=module_structure["learning_objectives"],
+                    client=runtime.context.client,
                 )
             )
             for order, desc in enumerate(module_structure["lessons_descriptions"], start=1)

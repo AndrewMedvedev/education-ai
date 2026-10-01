@@ -44,6 +44,7 @@ dependencies = [
     "qdrant-client[fastembed]>=1.18.0",
     "redis>=7.4.1",
     "sqlalchemy>=2.0.49",
+    "sse-starlette>=3.4.11",
     "tiktoken>=0.13.0",
     "types-passlib>=1.7.7.20260211",
     "types-pytz>=2026.2.0.20260506",
@@ -52,109 +53,229 @@ dependencies = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
 
 [tool.ruff]
+target-version = "py313"
 line-length = 99
-preview = true
-exclude = [
+
+# Добавляем исключения поверх стандартных исключений Ruff.
+extend-exclude = [
+    "cli",
+    "migration",
     "migrations",
+    "src/migration",
     "src/migrations",
     "alembic.ini",
     "**/__pycache__",
     "**/.mypy_cache",
     "**/.ruff_cache",
-    "**/.venv"
+    "**/.venv",
 ]
 
+
+# ---------------------------------------------------------------------------
+# Ruff lint
+# ---------------------------------------------------------------------------
+
 [tool.ruff.lint]
+
 select = [
-    "F",
-    "E",
-    "W",
-    "C90",
-    "I",
-    "N",
-    "UP",
-    "YTT",
-    "ASYNC",
-    "S",
-    "BLE",
-    "B",
-    "A",
-    "COM",
-    "C4",
-    "DTZ",
-    "T10",
-    "EXE",
-    "ISC",
-    "ICN",
-    "G",
-    "INP",
-    "PIE",
-    "T20",
-    "PYI",
-    "PT",
-    "Q",
-    "RSE",
-    "RET",
-    "SLF",
-    "SLOT",
-    "SIM",
-    "TID",
-    "INT",
-    "ARG",
-    "TD",
-    "FIX",
-    "ERA",
-    "PD",
-    "PGH",
-    "PL",
-    "TRY",
-    "FLY",
-    "NPY",
-    "AIR",
-    "PERF",
-    "FURB",
-    "LOG",
-    "RUF",
+    # -----------------------------------------------------------------------
+    # Core Python
+    # -----------------------------------------------------------------------
+
+    "F",      # Pyflakes: undefined names, unused imports, etc.
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "C90",    # mccabe complexity
+
+    # -----------------------------------------------------------------------
+    # Imports / naming / modernization
+    # -----------------------------------------------------------------------
+
+    "I",      # isort
+    "N",      # pep8-naming
+    "UP",     # pyupgrade
+    "A",      # flake8-builtins
+
+    # -----------------------------------------------------------------------
+    # Async / FastAPI
+    # -----------------------------------------------------------------------
+
+    "ASYNC",  # flake8-async
+    "FAST",   # FastAPI-specific rules
+
+    # -----------------------------------------------------------------------
+    # Bugs / correctness
+    # -----------------------------------------------------------------------
+
+    "B",      # flake8-bugbear
+    "BLE",    # flake8-blind-except
+    "C4",     # flake8-comprehensions
+    "PIE",    # flake8-pie
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+
+    # -----------------------------------------------------------------------
+    # Security
+    # -----------------------------------------------------------------------
+
+    "S",      # flake8-bandit
+
+    # -----------------------------------------------------------------------
+    # Date / time
+    # -----------------------------------------------------------------------
+
+    "DTZ",    # flake8-datetimez
+
+    # -----------------------------------------------------------------------
+    # Testing
+    # -----------------------------------------------------------------------
+
+    "PT",     # flake8-pytest-style
+
+    # -----------------------------------------------------------------------
+    # Function/API design
+    # -----------------------------------------------------------------------
+
+    "ARG",    # flake8-unused-arguments
+    "SLF",    # flake8-self
+
+    # -----------------------------------------------------------------------
+    # Logging
+    # -----------------------------------------------------------------------
+
+    "G",      # flake8-logging-format
+    "LOG",    # flake8-logging
+
+    # -----------------------------------------------------------------------
+    # Exception handling
+    # -----------------------------------------------------------------------
+
+    "TRY",    # tryceratops
+
+    # -----------------------------------------------------------------------
+    # Code quality
+    # -----------------------------------------------------------------------
+
+    "ERA",    # eradicate: commented-out code
+    "PL",     # pylint
+    "PERF",   # perflint
+    "FURB",   # refurb
+    "RUF",    # Ruff-specific rules
 ]
+
+
+# ---------------------------------------------------------------------------
+# Global ignores
+# ---------------------------------------------------------------------------
 ignore = [
-    "S105",
-    "S101",
-    "B008",
-    "TRY201",
-    "PLW3201",
+    # Async functions without explicit timeout can be legitimate.
+    "ASYNC109",
+
+    # Allow project-specific first argument conventions.
     "N805",
-    "PTH",
-    "COM812",
-    "ISC001",
-    "TRY003",
-    "PT013",
-    "TID252",
+
+    # Existing project conventions.
+    "PLW3201",
+    "PLW1641",
+
+    # Cyrillic/Russian text is valid in comments, docstrings and strings.
     "RUF001",
     "RUF002",
     "RUF003",
-    "ASYNC109",
+
+    # Exception messages don't have to be extracted.
+    "TRY003",
+    "PIE790",
 ]
 
+
+# ---------------------------------------------------------------------------
+# Ruff isort
+# ---------------------------------------------------------------------------
+
 [tool.ruff.lint.isort]
+
 section-order = [
     "future",
-    "typings",
+    "typing",
     "standard-library",
     "third-party",
     "first-party",
     "local-folder",
 ]
 
+
 [tool.ruff.lint.isort.sections]
-"typings" = ['typing']
+
+"typing" = ["typing"]
+
+
+# ---------------------------------------------------------------------------
+# Ruff pylint
+# ---------------------------------------------------------------------------
 
 [tool.ruff.lint.pylint]
+
+# Backend/service methods can legitimately have many dependencies/parameters.
 max-args = 15
+
+# Allow reasonably complex functions without excessive noise.
 max-returns = 10
 max-branches = 30
 
+
+# ---------------------------------------------------------------------------
+# Ruff per-file ignores
+# ---------------------------------------------------------------------------
+
+[tool.ruff.lint.per-file-ignores]
+
+# Tests intentionally use patterns that should be stricter in production code.
+"tests/**/*.py" = [
+    "S101",      # assert is fundamental to pytest
+    "ARG001",    # fixtures/callback arguments can appear unused
+    "F401",      # imports can be used indirectly by fixtures/plugins
+    "PLR6301",   # test methods don't necessarily need self
+    "SLF001",    # tests may intentionally inspect private state
+]
+
+# CRUD/repository implementations can intentionally keep async signatures
+# or interface-compatible arguments.
+"**/*crud.py" = [
+    "RUF029",
+    "ARG001",
+]
+
+"**/crud/**/*.py" = [
+    "RUF029",
+    "ARG001",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff formatter
+# ---------------------------------------------------------------------------
+
+[tool.ruff.format]
+
+# Unix line endings. Suitable for Docker/Linux deployment.
+line-ending = "lf"
+
+# Standard project string style.
+quote-style = "double"
+
+# Four-space Python indentation.
+indent-style = "space"
+
+# Preserve magic trailing comma behavior.
+skip-magic-trailing-comma = false
+
+# Format Python examples inside docstrings.
+docstring-code-format = true
 
 
 # -- Vulture --

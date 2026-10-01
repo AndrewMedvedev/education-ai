@@ -62,8 +62,7 @@ class SqlAlchemyRepository[EntityT: Entity, ModelT: Base]:
             return Page.create([], total_items, pagination.page, pagination.size)
 
         stmt = (
-            stmt
-            .order_by(self.model.created_at.desc())
+            stmt.order_by(self.model.created_at.desc())
             .offset(pagination.offset)
             .limit(pagination.size)
         )
@@ -72,7 +71,7 @@ class SqlAlchemyRepository[EntityT: Entity, ModelT: Base]:
 
         return Page.create(
             items=[model_mapper(model) for model in models],
-            total_items=total_items,
+            total=total_items,  # pyright: ignore[reportArgumentType]
             page=pagination.page,
             size=pagination.size,
         )
@@ -124,7 +123,7 @@ class InMemoryRepository[EntityT: Entity]:
         return Page(
             page=params.page,
             size=params.size,
-            total_items=len(items),
+            total=len(items),
             total_pages=1,
             has_next=False,
             has_prev=False,

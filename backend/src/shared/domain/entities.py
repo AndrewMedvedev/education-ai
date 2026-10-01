@@ -9,7 +9,7 @@ from .events import Event
 
 
 @dataclass
-class Entity(abc.ABC):  # ruff: ignore[abstract-base-class-without-abstract-method]
+class Entity(abc.ABC):  # noqa: B024
     """
     Базовая доменная сущность, от которой наследуются все остальные бизнес модели.
     Идентичность определяется уникальным ID, а не аттрибутами модели.

@@ -5,11 +5,14 @@ from src.shared.domain.exceptions import DomainError
 
 class WeakPasswordError(DomainError):
     def __init__(
-            self, message: str, suggestions: list[str], warning: str | None = None,
+        self,
+        message: str,
+        suggestions: list[str],
+        warning: str | None = None,
     ) -> None:
         details = {"suggestions": suggestions}
         if warning is not None:
-            details["warning"] = warning
+            details["warning"] = warning  # pyright: ignore[reportArgumentType]
 
         super().__init__(
             message=message,

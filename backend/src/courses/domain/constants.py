@@ -1,7 +1,8 @@
-from .entities import (
+from .vo import (
     AnyContentBlock,
     ChemicalBlock,
     CodeBlock,
+    ExtendedContentType,
     # ImageBlock,
     MathBlock,
     MermaidBlock,
@@ -10,7 +11,8 @@ from .entities import (
     TextBlock,
     VideoBlock,
 )
-from .vo import ExtendedContentType
+
+INVITATION_EXPIRES_IN_DAYS = 7
 
 _BLOCK_REGISTRY: dict[str, type[AnyContentBlock]] = {
     ExtendedContentType.TEXT: TextBlock,

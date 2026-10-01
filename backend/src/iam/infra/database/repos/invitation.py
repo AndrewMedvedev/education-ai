@@ -9,7 +9,7 @@ from src.shared.infra.database import SqlAlchemyRepository
 
 class SqlInvitationRepository(SqlAlchemyRepository[Invitation, InvitationOrm]):
     model = InvitationOrm
-    model_mapper = InvitationMapper
+    model_mapper = InvitationMapper  # pyright: ignore[reportAssignmentType]
 
     async def get_by_token(self, token: str) -> Invitation | None:
         stmt = select(self.model).where(

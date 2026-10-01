@@ -10,17 +10,17 @@ from ....domain.entities import (
     Module,
     ModuleBasicInfo,
 )
-from ...mappers import (
+from ..mappers import (
     ModuleMapper,
 )
-from ...models import LessonOrm, ModuleOrm
+from ..models import LessonOrm, ModuleOrm
 
 logger = logging.getLogger(__name__)
 
 
 class SqlModuleRepository(SqlAlchemyRepository[Module, ModuleOrm]):
     model = ModuleOrm
-    model_mapper = ModuleMapper  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    model_mapper = ModuleMapper  # type: ignore
 
     async def assign_course(
         self,
@@ -71,4 +71,9 @@ class SqlModuleRepository(SqlAlchemyRepository[Module, ModuleOrm]):
             return None
         lessons = await self.select_lessons_by_id_module(module_id=uid)
 
-        return self.model_mapper.basic_info_mapper(module_row, lessons)  # type: ignore  # ruff:ignore[blanket-type-ignore]
+        return self.model_mapper.basic_info_mapper(module_row, lessons)  # type: ignore
+
+    async def read_course_id(self, module_id: UUID) -> UUID | None:
+        stmt = select(self.model.course_id).where(self.model.id == module_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()

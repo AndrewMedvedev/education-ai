@@ -10,7 +10,8 @@ _policy_registry: dict[tuple[str, PermissionScope], AuthorizationPolicy] = {}
 
 
 def register_policy(
-    permission: Permission, scope: PermissionScope,
+    permission: Permission,
+    scope: PermissionScope,
 ) -> Callable[[AuthorizationPolicy], AuthorizationPolicy]:
 
     if scope not in permission.scopes:
@@ -34,7 +35,7 @@ def register_policy(
 
 
 def get_permission_policies(
-        permission: Permission,
+    permission: Permission,
 ) -> tuple[tuple[PermissionScope, AuthorizationPolicy], ...]:
     """Возвращает все зарегистрированные политики авторизации для permission"""
 

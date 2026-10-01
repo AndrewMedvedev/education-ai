@@ -1,5 +1,6 @@
 import logging
 from importlib import import_module
+import pkgutil
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,25 +23,32 @@ from src.iam.infra.database.repos.role import SqlRoleRepository
 from src.iam.infra.database.repos.user import SqlUserRepository
 from src.iam.security import hash_password
 from src.organization.domain.entities import Organization
-from src.organization.infra.repos import SqlOrganizationRepository
+from src.organization.infra.database.repos.organization import SqlOrganizationRepository
 
 logger = logging.getLogger(__name__)
 
 ADMIN_ROLE_CODE = "admin"
 USER_ROLE_CODE = "user"
-SYSTEM_PERMISSION_MODULES = (
-    "src.iam.domain.permissions.permissions",
-    "src.iam.domain.permissions.users",
-    "src.organization.domain.permissions.organizations",
-    "src.courses.domain.permissions.courses",
-    "src.courses.domain.permissions.theory_session",
-    "src.llm_router.domain.permissions.ai_models",
+PERMISSION_PACKAGES = (
+    "src.iam.domain.permissions",
+    "src.organization.domain.permissions",
+    "src.courses.domain.permissions",
+    "src.llm_router.domain.permissions",
 )
 
-
 def _load_system_permission_modules() -> None:
-    for module in SYSTEM_PERMISSION_MODULES:
-        import_module(module)
+    for package_name in PERMISSION_PACKAGES:
+        package = import_module(package_name)
+
+        for module_info in pkgutil.walk_packages(
+            package.__path__,
+            prefix=f"{package.__name__}.",
+        ):
+            if module_info.ispkg:
+                continue
+
+            import_module(module_info.name)
+
 
 
 def _build_admin_user(admin_email: Email) -> User:

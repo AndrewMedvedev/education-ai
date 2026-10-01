@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ..settings import ENV_FILE  # ruff: ignore[unused-import]
+from ..settings import ENV_FILE  # noqa: F401
 
 
 class QdrantConfig(BaseSettings):
@@ -9,6 +9,7 @@ class QdrantConfig(BaseSettings):
     host: str = "localhost"
     port: int = 6333
     api_key: str = "<PASSWORD>"
+    index_name: str = "main-index"
 
     @property
     def url(self) -> str:

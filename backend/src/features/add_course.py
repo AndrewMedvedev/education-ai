@@ -8,25 +8,23 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..core.database import session_factory
+from ..courses.domain.entities import Course, Lesson, Module
 
 # Импорты доменных классов (убедитесь, что пути соответствуют вашей структуре)
-from ..courses.domain.entities import (
+from ..courses.domain.vo import (
     AnyAssignment,
     AnyContentBlock,
     AssignmentType,
     ChemicalBlock,
     CodeBlock,
     ContentType,
-    Course,
     CourseStatus,
     DifficultyLevel,
     ExtendedContentType,
     FileUploadAssignment,
     GitHubAssignment,
-    Lesson,
     MathBlock,
     MermaidBlock,
-    Module,
     MusicalBlock,
     QuizBlock,
     TextBlock,
@@ -47,10 +45,6 @@ from ..courses.infra.database.repos.module import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 COURSE_JSON_FILES = [
     PROJECT_ROOT / "course.json",
-    PROJECT_ROOT / "course_agile_scrum.json",
-    PROJECT_ROOT / "course_digital_marketing.json",
-    PROJECT_ROOT / "course_personal_finance.json",
-    PROJECT_ROOT / "course_python_basics.json",
     PROJECT_ROOT / "course_result.json",
 ]
 
@@ -257,7 +251,7 @@ async def main():
     """Запускает сценарий модуля и связывает подготовку данных с основным действием."""
     async with session_factory() as session:
         # Укажите реальный UUID создателя (можно взять из JSON или передать)
-        creator_id = UUID("75a830b9-0781-4b70-bd86-f8777001b6ca")
+        creator_id = UUID("a8cf83bc-0de9-4b7b-8047-137f5669195e")
         loaded_courses: list[Course] = []
 
         for course_file in COURSE_JSON_FILES:

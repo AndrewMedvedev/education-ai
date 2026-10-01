@@ -1,18 +1,17 @@
+from typing import Annotated
+
 import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from src.iam.application.policies import authorize
-from src.iam.dependencies.identity import CurrentIdentity
-
-from ...dependencies.services import DocumentServiceDep
-from ...domain.permissions.courses import CREATE
-from ...utils.docs_processing import (
+from src.courses.dependencies.services import DocumentServiceDep
+from src.courses.utils.docs_processing import (
     convert_document_to_md_async,
     document_pipeline,
     read_upload_with_limit,
 )
+from src.iam.dependencies.identity import CurrentIdentity
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +27,9 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".md", ".html", ".txt",
     description="Принимает файл и возвращает его данные в формате markdown",
 )
 async def document_to_markdown(
-    identity: CurrentIdentity,
-    file: UploadFile = File(...),
+    _identity: CurrentIdentity,
+    file: Annotated[UploadFile, File()],
 ) -> str:
-    authorize(identity, CREATE)
     ext = Path(file.filename).suffix.lower()  # pyright: ignore[reportArgumentType]
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -56,9 +54,8 @@ async def document_to_markdown(
 async def upload_document(
     identity: CurrentIdentity,
     service: DocumentServiceDep,
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
 ) -> dict[str, str]:
-    authorize(identity, CREATE)
     """Загружает document, чтобы сохранить пользовательский файл во внешнем хранилище."""
     ext = Path(file.filename).suffix.lower()  # pyright: ignore[reportArgumentType]
     if ext not in ALLOWED_EXTENSIONS:

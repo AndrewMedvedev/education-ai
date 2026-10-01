@@ -12,17 +12,17 @@ from ....domain.entities import (
     CourseBasicInfo,
 )
 from ....domain.vo import CourseStatus
-from ...mappers import (
+from ..mappers import (
     CourseMapper,
 )
-from ...models import CourseOrm, ModuleOrm, StudentOrm
+from ..models import CourseOrm, MemberOrm, ModuleOrm
 
 logger = logging.getLogger(__name__)
 
 
 class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
     model = CourseOrm
-    model_mapper = CourseMapper  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    model_mapper = CourseMapper  # type: ignore
 
     async def find(
         self,
@@ -65,7 +65,7 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
             mapper=self.model_mapper.from_model,
         )
 
-    async def find_student_courses(
+    async def find_member_courses(
         self,
         user_id: UUID,
         pagination: Pagination,
@@ -75,12 +75,12 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
         stmt = (
             select(self.model)
             .join(
-                StudentOrm,
-                StudentOrm.course_id == self.model.id,
+                MemberOrm,
+                MemberOrm.course_id == self.model.id,
             )
             .where(
-                StudentOrm.user_id == user_id,
-                self.model.status != CourseStatus.ARCHIVED,
+                MemberOrm.user_id == user_id,
+                self.model.status != {CourseStatus.ARCHIVED, CourseStatus.DRAFT},
             )
         )
 
@@ -134,7 +134,7 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
 
         modules = await self.select_modules_by_id_course(uid)
 
-        return self.model_mapper.basic_info_mapper(course_row, modules)  # type: ignore  # ruff:ignore[blanket-type-ignore]
+        return self.model_mapper.basic_info_mapper(course_row, modules)  # type: ignore
 
     async def get_course_status(
         self,
@@ -151,7 +151,7 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
 
         return result.scalar_one_or_none()
 
-    async def find_students(
+    async def find_members(
         self,
         course_id: UUID,
         pagination: Pagination,
@@ -159,7 +159,7 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
         """Для расширения логики фильтрации можно переопределить в дочерних классах."""
 
         stmt = (
-            select(self.model.students)
+            select(self.model.members)
             .order_by(self.model.created_at.desc())
             .where(self.model.id == course_id)
         )
@@ -167,7 +167,13 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
         return await paginate(
             session=self._session,
             model=self.model,
-            stmt=stmt,
+            stmt=stmt,  # pyright: ignore[reportArgumentType]
             pagination=pagination,
             mapper=self.model_mapper.from_model,
         )
+
+    async def read_creator_id(self, course_id: UUID) -> UUID | None:
+        """Получает существующую запись по идентификатору или заданным параметрам."""
+        stmt = select(self.model.creator_id).where(self.model.id == course_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()

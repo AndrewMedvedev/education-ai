@@ -1,8 +1,7 @@
 ﻿from fastapi import APIRouter
 
-from . import ai_models, llm
+from src.shared.api.include_routers import include_routers
 
 router = APIRouter()
 
-router.include_router(llm.router)
-router.include_router(ai_models.router)
+include_routers(router, __name__, __path__)

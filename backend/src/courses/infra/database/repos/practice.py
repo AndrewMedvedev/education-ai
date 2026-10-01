@@ -10,10 +10,10 @@ from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository
 from ....domain.entities import (
     Practice,
 )
-from ...mappers import (
+from ..mappers import (
     PracticeMapper,
 )
-from ...models import PracticeOrm
+from ..models import PracticeOrm
 
 logger = logging.getLogger(__name__)
 
