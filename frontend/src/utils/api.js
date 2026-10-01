@@ -513,32 +513,34 @@ export async function acceptInvitation({
 
 // Курс-специфичные приглашения (карта приглашений в карточке курса).
 //
-// TODO: backend endpoint не реализован. В backend сейчас есть только заглушка
-// `POST /invitations` и рабочий `POST /invitations/accept`
-// (backend/src/iam/api/v1/invitations.py). Ниже — предложенные роуты,
-// которые нужно согласовать с backend перед подключением:
-//   GET    /course/{course_id}/invitations?page=&size=&status=
-//   POST   /course/{course_id}/invitations                  { email, role }
-//   POST   /course/{course_id}/invitations/{invitation_id}/resend
-//   DELETE /course/{course_id}/invitations/{invitation_id}
-// Роли: student | teacher | moderator. Статусы: pending | accepted | rejected | expired.
+// Реальный контракт backend (backend/src/courses/api/v1/invitations.py):
+//   POST /courses/invitations                   { course_id, email, role }
+//   POST /courses/invitations/accept/{token}
+//
+// Роутов списка, повторной отправки и отмены приглашений курса на backend нет,
+// поэтому `listCourseInvitations` не ходит в сеть и отдаёт пустую страницу:
+// актуальный список держит в памяти сессии services/invitationApi.js.
+// Роли: student | teacher | moderator. Статус приглашения backend не хранит —
+// его вычисляют из `is_used` и `expires_at`.
 
 export async function listCourseInvitations(
   courseId,
-  { page = 1, size = 20, status = "" } = {},
-  options = {},
+  { page = 1, size = 20 } = {},
 ) {
-  const query = new URLSearchParams({
-    page: String(page),
-    size: String(size),
-  });
-  if (status) {
-    query.set("status", status);
-  }
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeSize = Math.max(1, Number(size) || 20);
 
-  return apiFetch(
-    `/course/${encodeURIComponent(courseId)}/invitations?${query.toString()}`,
-    { ...options, method: "GET" },
+  return new Response(
+    JSON.stringify({
+      items: [],
+      page: safePage,
+      size: safeSize,
+      total: 0,
+      pages: 1,
+      has_next: false,
+      has_prev: false,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
   );
 }
 
@@ -547,37 +549,23 @@ export async function createCourseInvitation(
   { email, role },
   options = {},
 ) {
-  return apiFetch(`/course/${encodeURIComponent(courseId)}/invitations`, {
+  return apiFetch("/courses/invitations", {
     ...options,
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
-    body: JSON.stringify({ email, role }),
+    body: JSON.stringify({ course_id: courseId, email, role }),
   });
 }
 
-export async function resendCourseInvitation(
-  courseId,
-  invitationId,
-  options = {},
-) {
-  return apiFetch(
-    `/course/${encodeURIComponent(courseId)}/invitations/${encodeURIComponent(invitationId)}/resend`,
-    { ...options, method: "POST" },
-  );
+export async function resendCourseInvitation() {
+  throw new ApiError("Not supported by backend yet", { status: 501 });
 }
 
-export async function cancelCourseInvitation(
-  courseId,
-  invitationId,
-  options = {},
-) {
-  return apiFetch(
-    `/course/${encodeURIComponent(courseId)}/invitations/${encodeURIComponent(invitationId)}`,
-    { ...options, method: "DELETE" },
-  );
+export async function cancelCourseInvitation() {
+  throw new ApiError("Not supported by backend yet", { status: 501 });
 }
 
 // Внутренний системный метод: /permissions не должен иметь пользовательского экрана.

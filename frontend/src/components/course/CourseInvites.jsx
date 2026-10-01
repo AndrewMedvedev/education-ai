@@ -2,11 +2,15 @@
  * Карта приглашений курса.
  *
  * Блок внутри карточки курса: форма приглашения по email с ролью
- * (student / teacher / moderator) и список уже отправленных приглашений
- * со статусами и действиями «повторно отправить» / «отменить».
+ * (student / teacher / moderator) и список отправленных приглашений.
  *
- * Рендерится для пользователей с правом управления курсом (course:update),
- * а в демо-режиме (IS_INVITATION_MOCK) — на любом курсе, с пометкой о моках.
+ * Backend умеет только создавать приглашение (`POST /courses/invitations`)
+ * и не отдаёт список приглашений курса, поэтому источник списка — память
+ * сессии (`services/invitationApi.js`): после перезагрузки страницы он пустой,
+ * пока на сервере не появится GET. Роутов повторной отправки и отмены нет,
+ * поэтому действий в списке тоже нет.
+ *
+ * Рендерится для пользователей с правом управления курсом (course:update).
  */
 import { useEffect, useState } from "react";
 
@@ -15,7 +19,6 @@ import {
   INVITATION_ROLE_LABELS,
   INVITATION_ROLES,
   INVITATION_STATUS_LABELS,
-  IS_INVITATION_MOCK,
 } from "../../services/invitationApi";
 import { isValidEmail, useInvitationStore } from "../../stores/invitationStore";
 import { useSessionStore } from "../../stores/sessionStore";
@@ -49,46 +52,29 @@ export default function CourseInvites({ courseId }) {
   const error = useInvitationStore(
     (state) => state.errorByCourse[courseId] || "",
   );
-  const pendingIds = useInvitationStore((state) => state.pendingInvitationIds);
   const loadInvitations = useInvitationStore((state) => state.loadInvitations);
   const sendInvitation = useInvitationStore((state) => state.sendInvitation);
-  const resendInvitation = useInvitationStore(
-    (state) => state.resendInvitation,
-  );
-  const cancelInvitation = useInvitationStore(
-    (state) => state.cancelInvitation,
-  );
 
   const [email, setEmail] = useState("");
   const [role, setRole] = useState(DEFAULT_ROLE);
   const [formError, setFormError] = useState("");
-  const [actionError, setActionError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // В демо-режиме блок показываем и без права управления курсом.
-    if (!courseId || (!canUpdateCourse && !IS_INVITATION_MOCK)) return undefined;
+    if (!courseId || !canUpdateCourse) return undefined;
 
     const controller = new AbortController();
     loadInvitations(courseId, { signal: controller.signal }).catch(() => {});
     return () => controller.abort();
   }, [courseId, canUpdateCourse, loadInvitations]);
 
-  if (!courseId || (!canUpdateCourse && !IS_INVITATION_MOCK)) {
+  if (!courseId || !canUpdateCourse) {
     return null;
   }
 
   const trimmedEmail = email.trim();
-  const isInvitationEndpointUnavailable = error.includes(
-    "пока не подключён на сервере",
-  );
-  const isCreateDisabled = IS_INVITATION_MOCK;
   const canSubmit =
-    isValidEmail(trimmedEmail) &&
-    Boolean(role) &&
-    !isSubmitting &&
-    !isCreateDisabled &&
-    !isInvitationEndpointUnavailable;
+    isValidEmail(trimmedEmail) && Boolean(role) && !isSubmitting;
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -116,34 +102,6 @@ export default function CourseInvites({ courseId }) {
     }
   }
 
-  async function handleResend(invitationId) {
-    setActionError("");
-
-    try {
-      await resendInvitation(courseId, invitationId);
-    } catch (resendError) {
-      setActionError(
-        resendError?.userMessage ||
-          resendError?.message ||
-          "Не удалось отправить приглашение повторно.",
-      );
-    }
-  }
-
-  async function handleCancel(invitationId) {
-    setActionError("");
-
-    try {
-      await cancelInvitation(courseId, invitationId);
-    } catch (cancelError) {
-      setActionError(
-        cancelError?.userMessage ||
-          cancelError?.message ||
-          "Не удалось отменить приглашение.",
-      );
-    }
-  }
-
   return (
     <section className="course-invites" aria-labelledby="course-invites-title">
       <div className="course-invites-head">
@@ -151,11 +109,6 @@ export default function CourseInvites({ courseId }) {
         <p className="course-viewer-muted">
           Пригласите студентов и преподавателей по email и назначьте роль.
         </p>
-        {IS_INVITATION_MOCK && (
-          <p className="course-invites-demo" role="status">
-            Демо-режим: данные замоканы, создание приглашений недоступно.
-          </p>
-        )}
       </div>
 
       <form className="course-invites-form" onSubmit={handleSubmit} noValidate>
@@ -194,9 +147,6 @@ export default function CourseInvites({ courseId }) {
           type="submit"
           className="btn btn-solid course-invites-submit"
           disabled={!canSubmit}
-          title={
-            isCreateDisabled ? "Создание недоступно в демо-режиме" : undefined
-          }
         >
           {isSubmitting ? "Отправляем…" : "Пригласить"}
         </button>
@@ -207,12 +157,7 @@ export default function CourseInvites({ courseId }) {
           {formError}
         </p>
       )}
-      {actionError && (
-        <p className="course-invites-error" role="alert">
-          {actionError}
-        </p>
-      )}
-      {error && (
+      {!formError && error && (
         <p className="course-invites-error" role="alert">
           {error}
         </p>
@@ -224,8 +169,8 @@ export default function CourseInvites({ courseId }) {
         </p>
       ) : error && invitations.length === 0 ? null : invitations.length === 0 ? (
         <div className="course-invites-empty">
-          <strong>Пока нет приглашений</strong>
-          <p>Отправьте первое приглашение — оно появится здесь со статусом «Ожидает».</p>
+          <strong>Пока приглашений нет</strong>
+          <p>Отправьте первое через форму ниже.</p>
         </div>
       ) : (
         <ul className="course-invites-list">
@@ -234,51 +179,28 @@ export default function CourseInvites({ courseId }) {
             <span>Роль</span>
             <span>Статус</span>
             <span>Отправлено</span>
-            <span>Действия</span>
           </li>
 
-          {invitations.map((invitation) => {
-            const isInvitationPending = pendingIds.has(invitation.id);
-
-            return (
-              <li key={invitation.id} className="course-invite-item">
-                <span className="course-invite-email" data-label="Email">
-                  {invitation.email}
-                </span>
-                <span className="course-invite-role" data-label="Роль">
-                  {INVITATION_ROLE_LABELS[invitation.role] || invitation.role}
-                </span>
-                <span
-                  className={`course-invite-status is-${invitation.status}`}
-                  data-label="Статус"
-                >
-                  {INVITATION_STATUS_LABELS[invitation.status] ||
-                    invitation.status}
-                </span>
-                <span className="course-invite-date" data-label="Отправлено">
-                  {formatInvitationDate(invitation.createdAt)}
-                </span>
-                <span className="course-invite-actions" data-label="Действия">
-                  <button
-                    type="button"
-                    className="btn btn-outline course-invite-action"
-                    disabled={isInvitationPending}
-                    onClick={() => handleResend(invitation.id)}
-                  >
-                    Повторно
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-flat course-invite-action is-danger"
-                    disabled={isInvitationPending}
-                    onClick={() => handleCancel(invitation.id)}
-                  >
-                    Отменить
-                  </button>
-                </span>
-              </li>
-            );
-          })}
+          {invitations.map((invitation) => (
+            <li key={invitation.id} className="course-invite-item">
+              <span className="course-invite-email" data-label="Email">
+                {invitation.email}
+              </span>
+              <span className="course-invite-role" data-label="Роль">
+                {INVITATION_ROLE_LABELS[invitation.role] || invitation.role}
+              </span>
+              <span
+                className={`course-invite-status is-${invitation.status}`}
+                data-label="Статус"
+              >
+                {INVITATION_STATUS_LABELS[invitation.status] ||
+                  invitation.status}
+              </span>
+              <span className="course-invite-date" data-label="Отправлено">
+                {formatInvitationDate(invitation.createdAt)}
+              </span>
+            </li>
+          ))}
         </ul>
       )}
     </section>

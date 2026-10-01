@@ -2,7 +2,6 @@ import { create } from "zustand";
 import {
   cancelInvitation as cancelInvitationRequest,
   getCourseInvitations,
-  IS_INVITATION_MOCK,
   inviteToCourse,
   resendInvitation as resendInvitationRequest,
 } from "../services/invitationApi";
@@ -100,12 +99,6 @@ export const useInvitationStore = create((set, get) => ({
         .some((invitation) => normalizeEmail(invitation.email) === normalizedEmail)
     ) {
       throw new Error("Этот email уже приглашён в курс.");
-    }
-
-    if (IS_INVITATION_MOCK) {
-      // Демо-режим: создание недоступно — запись не добавляем даже оптимистично,
-      // сразу пробрасываем понятную ошибку в форму.
-      return inviteToCourse(courseId, { email: normalizedEmail, role });
     }
 
     const optimisticId = `pending-${Date.now()}`;
