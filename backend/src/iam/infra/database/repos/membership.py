@@ -10,7 +10,7 @@ from src.shared.infra.database import SqlAlchemyRepository
 
 class SqlMembershipRepository(SqlAlchemyRepository[Membership, MembershipOrm]):
     model = MembershipOrm
-    model_mapper = MembershipMapper
+    model_mapper = MembershipMapper  # pyright: ignore[reportAssignmentType]
 
     async def get_by_user(self, user_id: UUID) -> tuple[Membership, ...]:
         stmt = select(self.model).where(

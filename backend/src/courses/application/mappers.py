@@ -5,9 +5,10 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from ..domain.constants import _BLOCK_REGISTRY
-from ..domain.entities import AnyContentBlock, Course, Lesson, Module, Question, QuizBlock
-from ..domain.vo import ExtendedContentType
+from src.courses.domain.constants import _BLOCK_REGISTRY
+from src.courses.domain.entities import Course, Lesson, Module
+from src.courses.domain.vo import AnyContentBlock, ExtendedContentType, Question, QuizBlock
+
 from .domain_dtos import (
     AnyContentBlockDict,
     ChemicalBlockDict,

@@ -14,10 +14,10 @@ class Repository[EntityT: Entity](Protocol):
 
     async def read(self, uid: UUID) -> EntityT | None: ...
 
-    async def find[FiltersT: BaseQueryParamFilters](
+    async def find(
         self,
         pagination: Pagination,
-        filters: FiltersT | None = None,
+        filters: BaseQueryParamFilters | None = None,
     ) -> Page[EntityT]: ...
 
     async def update(self, uid: UUID, **kwargs) -> EntityT: ...
@@ -56,12 +56,15 @@ class RepositoryDecorator[EntityT: Entity](Repository[EntityT]):
     async def find[FiltersT](
         self,
         pagination: Pagination,
-        filters: FiltersT | None = None,
+        filters: BaseQueryParamFilters | None = None,
     ) -> Page[EntityT]:
         return await self._repo.find(pagination, filters=filters)
 
-    async def update(self, entity: EntityT) -> None:
-        await self._repo.update(entity)
+    async def update(self, uid: UUID, **kwargs) -> EntityT | None:
+        return await self._repo.update(uid, **kwargs)
+
+    async def upsert(self, entity: EntityT) -> None:
+        await self._repo.upsert(entity)
 
     async def delete(self, uid: UUID) -> None:
         await self._repo.delete(uid)

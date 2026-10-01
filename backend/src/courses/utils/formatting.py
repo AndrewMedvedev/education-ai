@@ -1,9 +1,9 @@
-from ..domain.entities import (
+from src.courses.domain.entities import Lesson
+from src.courses.domain.vo import (
     AnyAssignment,
     AnyContentBlock,
     AssignmentType,
     ContentType,
-    Lesson,
 )
 
 
@@ -42,10 +42,12 @@ def get_content_blocks_context(content_blocks: list[AnyContentBlock]) -> str:
                 context += (
                     "Вопросы для самопроверки:\n"
                     f" - {
-                        '\n - '.join([
-                            f'вопрос: {item.question}; ответ: {item.answer}'
-                            for item in content_block.questions  # pyright: ignore[reportAttributeAccessIssue]
-                        ])
+                        '\n - '.join(
+                            [
+                                f'вопрос: {item.question}; ответ: {item.answer}'
+                                for item in content_block.questions  # pyright: ignore[reportAttributeAccessIssue]
+                            ]
+                        )
                     }"
                 )
             case ContentType.PROGRAM_CODE:

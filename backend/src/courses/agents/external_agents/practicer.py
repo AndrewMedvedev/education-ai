@@ -1,5 +1,3 @@
-# ruff: file-ignore[line-too-long]
-
 from typing import Any
 
 import base64
@@ -10,13 +8,13 @@ from uuid import UUID
 from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.courses.domain.entities import Practice
 from src.llm_service import LLMTextService
 from src.shared.domain.exceptions import NotFoundError
-from src.shared.infra.services import SrvBaseClient
 
 from ...application.repos import LessonRepository, PracticeRepository
-from ...domain.entities import FileUploadAssignment, Practice
-from ...domain.vo import PracticeStatus
+from ...domain.vo import FileUploadAssignment, PracticeStatus
+from ...infra.services.client import SrvCourseClient
 from ..course_generator.subagents.prompts import FILE_UPLOAD_PROMPT
 from ..prompts import ASSIGNMENT_PROMPT, PRACTICE_FILE_CHECKER_PROMPT
 from ..schemas import PracticeResult
@@ -28,7 +26,7 @@ class PracticerAgent:
         session: AsyncSession,
         practice_repo: PracticeRepository,
         lesson_repo: LessonRepository,
-        client: SrvBaseClient,
+        client: SrvCourseClient,
     ) -> None:
         """Инициализирует объект и сохраняет зависимости, необходимые для дальнейшей работы."""
         self._client = client
@@ -52,10 +50,12 @@ class PracticerAgent:
         ]
         practices = await self.practice_repo.read_by_module(user_id=user_id, module_id=module_id)
         if practices is not None:
-            messages.append({
-                "role": "user",
-                "content": f"Практики студента\n{json.dumps(practices, ensure_ascii=False, indent=2)}",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Практики студента\n{json.dumps(practices, ensure_ascii=False, indent=2)}",
+                }
+            )
         agent = LLMTextService(
             client=self._client,
             system_prompt=FILE_UPLOAD_PROMPT,

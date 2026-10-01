@@ -8,10 +8,10 @@ from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository
 from ....domain.entities import (
     Chat,
 )
-from ...mappers import (
+from ..mappers import (
     ChatMapper,
 )
-from ...models import ChatOrm
+from ..models import ChatOrm
 
 logger = logging.getLogger(__name__)
 

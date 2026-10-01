@@ -9,7 +9,7 @@ from src.shared.infra.database import SqlAlchemyRepository
 
 class SqlUserRepository(SqlAlchemyRepository[User, UserOrm]):
     model = UserOrm
-    model_mapper = UserMapper
+    model_mapper = UserMapper  # pyright: ignore[reportAssignmentType]
 
     async def get_by_email(self, email: Email) -> User | None:
         stmt = select(self.model).where(

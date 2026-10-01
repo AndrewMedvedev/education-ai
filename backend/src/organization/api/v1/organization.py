@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -5,24 +7,28 @@ from fastapi import APIRouter, Depends, status
 from src.iam.application.policies import authorize
 from src.iam.dependencies import require_permissions
 from src.iam.dependencies.identity import CurrentIdentity
-from src.shared.application.dtos import Page
-
-from ...application.dtos import OrganizationCreate, OrganizationEdit
-from ...dependencies.base import (
+from src.organization.application.dtos import OrganizationCreate, OrganizationEdit
+from src.organization.dependencies.base import (
     DBSession,
     OrganizationRepoDep,
-    OrganizationServiceDep,
     paginate_organizations,
 )
-from ...domain.entities import Organization
-from ...domain.permissions.organizations import CREATE, DELETE, ORGANIZATION_READ, READ, UPDATE
+from src.organization.dependencies.services import OrganizationServiceDep
+from src.organization.domain.entities import Organization
+from src.organization.domain.permissions.organizations import (
+    CREATE,
+    DELETE,
+    ORGANIZATION_READ,
+    READ,
+    UPDATE,
+)
+from src.shared.application.dtos import Page
 
 router = APIRouter(prefix="/organizations", tags=["Организации"])
 
 
 @router.post(
     path="",
-    response_model=Organization,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permissions(CREATE.code))],
     summary="Создать Организацию",
@@ -38,7 +44,6 @@ async def create_organization(
 
 @router.get(
     path="/{organization_id}",
-    response_model=Organization,
     status_code=status.HTTP_200_OK,
     dependencies=[Depends(require_permissions(ORGANIZATION_READ.code))],
     summary="Получить Организацию",
@@ -53,7 +58,6 @@ async def read_my_organization(
 @router.patch(
     path="/{organization_id}",
     status_code=status.HTTP_200_OK,
-    response_model=Organization,
     dependencies=[Depends(require_permissions(UPDATE.code))],
     summary="Отредактировать организацию",
 )
@@ -67,14 +71,13 @@ async def edit_organization(
 
 @router.get(
     path="",
-    response_model=Page[Organization],
     status_code=status.HTTP_200_OK,
     summary="Получение списка организаций",
     dependencies=[Depends(require_permissions(READ.code))],
 )
 async def get_organizations(
     identity: CurrentIdentity,
-    organizations: Page[Organization] = Depends(paginate_organizations),
+    organizations: Annotated[Page[Organization], Depends(paginate_organizations)],
 ) -> Page[Organization]:
     authorize(identity, READ)
     return organizations

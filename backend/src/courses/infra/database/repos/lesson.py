@@ -13,17 +13,17 @@ from ....domain.entities import (
     Lesson,
     LessonBasicInfo,
 )
-from ...mappers import (
+from ..mappers import (
     LessonMapper,
 )
-from ...models import LessonOrm
+from ..models import LessonOrm, ModuleOrm
 
 logger = logging.getLogger(__name__)
 
 
 class SqlLessonRepository(SqlAlchemyRepository[Lesson, LessonOrm]):
     model = LessonOrm
-    model_mapper = LessonMapper  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    model_mapper = LessonMapper  # type: ignore
 
     async def get_content_blocks_by_id(self, lesson_id: UUID) -> list[AnyContentBlock] | None:
         """Получает content blocks by id, чтобы вызывающий код работал через единый интерфейс."""
@@ -65,7 +65,7 @@ class SqlLessonRepository(SqlAlchemyRepository[Lesson, LessonOrm]):
         ).where(self.model.id == uid)
         result = await self._session.execute(stmt)
         model = result.one_or_none()
-        return None if model is None else self.model_mapper.basic_info_mapper(model)  # type: ignore  # ruff:ignore[blanket-type-ignore]
+        return None if model is None else self.model_mapper.basic_info_mapper(model)  # type: ignore
 
     async def assign_module(
         self,
@@ -76,3 +76,15 @@ class SqlLessonRepository(SqlAlchemyRepository[Lesson, LessonOrm]):
         stmt = update(self.model).where(self.model.id == lesson_id).values(module_id=module_id)
 
         await self._session.execute(stmt)
+
+    async def read_course_id(self, lesson_id: UUID) -> UUID | None:
+        stmt = (
+            select(ModuleOrm.course_id)
+            .select_from(self.model)
+            .join(ModuleOrm, ModuleOrm.id == self.model.module_id)
+            .where(self.model.id == lesson_id)
+        )
+
+        result = await self._session.execute(stmt)
+
+        return result.scalar_one_or_none()

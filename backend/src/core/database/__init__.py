@@ -7,7 +7,7 @@ from .config import postgres_config
 from .connection import get_db, session_factory
 
 
-def import_all_models(modules: Sequence[str]) -> None:  # ruff: ignore[non-empty-init-module]
+def import_all_models(modules: Sequence[str]) -> None:
     """Динамически сканирует и импортирует файлы ORM моделей для указанных модулей.
     Если модели находятся в отличном от `src.{module}.infra.database.models`, то
     рекомендуется импортировать их в ручную для миграций.

@@ -1,6 +1,3 @@
-# ruff: file-ignore[line-too-long]
-
-
 from typing import Any
 
 import json
@@ -12,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_service import LLMTextService
 from src.shared.domain.exceptions import NotFoundError
-from src.shared.infra.services import SrvBaseClient
 
 from ...application.repos import LessonRepository, PracticeRepository
 from ...domain.entities import Practice
 from ...domain.vo import PracticeStatus, TestType
+from ...infra.services.client import SrvCourseClient
 from ..prompts import ASSIGNMENT_PROMPT, KNOWLEDGE_CONFIG, TEST_CHECKER_PROMPT
 from ..schemas import AnyKnowledgeTest, PracticeResult
 
@@ -27,7 +24,7 @@ class TesterAgent:
         session: AsyncSession,
         practice_repo: PracticeRepository,
         lesson_repo: LessonRepository,
-        client: SrvBaseClient,
+        client: SrvCourseClient,
     ) -> None:
         """Инициализирует объект и сохраняет зависимости, необходимые для дальнейшей работы."""
         self._client = client
@@ -42,7 +39,7 @@ class TesterAgent:
         lesson_id: UUID,
     ) -> dict[str, Any]:
         """Создает тест для студента на основе теории урока и его предыдущих практик."""
-        random_type = random.choice(list(TestType))  # ruff: ignore[suspicious-non-cryptographic-random-usage]
+        random_type = random.choice(list(TestType))
         config = KNOWLEDGE_CONFIG.get(random_type, {})
         lesson = await self.lesson_repo.read(lesson_id)
         if lesson is None:
@@ -53,10 +50,12 @@ class TesterAgent:
         ]
         practices = await self.practice_repo.read_by_module(user_id=user_id, module_id=module_id)
         if practices is not None:
-            messages.append({
-                "role": "user",
-                "content": f"Практика студента:\n{json.dumps(practices, ensure_ascii=False, indent=2)}",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"Практика студента:\n{json.dumps(practices, ensure_ascii=False, indent=2)}",
+                }
+            )
         agent = LLMTextService(
             client=self._client,
             system_prompt=config.get("system_prompt", ""),

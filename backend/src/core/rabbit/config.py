@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ..settings import ENV_FILE  # ruff: ignore[unused-import]
+from ..settings import ENV_FILE  # noqa: F401
 
 
 class RabbitConfig(BaseSettings):
@@ -9,7 +9,7 @@ class RabbitConfig(BaseSettings):
     host: str = "localhost"
     port: int = 5672
     username: str = "guest"
-    password: str = "guest"
+    password: str = "password"  # noqa: S105
     virtualhost: str = "/"
 
     exchange: str = "app.events"

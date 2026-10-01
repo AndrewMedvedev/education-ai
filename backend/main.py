@@ -11,4 +11,4 @@ setup_exception_handlers(app)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=app_config.port)
+    uvicorn.run(app, host="0.0.0.0", port=app_config.port)  # noqa: S104

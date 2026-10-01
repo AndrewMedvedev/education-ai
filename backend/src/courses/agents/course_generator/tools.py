@@ -6,13 +6,11 @@ from ddgs import DDGS
 from pydantic import BaseModel, Field, NonNegativeFloat
 
 from src.core.qdrant import qdrant_client
+from src.courses.infra.database.repos.vector_repo import VectorRepository
+from src.courses.utils.browser_automation import get_page_text
 from src.llm_service import Runtime, tool
 
-from ...infra.vector_repo import VectorRepository
-from ...utils.browser_automation import get_page_text
 from ..schemas import CourseContext
-
-INDEX_NAME = "main-index"
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +137,6 @@ async def browse_page(schema: BrowsePageInput) -> str:
     Используй этот инструмент экономно.
     """,
 )
-async def web_search(schema: SearchInput) -> list[dict[str, Any]]:  # ruff:ignore[unused-async]
+async def web_search(schema: SearchInput) -> list[dict[str, Any]]:
     """Выполняет действие `web_search`, чтобы поддержать основной сценарий модуля."""
     return DDGS().text(schema.search_query, region="ru-ru", max_results=10)

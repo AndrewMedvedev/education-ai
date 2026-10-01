@@ -2,7 +2,7 @@ from typing import Any
 
 from aiohttp import ClientSession, ClientTimeout
 
-from src.media.schemas import ConfirmUploadRequest, PresignedUploadRequest
+from src.media.application.dtos import ConfirmUploadRequest, CreateUploadDTO
 from src.shared.domain.exceptions import BadRequestError
 from src.shared.infra.services import SrvBaseClient
 
@@ -14,7 +14,7 @@ class MediaClient:
 
     async def get_presigned_upload_url(
         self,
-        schema: PresignedUploadRequest,
+        schema: CreateUploadDTO,
     ) -> dict[str, Any]:
         """Получает presigned upload url, чтобы вызывающий код работал через единый интерфейс."""
         async with self._client._get_token_session() as session:
@@ -63,7 +63,7 @@ class MediaClient:
 
     async def save_image(
         self,
-        request: PresignedUploadRequest,
+        request: CreateUploadDTO,
         file: bytes,
     ) -> str:
         """Сохраняет изображение, чтобы результат был доступен после завершения операции."""
@@ -75,11 +75,6 @@ class MediaClient:
         )
 
         uploaded_file = await self.confirm_upload(
-            schema=ConfirmUploadRequest(
-                owner_id=request.owner_id,
-                storage_key=upload_url.get("storage_key"),  # pyright: ignore[reportArgumentType]
-                content_type=request.content_type,
-                original_filename=request.filename,
-            ),
+            schema=ConfirmUploadRequest(**request.model_dump())
         )
-        return f"{uploaded_file["owner_id"]}/{uploaded_file["id"]}"
+        return f"{uploaded_file['owner_id']}/{uploaded_file['id']}"

@@ -53,7 +53,7 @@ async def get_titles(
 )
 async def get_content(runtime: Runtime[Context, State], heading_id: UUID) -> str:
     """Получает content, чтобы вызывающий код работал через единый интерфейс."""
-    answer = await SqlDocumentRepository(session=runtime.state.db_session).get_text(  # pyright: ignore[reportArgumentType, reportOptionalMemberAccess]
+    answer = await SqlDocumentRepository(session=runtime.state.db_session).get_text(  # pyright: ignore[reportOptionalMemberAccess]
         owner_id=runtime.context.user_id,
         heading_id=heading_id,
     )
@@ -71,7 +71,7 @@ async def get_content(runtime: Runtime[Context, State], heading_id: UUID) -> str
         "Промпт строго на Русском языке."
     ),
 )
-async def complete_interview(  # ruff: ignore[unused-async]
+async def complete_interview(
     prompt: str,
     runtime: Runtime[Context, State],
 ) -> str:
@@ -84,4 +84,4 @@ async def complete_interview(  # ruff: ignore[unused-async]
 
     result = generate_course.send(generation_context=generation_context.model_dump(mode="json"))
     runtime.state.task_id = result.message_id  # pyright: ignore[reportOptionalMemberAccess]
-    return f"Курс поставлен в очередь на генерацию, task_id={result.message_id}, ,больше не вызывай никакие инструменты, заверши чат."  # ruff: ignore[line-too-long]
+    return f"Курс поставлен в очередь на генерацию, task_id={result.message_id}, ,больше не вызывай никакие инструменты, заверши чат."

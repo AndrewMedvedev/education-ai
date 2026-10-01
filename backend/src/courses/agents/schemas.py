@@ -5,17 +5,17 @@ from typing import Literal
 from abc import ABC
 from uuid import UUID
 
-from aiohttp import ClientSession
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeFloat, NonNegativeInt, PositiveInt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..domain.vo import TestType
+from ..infra.services.client import SrvCourseClient
 
 
 class RuntimeContext(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    aio_session: ClientSession | None = None
-    db_session: AsyncSession | None = None
+    client: SrvCourseClient
+    db_session: AsyncSession
 
 
 class CourseContext(BaseModel):

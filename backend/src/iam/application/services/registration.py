@@ -15,12 +15,12 @@ from .auth import create_tokens_for_user
 
 class RegistrationService:
     def __init__(
-            self,
-            transaction: Transaction,
-            user_repo: UserRepository,
-            membership_repo: MembershipRepository,
-            role_repo: RoleRepository,
-            invitation_repo: InvitationRepository
+        self,
+        transaction: Transaction,
+        user_repo: UserRepository,
+        membership_repo: MembershipRepository,
+        role_repo: RoleRepository,
+        invitation_repo: InvitationRepository,
     ) -> None:
         self._transaction = transaction
         self._user_repo = user_repo
@@ -31,8 +31,9 @@ class RegistrationService:
     async def accept_invitation(self, token: str, dto: CreateUserDTO) -> TokensResponse:
         """Принять приглашение. Регистрирует пользователя в системе."""
 
-        if (invitation := await self._invitation_repo.get_by_token(token)) is None \
-                or not invitation.is_valid:
+        if (
+            invitation := await self._invitation_repo.get_by_token(token)
+        ) is None or not invitation.is_valid:
             raise NotFoundError(f"Invitation with token - '{token}' not found or invalid.")
 
         if (user := await self._user_repo.get_by_email(invitation.email)) is not None:
@@ -42,14 +43,22 @@ class RegistrationService:
 
         password_hash = await hash_password_async(dto.password)
         user, membership = accept_for_new_user(
-            invitation, password_hash, username=dto.username, full_name=dto.full_name,
+            invitation,
+            password_hash,
+            username=dto.username,
+            full_name=dto.full_name,
         )
 
         await self._user_repo.create(user)
-        await self._membership_repo.create(membership)
+        if membership is not None:
+            await self._membership_repo.create(membership)
 
-        await self._transaction(user, membership)
+            await self._transaction(user, membership)
 
-        roles = await self._role_repo.get_by_ids(list(membership.roles))
-
+        roles = (
+            set(await self._role_repo.get_by_ids(list(membership.roles)))
+            if membership is not None
+            else None
+        )
+        await self._transaction(user)
         return create_tokens_for_user(user=user, membership=membership, roles=roles)

@@ -13,8 +13,11 @@ class UserInvited(Event):
     Пользователю отправлено приглашение.
     """
 
+    event_type: str = "users.invited"
+
     invitation_id: UUID
     email: Email
-    granted_roles: set[RoleId]
-    counterparty_id: UUID | None = None
+    granted_roles: set[RoleId] | None = None
+    organization_id: UUID | None = None
     invited_by: UUID
+    url: str

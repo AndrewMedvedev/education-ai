@@ -8,10 +8,11 @@ from src.shared.dependencies.database import DBSession
 from ..infra.database.repos.chat import SqlChatRepository
 from ..infra.database.repos.course import SqlCourseRepository
 from ..infra.database.repos.document import SqlDocumentRepository
+from ..infra.database.repos.invitation import SqlInvitationRepository
 from ..infra.database.repos.lesson import SqlLessonRepository
+from ..infra.database.repos.member import SqlMemberRepository
 from ..infra.database.repos.module import SqlModuleRepository
 from ..infra.database.repos.practice import SqlPracticeRepository
-from ..infra.database.repos.student import SqlStudentRepository
 from ..infra.database.repos.theory_session import SqlLessonTheorySessionRepository
 
 splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=150, length_function=len)
@@ -52,9 +53,14 @@ def get_theory_session_repo(session: DBSession) -> SqlLessonTheorySessionReposit
     return SqlLessonTheorySessionRepository(session)
 
 
-def get_student_repo(session: DBSession) -> SqlStudentRepository:
+def get_member_repo(session: DBSession) -> SqlMemberRepository:
     """Получает student repo, чтобы вызывающий код работал через единый интерфейс."""
-    return SqlStudentRepository(session)
+    return SqlMemberRepository(session)
+
+
+def get_invitation_repo(session: DBSession) -> SqlInvitationRepository:
+    """Получает invitation repo, чтобы вызывающий код работал через единый интерфейс."""
+    return SqlInvitationRepository(session)
 
 
 LessonRepoDep = Annotated[SqlLessonRepository, Depends(get_lesson_repo)]
@@ -66,4 +72,5 @@ DocumentRepoDep = Annotated[SqlDocumentRepository, Depends(get_document_repo)]
 TheorySessionRepoDep = Annotated[
     SqlLessonTheorySessionRepository, Depends(get_theory_session_repo)
 ]
-StudentRepoDep = Annotated[SqlStudentRepository, Depends(get_student_repo)]
+MemberRepoDep = Annotated[SqlMemberRepository, Depends(get_member_repo)]
+InvitationRepoDep = Annotated[SqlInvitationRepository, Depends(get_invitation_repo)]

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from collections.abc import Callable
 
-from fastapi import Depends
+from fastapi import Query
 
 from src.iam.application.dtos import Identity, PermissionQueryParamFilters, PermissionResponse
 from src.iam.domain.exceptions import PermissionDeniedError
@@ -16,7 +16,7 @@ from .repos import PermissionRepositoryDep
 async def get_permission_list(
     permission_repo: PermissionRepositoryDep,
     pagination: PaginationDep,
-    filters: Annotated[PermissionQueryParamFilters, Depends()],
+    filters: Annotated[PermissionQueryParamFilters, Query()],
 ) -> Page[PermissionResponse]:
     permission_page = await permission_repo.find(pagination, filters)
     return permission_page.to_response(PermissionResponse.model_validate)

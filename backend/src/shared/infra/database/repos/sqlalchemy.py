@@ -1,3 +1,4 @@
+# pyright: reportArgumentType=false
 from typing import Any
 
 from collections.abc import Callable
@@ -118,10 +119,10 @@ class SqlAlchemyRepository[EntityT: Entity, ModelT: Base]:
         model = result.scalar_one_or_none()
         return None if model is None else self.model_mapper.from_model(model)
 
-    async def find[FiltersT: BaseQueryParamFilters](
+    async def find(
         self,
         pagination: Pagination,
-        filters: FiltersT | None = None,
+        filters: BaseQueryParamFilters | None = None,
     ) -> Page[EntityT]:
         """Для расширения логики фильтрации можно переопределить в дочерних классах."""
 

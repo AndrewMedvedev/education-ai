@@ -20,7 +20,7 @@ from src.iam.infra.database.repos import (
     SqlUserRepository,
 )
 from src.organization.application.repos import OrganizationRepository
-from src.organization.infra.repos import SqlOrganizationRepository
+from src.organization.infra.database.repos.organization import SqlOrganizationRepository
 from src.shared.dependencies import DBSession
 from src.shared.infra.cache import Cache, PrimitiveSerializer, RedisCache
 

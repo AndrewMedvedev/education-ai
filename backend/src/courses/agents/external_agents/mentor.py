@@ -5,10 +5,10 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.llm_service import LLMTextService, Runtime
-from src.shared.infra.services import SrvBaseClient
 
 from ...application.dtos import MentorChat
 from ...application.repos import ChatRepository
+from ...infra.services.client import SrvCourseClient
 from ..middlewares import (
     ChatCheckpointerMiddleware,
     LemmatizationMiddleware,
@@ -22,7 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 class MentorAgent:
-    def __init__(self, repo: ChatRepository, session: AsyncSession, client: SrvBaseClient):
+    def __init__(
+        self,
+        repo: ChatRepository,
+        session: AsyncSession,
+        client: SrvCourseClient,
+    ):
         self._client = client
         self._repo = repo
         self._session = session

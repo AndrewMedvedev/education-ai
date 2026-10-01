@@ -1,10 +1,14 @@
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, HTTPException, status
+from pydantic import EmailStr
 
+from src.iam.application.builders import build_user_response
 from src.iam.application.dtos import UpdateUserDTO, UserResponse
 from src.iam.dependencies import CurrentIdentity, require_authentication
 from src.iam.dependencies.crud import UserCrudDep, current_user_depends, users_list_depends
+from src.iam.dependencies.repos import UserRepositoryDep
+from src.iam.domain.vo import Email
 from src.shared.application.dtos import Page
 
 router = APIRouter(prefix="/users", tags=["Пользователи | Users"])
@@ -46,5 +50,18 @@ async def search_users(users: Page[UserResponse] = users_list_depends) -> Page[U
     dependencies=[require_authentication],
     summary="Получить конкретного пользователя",
 )
-async def get_user(user_id: UUID, crud: UserCrudDep) -> UserResponse:
+async def get_user_by_id(user_id: UUID, crud: UserCrudDep) -> UserResponse:
     return await crud.read(user_id)
+
+
+@router.get(
+    path="/by-email/{email}",
+    status_code=status.HTTP_200_OK,
+    dependencies=[require_authentication],
+    summary="Получить конкретного пользователя по email",
+)
+async def read_user_by_email(email: EmailStr, repo: UserRepositoryDep) -> UserResponse:
+    user = await repo.get_by_email(Email(str(email)))
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return build_user_response(user)

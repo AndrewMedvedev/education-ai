@@ -5,6 +5,8 @@ from fastapi import Depends
 from src.iam.application.services import (
     AuthService,
     ClientCredentialsService,
+    InvitationService,
+    MembershipService,
     OAuthService,
     RegistrationService,
 )
@@ -74,6 +76,28 @@ def get_client_credentials_service(
     )
 
 
+def get_invitation_service(
+    transaction: TransactionDep,
+    invitation_repo: InvitationRepositoryDep,
+) -> InvitationService:
+    return InvitationService(
+        transaction=transaction,
+        invitation_repo=invitation_repo,
+    )
+
+
+def get_membership_service(
+    session: DBSession,
+    membership_repo: MembershipRepositoryDep,
+    user_repo: UserRepositoryDep,
+) -> MembershipService:
+    return MembershipService(
+        session=session,
+        membership_repo=membership_repo,
+        user_repo=user_repo,
+    )
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 OAuthServiceDep = Annotated[OAuthService, Depends(get_oauth_service)]
 RegistrationServiceDep = Annotated[RegistrationService, Depends(get_registration_service)]
@@ -81,3 +105,5 @@ ClientCredentialsServiceDep = Annotated[
     ClientCredentialsService,
     Depends(get_client_credentials_service),
 ]
+InvitationServiceDep = Annotated[InvitationService, Depends(get_invitation_service)]
+MembershipServiceDep = Annotated[MembershipService, Depends(get_membership_service)]

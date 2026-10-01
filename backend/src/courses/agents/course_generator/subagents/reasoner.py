@@ -2,11 +2,11 @@ import logging
 
 from pydantic import BaseModel, Field
 
+from src.courses.agents.middlewares import LemmatizationMiddleware, ToolCallLimitMiddleware
+from src.courses.agents.schemas import Context
+from src.courses.infra.services.client import SrvCourseClient
 from src.llm_service import LLMTextService, Runtime, tool
-from src.shared.infra.services import SrvBaseClient
 
-from ...middlewares import LemmatizationMiddleware, ToolCallLimitMiddleware
-from ...schemas import Context
 from ..tools import browse_page, knowledge_search, save_knowledge, web_search
 from .prompts import CRITIC_PROMPT, REASONER_PROMPT, RESEARCHER_PROMPT
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 @tool(name="call_critique_agent", description="Вызвать агента критика")
-async def call_critique_agent(runtime: Runtime[Context, SrvBaseClient]) -> dict:
+async def call_critique_agent(runtime: Runtime[Context, SrvCourseClient]) -> dict:
     logger.info("Call critique agent")
     prompt = runtime.context.prompt
     critic_agent = LLMTextService(
@@ -31,7 +31,7 @@ class ResearchInput(BaseModel):
 
 @tool(name="call_researcher_agent", description="Вызвать агента исследователя")
 async def call_researcher_agent(
-    runtime: Runtime[Context, SrvBaseClient],
+    runtime: Runtime[Context, SrvCourseClient],
     schema: ResearchInput,
 ) -> dict:
     logger.info("Call researcher agent")
@@ -56,7 +56,7 @@ async def call_researcher_agent(
     return {"role": "assistant", "content": result.raw_text}
 
 
-def reasoner_agent(runtime: Runtime[Context, SrvBaseClient]) -> LLMTextService:
+def reasoner_agent(runtime: Runtime[Context, SrvCourseClient]) -> LLMTextService:
 
     return LLMTextService(
         client=runtime.state,  # pyright: ignore[reportArgumentType]
