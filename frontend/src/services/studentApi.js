@@ -40,9 +40,12 @@ async function parseError(response, fallbackMessage) {
   return error;
 }
 
+// Backend-модуль `courses` больше не использует `/student/*`: отдельной
+// сущности «студент» нет, участник курса — это `Member` с ролью
+// (`student` / `moderator` / `teacher`). Пути ниже ведут на `/members/*`.
 export async function signCourse(courseId, options = {}) {
   const response = await apiFetch(
-    `/student/${encodeURIComponent(courseId)}/sign`,
+    `/members/${encodeURIComponent(courseId)}/sign`,
     {
       ...options,
       method: "POST",
@@ -61,6 +64,7 @@ function normalizeStudent(raw = {}) {
     id: raw.id || "",
     courseId: raw.course_id || raw.courseId || "",
     userId: raw.user_id || raw.userId || "",
+    role: raw.role || "student",
     createdAt: raw.created_at || raw.createdAt || "",
     updatedAt: raw.updated_at || raw.updatedAt || "",
     deletedAt: raw.deleted_at ?? raw.deletedAt ?? null,
@@ -103,7 +107,8 @@ export async function getCourseStudents(
   { page = 1, size = 10 } = {},
   options = {},
 ) {
-  const response = await apiFetch(`/student/${encodeURIComponent(courseId)}`, {
+  // Требует permission `course:update` на backend.
+  const response = await apiFetch(`/members/${encodeURIComponent(courseId)}`, {
     ...options,
     method: "POST",
     headers: {
@@ -138,7 +143,7 @@ export async function getUserById(userId, options = {}) {
 }
 
 export async function getMyCourses({ page = 1, size = 10 } = {}, options = {}) {
-  const response = await apiFetch("/student/", {
+  const response = await apiFetch("/members/", {
     ...options,
     method: "POST",
     headers: {
