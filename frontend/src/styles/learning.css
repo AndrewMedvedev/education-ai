@@ -176,7 +176,7 @@
 
 .page[data-theme="dark"] .course-nav-block-btn span,
 .page[data-theme="dark"] .course-nav-item-number {
-    color: #cbaacb;
+    color: var(--ink-accent);
 }
 
 .page[data-theme="dark"] .course-nav-item-title {
