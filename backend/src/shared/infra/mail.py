@@ -36,8 +36,25 @@ class MailSender(Protocol):
 
 
 class SmtpMailClient:
-    def __init__(self, smtp_host: str, smtp_port: int, use_tls: bool = True) -> None:
-        self.smtp_config = {"hostname": smtp_host, "port": smtp_port, "use_tls": use_tls}
+    def __init__(
+        self,
+        smtp_host: str,
+        smtp_port: int,
+        use_tls: bool = True,
+        username: str = "",
+        password: str = "",
+    ) -> None:
+        self.smtp_config = {
+            "hostname": smtp_host,
+            "port": smtp_port,
+            "use_tls": use_tls,
+        }
+
+        if username:
+            self.smtp_config["username"] = username
+
+        if password:
+            self.smtp_config["password"] = password
 
     async def send(
         self,

@@ -5,4 +5,6 @@ mail_client = SmtpMailClient(
     smtp_port=mail_config.smtp_port,
     smtp_host=mail_config.smtp_host,
     use_tls=mail_config.smtp_use_tls,
+    username=mail_config.smtp_user,
+    password=mail_config.smtp_password,
 )
