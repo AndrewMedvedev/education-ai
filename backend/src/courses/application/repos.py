@@ -122,18 +122,15 @@ class CourseRepository(BasicInfoProtocol[Course, CourseBasicInfo]):
         pagination: Pagination,
     ) -> Page[Course]: ...
 
-    async def find_user_courses(
+    async def find_member_courses(
         self,
         user_id: UUID,
         pagination: Pagination,
     ) -> Page[Course]: ...
-    async def select_modules_by_id_course(self, course_id: UUID) -> list[BasicInfo]:
-        """Выбирает краткие данные модулей, входящих в указанный курс."""
-        ...
 
-    async def find_student_courses(
+    async def find_members(
         self,
-        user_id: UUID,
+        course_id: UUID,
         pagination: Pagination,
     ) -> Page[Course]: ...
 

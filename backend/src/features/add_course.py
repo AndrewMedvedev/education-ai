@@ -251,7 +251,7 @@ async def main():
     """Запускает сценарий модуля и связывает подготовку данных с основным действием."""
     async with session_factory() as session:
         # Укажите реальный UUID создателя (можно взять из JSON или передать)
-        creator_id = UUID("dd5909fc-c0a2-47ae-bff1-f6f60fbe6308")
+        creator_id = UUID("bf735a9a-5bcc-481f-867c-eb6d5ec80090")
         loaded_courses: list[Course] = []
 
         for course_file in COURSE_JSON_FILES:

@@ -36,4 +36,4 @@ class MemberService:
         return student
 
     async def get_my_courses(self, user_id: UUID, pagination: Pagination) -> Page[Course]:
-        return await self._course_repo.find_student_courses(user_id, pagination)
+        return await self._course_repo.find_member_courses(user_id, pagination)
