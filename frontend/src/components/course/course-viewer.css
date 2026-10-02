@@ -37,22 +37,22 @@
 
 .course-viewer-card,
 .content-block-card {
-    border: 1px solid rgba(114, 121, 156, 0.22);
+    border: 1px solid var(--line);
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.72);
-    box-shadow: 0 20px 60px rgba(27, 35, 68, 0.08);
+    box-shadow: 0 20px 60px rgba(var(--accent-rgb), 0.08);
     padding: 24px;
     backdrop-filter: blur(18px);
 }
 
 [data-theme="dark"] .course-viewer-card,
 [data-theme="dark"] .content-block-card {
-    background: rgba(19, 24, 42, 0.72);
+    background: rgba(19, 40, 69, 0.72);
     border-color: rgba(255, 255, 255, 0.12);
 }
 
 .course-viewer-eyebrow {
-    color: var(--accent, #6c63ff);
+    color: var(--accent);
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -60,13 +60,13 @@
 }
 
 .course-viewer-description {
-    color: var(--text-muted, #596075);
+    color: var(--muted);
     line-height: 1.7;
     margin: 14px 0 0;
 }
 
 .course-viewer-muted {
-    color: var(--text-muted, #6d7284);
+    color: var(--muted);
     line-height: 1.6;
     margin: 10px 0 0;
 }
@@ -80,12 +80,12 @@
 
 .course-meta-grid > div {
     border-radius: 18px;
-    background: rgba(111, 119, 255, 0.08);
+    background: rgba(var(--accent-rgb), 0.08);
     padding: 14px;
 }
 
 .course-meta-grid span {
-    color: var(--text-muted, #6d7284);
+    color: var(--muted);
     display: block;
     font-size: 0.84rem;
     margin-bottom: 4px;
@@ -100,8 +100,8 @@
 
 .course-tags span {
     border-radius: 999px;
-    background: rgba(111, 119, 255, 0.12);
-    color: var(--accent, #5d57e8);
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
     font-size: 0.86rem;
     font-weight: 700;
     padding: 7px 12px;
@@ -143,7 +143,7 @@
 
 .course-pick-item {
     align-items: flex-start;
-    border: 1px solid rgba(114, 121, 156, 0.22);
+    border: 1px solid var(--line);
     border-radius: 16px;
     background: rgba(255, 255, 255, 0.48);
     color: inherit;
@@ -161,13 +161,13 @@
 }
 
 .course-pick-item:not(:disabled):hover {
-    border-color: var(--accent, #6c63ff);
+    border-color: var(--accent);
     transform: translateY(-1px);
 }
 
 .course-pick-item.is-selected {
-    border-color: var(--accent, #6c63ff);
-    background: rgba(111, 119, 255, 0.14);
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.14);
 }
 
 .course-pick-item:disabled {
@@ -176,7 +176,7 @@
 }
 
 .course-pick-order {
-    color: var(--accent, #6c63ff);
+    color: var(--accent);
     font-weight: 800;
 }
 
@@ -225,7 +225,7 @@
 }
 
 .content-block-pre {
-    background: rgba(111, 119, 255, 0.07);
+    background: rgba(var(--accent-rgb), 0.07);
     color: inherit;
     font-family: inherit;
 }
@@ -649,18 +649,18 @@
 }
 
 .lesson-metrics-dashboard {
-    --metrics-blue: #2563eb;
-    --metrics-blue-rgb: 37, 99, 235;
-    --metrics-cyan: #0891b2;
-    --metrics-cyan-rgb: 8, 145, 178;
+    --metrics-blue: #034EA2;
+    --metrics-blue-rgb: 3, 78, 162;
+    --metrics-cyan: #00B0F0;
+    --metrics-cyan-rgb: 0, 176, 240;
     --metrics-green: #16a34a;
     --metrics-green-rgb: 22, 163, 74;
     --metrics-orange: #ea580c;
     --metrics-orange-rgb: 234, 88, 12;
-    --metrics-violet: #7c3aed;
-    --metrics-violet-rgb: 124, 58, 237;
+    --metrics-violet: #2B1F6E;
+    --metrics-violet-rgb: 43, 31, 110;
     --metrics-card: rgba(255, 255, 255, 0.86);
-    --metrics-border: rgba(39, 47, 78, 0.16);
+    --metrics-border: rgba(3, 78, 162, 0.16);
     display: grid;
     gap: 18px;
 }
@@ -1552,5 +1552,226 @@
     .generated-course-enroll-card {
         align-items: stretch;
         flex-direction: column;
+    }
+}
+
+/* ============================================================
+   Карта приглашений курса (CourseInvites.jsx)
+   ============================================================ */
+
+.course-invites {
+    border-top: 1px solid var(--line);
+    margin-top: 24px;
+    padding-top: 20px;
+}
+
+.course-invites-head h3 {
+    color: var(--heading);
+    margin: 0;
+}
+
+.course-invites-head p {
+    margin: 8px 0 0;
+}
+
+/* Пометка демо-режима: список замокан, создание приглашений недоступно */
+.course-invites-demo {
+    border: 1px solid rgba(var(--accent-rgb), 0.28);
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.1);
+    color: var(--accent);
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    margin: 10px 0 0;
+    padding: 5px 12px;
+}
+
+.course-invites-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.course-invites-field {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
+.course-invites-field span {
+    color: var(--muted);
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.course-invites-field input,
+.course-invites-field select {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    min-height: 42px;
+    padding: 10px 12px;
+    width: 100%;
+}
+
+.course-invites-field input:focus,
+.course-invites-field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.16);
+    outline: none;
+}
+
+.course-invites-submit {
+    min-height: 42px;
+    white-space: nowrap;
+}
+
+.course-invites-submit:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.course-invites-error {
+    color: var(--danger-text, #b45f6d);
+    font-weight: 700;
+    margin: 12px 0 0;
+}
+
+.course-invites-state {
+    margin-top: 16px;
+}
+
+.course-invites-empty {
+    border: 1px dashed var(--line-strong);
+    border-radius: 18px;
+    background: rgba(var(--accent-rgb), 0.04);
+    margin-top: 16px;
+    padding: 16px;
+}
+
+.course-invites-empty strong {
+    color: var(--heading);
+    display: block;
+}
+
+.course-invites-empty p {
+    color: var(--muted);
+    margin: 6px 0 0;
+}
+
+.course-invites-list {
+    display: grid;
+    gap: 10px;
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+}
+
+.course-invites-list-head,
+.course-invite-item {
+    display: grid;
+    grid-template-columns:
+        minmax(0, 1.6fr) minmax(0, 1fr) auto
+        minmax(0, 1.2fr);
+    align-items: center;
+    gap: 12px;
+}
+
+.course-invites-list-head {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.course-invite-item {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: rgba(var(--accent-rgb), 0.04);
+    padding: 12px 14px;
+}
+
+.course-invite-email {
+    color: var(--text);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.course-invite-role,
+.course-invite-date {
+    color: var(--muted);
+}
+
+.course-invite-status {
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    justify-self: start;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.course-invite-status.is-pending {
+    border-color: rgba(var(--status-neutral-rgb), 0.4);
+    background: rgba(var(--status-neutral-rgb), 0.14);
+    color: var(--status-neutral);
+}
+
+.course-invite-status.is-accepted {
+    border-color: rgba(var(--success-rgb), 0.42);
+    background: rgba(var(--success-rgb), 0.14);
+    color: var(--success-text);
+}
+
+.course-invite-status.is-rejected,
+.course-invite-status.is-expired {
+    border-color: rgba(var(--danger-rgb, 190, 80, 100), 0.42);
+    background: rgba(var(--danger-rgb, 190, 80, 100), 0.12);
+    color: var(--danger-text, #b45f6d);
+}
+
+.course-invite-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+.course-invite-action {
+    padding: 7px 12px;
+    font-size: 0.82rem;
+}
+
+.course-invite-action.is-danger {
+    border-color: rgba(var(--danger-rgb, 190, 80, 100), 0.48);
+    background: rgba(var(--danger-rgb, 190, 80, 100), 0.08);
+    color: var(--danger-text, #b45f6d);
+}
+
+@media (max-width: 720px) {
+    .course-invites-form {
+        grid-template-columns: 1fr;
+    }
+
+    .course-invites-list-head {
+        display: none;
+    }
+
+    .course-invite-item {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .course-invite-item > [data-label]::before {
+        color: var(--muted);
+        content: attr(data-label) ": ";
+        font-weight: 700;
     }
 }

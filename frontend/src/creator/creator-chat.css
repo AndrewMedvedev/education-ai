@@ -286,10 +286,10 @@
     bottom: calc(100% + 10px);
     border: 1px solid rgba(var(--accent-rgb), 0.35);
     border-radius: 14px;
-    background: rgba(243, 239, 231, 0.95);
+    background: var(--surface);
     backdrop-filter: blur(14px);
     padding: 12px;
-    box-shadow: 0 22px 40px rgba(27, 24, 20, 0.16);
+    box-shadow: 0 22px 40px rgba(var(--accent-rgb), 0.16);
     z-index: 7;
 }
 
@@ -469,7 +469,7 @@
 }
 
 .page[data-theme="dark"] .creator-chat-attach-popover {
-    background: rgba(43, 43, 43, 0.95);
+    background: var(--surface);
     border-color: rgba(var(--accent-rgb), 0.46);
 }
 

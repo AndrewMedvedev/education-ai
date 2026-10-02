@@ -154,11 +154,11 @@
 }
 
 .page[data-theme="dark"] .course-nav-tree {
-    border-color: rgba(233, 222, 203, 0.24);
+    border-color: rgba(var(--accent-rgb), 0.24);
     background:
         linear-gradient(var(--glass-highlight), var(--glass-highlight)),
         rgba(24, 24, 24, 0.72);
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .course-nav-tree-head {
@@ -167,11 +167,11 @@
 
 .page[data-theme="dark"] .course-nav-tree-head strong,
 .page[data-theme="dark"] .course-nav-block-btn strong {
-    color: #fff2df;
+    color: var(--heading);
 }
 
 .page[data-theme="dark"] .course-nav-tree-head span {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .course-nav-block-btn span,
@@ -180,7 +180,7 @@
 }
 
 .page[data-theme="dark"] .course-nav-item-title {
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .page[data-theme="dark"] .course-nav-item-btn:hover,
@@ -193,7 +193,7 @@
 }
 
 .page[data-theme="dark"] .course-nav-practice-btn {
-    color: #d8c9b1;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .course-nav-item-status {
@@ -698,7 +698,7 @@ body.is-resizing-lesson-chat * {
 }
 
 .page[data-theme="dark"] .lesson-scroll-frame {
-    border-color: rgba(233, 222, 203, 0.24);
+    border-color: rgba(var(--accent-rgb), 0.24);
     background: transparent;
 }
 
@@ -1018,7 +1018,7 @@ body.is-resizing-lesson-chat * {
     grid-template-rows: auto minmax(210px, 1fr) auto;
     gap: 10px;
     box-shadow:
-        0 16px 40px rgba(79, 67, 48, 0.1),
+        0 16px 40px rgba(var(--accent-rgb), 0.1),
         var(--glass-inset);
     transition:
         min-height 220ms ease,
@@ -1182,7 +1182,7 @@ body.is-resizing-lesson-chat * {
     line-height: 1.58;
     overflow-wrap: anywhere;
     box-shadow:
-        0 8px 20px rgba(79, 67, 48, 0.08),
+        0 8px 20px rgba(var(--accent-rgb), 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.54);
 }
 
@@ -1533,7 +1533,7 @@ body.is-resizing-lesson-chat * {
 }
 
 .page[data-theme="dark"] .lesson-mode-switch button {
-    color: #cfc2ad;
+    color: var(--muted);
 }
 
 .page[data-theme="dark"] .lesson-mode-switch button:hover:not(:disabled),
@@ -1625,7 +1625,7 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .lesson-markdown pre {
     background: rgba(10, 10, 10, 0.72);
     border: 1px solid rgba(var(--accent-rgb), 0.32);
-    color: #f2e7d4;
+    color: var(--text);
 }
 
 .lesson-markdown code {
@@ -1684,7 +1684,7 @@ body.is-resizing-lesson-chat * {
 
 .page[data-theme="dark"] .lesson-markdown th {
     background: rgba(var(--accent-rgb), 0.22);
-    color: #fff2df;
+    color: var(--heading);
 }
 
 .lesson-markdown a {
@@ -1991,8 +1991,8 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .mermaid-diagram .nodeLabel,
 .page[data-theme="dark"] .mermaid-diagram text,
 .page[data-theme="dark"] .mermaid-diagram tspan {
-    fill: #f2e7d4 !important;
-    color: #f2e7d4 !important;
+    fill: var(--text) !important;
+    color: var(--text) !important;
 }
 
 .page[data-theme="dark"] .mermaid-diagram .cluster rect {
@@ -2003,7 +2003,7 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel,
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel p {
     background: #252b34 !important;
-    color: #f2e7d4 !important;
+    color: var(--text) !important;
 }
 
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel rect {

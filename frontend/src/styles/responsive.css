@@ -390,7 +390,7 @@
 .ai-model-card:hover {
     border-color: var(--accent);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(79, 67, 48, 0.1);
+    box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.1);
 }
 
 .ai-model-card.is-selected {

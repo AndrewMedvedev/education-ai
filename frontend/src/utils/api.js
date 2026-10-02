@@ -1,5 +1,6 @@
 import { getMediaId } from "./media";
 import { getLocalStorage } from "./storage";
+import { resolveApiMock } from "../services/apiMock";
 
 const SESSION_KEY = "aicolab_session";
 const API_BASE = "/api/v1";
@@ -433,6 +434,13 @@ export async function apiFetch(
   options = {},
   { auth = true, retry = true, clearOnUnauthorized = true } = {},
 ) {
+  // Демо-режим без backend: часть запросов обслуживает локальный мок.
+  // Отключается переменной окружения VITE_USE_API_MOCK=false.
+  const mockedResponse = resolveApiMock(path, options);
+  if (mockedResponse) {
+    return mockedResponse;
+  }
+
   const url = `${API_BASE}${path}`;
   const headers = { ...options.headers };
   let { access, expiresAt } = getTokens();
@@ -501,6 +509,63 @@ export async function acceptInvitation({
     },
     { auth: false },
   );
+}
+
+// Курс-специфичные приглашения (карта приглашений в карточке курса).
+//
+// Реальный контракт backend (backend/src/courses/api/v1/invitations.py):
+//   POST /courses/invitations                   { course_id, email, role }
+//   POST /courses/invitations/accept/{token}
+//
+// Роутов списка, повторной отправки и отмены приглашений курса на backend нет,
+// поэтому `listCourseInvitations` не ходит в сеть и отдаёт пустую страницу:
+// актуальный список держит в памяти сессии services/invitationApi.js.
+// Роли: student | teacher | moderator. Статус приглашения backend не хранит —
+// его вычисляют из `is_used` и `expires_at`.
+
+export async function listCourseInvitations(
+  courseId,
+  { page = 1, size = 20 } = {},
+) {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeSize = Math.max(1, Number(size) || 20);
+
+  return new Response(
+    JSON.stringify({
+      items: [],
+      page: safePage,
+      size: safeSize,
+      total: 0,
+      pages: 1,
+      has_next: false,
+      has_prev: false,
+    }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+export async function createCourseInvitation(
+  courseId,
+  { email, role },
+  options = {},
+) {
+  return apiFetch("/courses/invitations", {
+    ...options,
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    body: JSON.stringify({ course_id: courseId, email, role }),
+  });
+}
+
+export async function resendCourseInvitation() {
+  throw new ApiError("Not supported by backend yet", { status: 501 });
+}
+
+export async function cancelCourseInvitation() {
+  throw new ApiError("Not supported by backend yet", { status: 501 });
 }
 
 // Внутренний системный метод: /permissions не должен иметь пользовательского экрана.
