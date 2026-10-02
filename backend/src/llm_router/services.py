@@ -58,7 +58,7 @@ LLM_RETRY = {
 }
 
 
-class LLMRouter:  # ruff: ignore[class-as-data-structure]
+class LLMRouter:
     def __init__(
         self,
         ai_model_repos: SqlAIModelRepository,
@@ -133,7 +133,7 @@ class LLMRouter:  # ruff: ignore[class-as-data-structure]
         if model not in {i["name"] for i in models}:
             result = await self._invoke(
                 model=selected_model,
-                input=f"## AVAILABLE MODELS\n{models} \n## MESSAGES\n{schema}\n### USER REQUESTED MODEL\n{model}",  # ruff: ignore[line-too-long]
+                input=f"## AVAILABLE MODELS\n{models} \n## MESSAGES\n{schema}\n### USER REQUESTED MODEL\n{model}",
                 instructions=PROMPT_RETRY,
                 text=build_model_selection_text(models),
             )
@@ -147,7 +147,6 @@ class LLMRouter:  # ruff: ignore[class-as-data-structure]
         models: list[dict[str, Any]],
         selected_model: str,
     ) -> str:
-
         result = await self._invoke(
             model=selected_model,
             input=f"## МОДЕЛИ\n{models} \n## ЗАПРОС\n{schema}",
@@ -168,29 +167,29 @@ class LLMTextRouter(LLMRouter):
 
     @traceable(run_type="chain", name="CallTextLLM")
     async def call_llm(self, schema: LLMTextRequest, model: str | None = None) -> LLMTextResponse:
-        models = (
-            await self._wrapper(
-                func=self._ai_model_repos.read_fields, params=Pagination(size=PAGINATION_SIZE)
-            )
-        ).items
-        input_messages = schema.model_dump_json(
-            exclude_none=True,
-            by_alias=True,
-        )
+        # models = (
+        #     await self._wrapper(
+        #         func=self._ai_model_repos.read_fields, params=Pagination(size=PAGINATION_SIZE)
+        #     )
+        # ).items
+        # input_messages = schema.model_dump_json(
+        #     exclude_none=True,
+        #     by_alias=True,
+        # )
 
-        min_model, models = await self._select_model_by_length(
-            input_messages=input_messages,
-            models=models,
-        )
-        selected_model = await self._resolve_model(
-            schema=schema,
-            models=models,
-            selected_model=min_model,
-            requested_model=model,
-        )
+        # min_model, models = await self._select_model_by_length(
+        #     input_messages=input_messages,
+        #     models=models,
+        # )
+        # selected_model = await self._resolve_model(
+        #     schema=schema,
+        #     models=models,
+        #     selected_model=min_model,
+        #     requested_model=model,
+        # )
 
         return await self._invoke(
-            model=selected_model,
+            model="deepseek-v4-pro",
             **schema.model_dump(exclude_none=True, by_alias=True),
         )
 

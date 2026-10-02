@@ -1,7 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ..settings import ENV_FILE  # ruff: ignore[unused-import]
-
 
 class ProxyApiConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="PROXY_API_")
@@ -29,6 +27,18 @@ class YandexCloudConfig(BaseSettings):
     endpoint_url: str = "https://storage.yandexcloud.net/"
 
 
+class DeepSeekConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="DEEPSEEK_")
+
+    api_key: str = "<APIKEY>"
+    base_url: str = "https://api.deepseek.com"
+
+    @property
+    def deepseek_chat(self) -> str:
+        return "deepseek-chat"
+
+
 proxy_api_config = ProxyApiConfig()
 aitunnel_config = AITunnelConfig()
 yandex_cloud_config = YandexCloudConfig()
+deepseek_config = DeepSeekConfig()
