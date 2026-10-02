@@ -1,18 +1,18 @@
 """create tables
 
-Revision ID: a7055323ce1d
+Revision ID: fa3e8823bb0d
 Revises:
-Create Date: 2026-09-30 10:25:34.941432
+Create Date: 2026-10-02 12:17:18.961815
 
 """
 from typing import Sequence, Union
-
+from src.courses.infra.database.types import ContentBlockListType
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-from src.courses.infra.database.types import ContentBlockListType
+
 # revision identifiers, used by Alembic.
-revision: str = 'a7055323ce1d'
+revision: str = 'fa3e8823bb0d'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
