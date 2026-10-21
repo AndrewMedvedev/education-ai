@@ -4,7 +4,7 @@ import { useUiLayoutStore } from "../stores/uiLayoutStore";
 const staticRoutes = {
   courses: "Каталог",
   creator: "Создание курса",
-  "manual-course-builder": "Создать курс самостоятельно",
+  "drag-and-drop-course": "Drag & Drop курс",
   profile: "Личный кабинет",
   login: "Вход",
   register: "Регистрация",

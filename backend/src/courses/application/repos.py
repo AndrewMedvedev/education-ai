@@ -16,31 +16,39 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
 from uuid import UUID
 
-from src.courses.domain.vo import MemberRole
-from src.shared.application.dtos import Page, Pagination
-from src.shared.application.repos import Repository
-from src.shared.domain.vo import Email
-
-from ..domain.entities import (
+from src.courses.domain.entities import (
     AnyContentBlock,
-    BasicInfo,
     Chat,
     Course,
-    CourseBasicInfo,
+    CourseProgress,
     Document,
     Entity,
     Invitation,
     Lesson,
-    LessonBasicInfo,
+    LessonProgress,
     Member,
     Module,
-    ModuleBasicInfo,
+    ModuleProgress,
     Practice,
 )
+from src.courses.domain.events import LessonProgressUpdated
+from src.courses.domain.vo import MemberRole
+from src.courses.infra.services.client import SrvCourseClient
+from src.iam.application.dtos import InvitationCreate as IAMInvitationCreate
+from src.iam.application.dtos import UserResponse
+from src.iam.domain.entities import Invitation as IAMInvitation
+from src.iam.domain.entities import Membership
+from src.organization.application.dtos import InvitationCreate as OrganizationInvitationCreate
+from src.organization.domain.entities import Invitation as OrganizationInvitation
+from src.shared.application.dtos import Page, Pagination
+from src.shared.application.repos import Repository
+from src.shared.domain.vo import Email
+
+from .dtos import BasicInfo, CourseBasicInfo, LessonBasicInfo, ModuleBasicInfo
 
 
 class BasicInfoProtocol[EntityT: Entity, BasicInfoT](Repository[EntityT]):
@@ -58,6 +66,11 @@ class BasicInfoProtocol[EntityT: Entity, BasicInfoT](Repository[EntityT]):
     async def get_by_id_basic_info(self, uid: UUID) -> BasicInfoT | None:
         """Возвращает краткую информацию о сущности без загрузки всех данных."""
 
+    async def read_course_ownership(
+        self,
+        uid: UUID,
+    ) -> tuple[UUID, UUID] | None: ...
+
 
 class LessonRepository(BasicInfoProtocol[Lesson, LessonBasicInfo]):
     """
@@ -69,6 +82,10 @@ class LessonRepository(BasicInfoProtocol[Lesson, LessonBasicInfo]):
     (`get_content_blocks_by_id`, `replace_content_block`) и привязку
     списка уроков к модулю (`assign_module`).
     """
+
+    async def create_at(self, lesson: Lesson) -> Lesson: ...
+
+    async def delete_and_compact(self, lesson_id: UUID) -> None: ...
 
     async def get_content_blocks_by_id(self, lesson_id: UUID) -> list[AnyContentBlock] | None:
         """Получает контент-блоки урока для отображения или редактирования."""
@@ -96,6 +113,10 @@ class ModuleRepository(BasicInfoProtocol[Module, ModuleBasicInfo]):
     (`assign_course`) и выборку "базовой информации" по урокам,
     принадлежащим модулю (`select_lessons_by_id_module`).
     """
+
+    async def create_at(self, module: Module) -> Module: ...
+
+    async def delete_and_compact(self, module_id: UUID) -> None: ...
 
     async def assign_course(self, module_id: UUID, course_id: UUID) -> None:
         """Привязывает модуль к курсу и сохраняет структуру курса."""
@@ -127,10 +148,13 @@ class CourseRepository(BasicInfoProtocol[Course, CourseBasicInfo]):
         user_id: UUID,
         pagination: Pagination,
     ) -> Page[Course]: ...
+    async def select_modules_by_id_course(self, course_id: UUID) -> list[BasicInfo]:
+        """Выбирает краткие данные модулей, входящих в указанный курс."""
+        ...
 
     async def find_members(
         self,
-        course_id: UUID,
+        user_id: UUID,
         pagination: Pagination,
     ) -> Page[Course]: ...
 
@@ -222,6 +246,27 @@ class PracticeRepository(Repository[Practice]):
         ...
 
 
+class ProgressRepository[ProgressT: Entity](Repository[ProgressT]):
+    async def get_by_user(self, user_id: UUID, resource_id: UUID) -> ProgressT | None: ...
+
+    async def exist_by_user(self, user_id: UUID, resource_id: UUID) -> bool: ...
+
+
+class LessonProgressRepository(ProgressRepository[LessonProgress]):
+    async def update_from_event(self, event: LessonProgressUpdated) -> None: ...
+
+
+class ModuleProgressRepository(ProgressRepository[ModuleProgress]): ...
+
+
+class CourseProgressRepository(ProgressRepository[CourseProgress]):
+    async def count_completed_lessons(self, course_progress_id: UUID) -> int: ...
+
+    async def find_by_course(
+        self, course_id: UUID, pagination: Pagination
+    ) -> Page[CourseProgress]: ...
+
+
 class MemberRepository(Repository[Member]):
     async def read(self, user_id: UUID, course_id: UUID) -> Member | None: ...
 
@@ -233,8 +278,57 @@ class MemberRepository(Repository[Member]):
 class InvitationRepository(Repository[Invitation]):
     async def get_by_token(self, token: str) -> Invitation | None: ...
 
+    async def find_by_course(
+        self,
+        course_id: UUID,
+        pagination: Pagination,
+    ) -> Page[Invitation]: ...
+
     async def get_active(
         self,
         email: Email,
         course_id: UUID,
     ) -> Invitation | None: ...
+
+
+class VectorRepository(Protocol):
+    async def create(
+        self,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+        document_id: str | None = None,
+    ) -> None: ...
+
+    async def read(
+        self,
+        query: str,
+        limit: int = 5,
+        prefetch_limit: int = 25,
+        metadata_filters: dict[str, Any] | None = None,
+    ) -> list[str]: ...
+
+
+class IAMRepository(Protocol):
+    async def get_user_by_email(
+        self,
+        email: str,
+    ) -> UserResponse | None: ...
+
+    async def invite_user_in_system(
+        self,
+        dto: IAMInvitationCreate,
+    ) -> IAMInvitation | None: ...
+
+    async def get_user_membership(
+        self,
+        organization_id: UUID,
+        user_id: UUID,
+    ) -> Membership | None: ...
+
+
+class OrganizationRepository(Protocol):
+    async def __call__(
+        self,
+        client: SrvCourseClient,
+        dto: OrganizationInvitationCreate,
+    ) -> OrganizationInvitation | None: ...

@@ -1,5 +1,3 @@
-import CourseInvites from "./CourseInvites";
-
 function TextList({ title, items, emptyText }) {
   if (!Array.isArray(items) || items.length === 0) {
     return <p className="course-viewer-muted">{emptyText}</p>;
@@ -70,8 +68,6 @@ export default function CourseBasicInfo({ course }) {
         items={learningObjectives}
         emptyText="Цели обучения пока не указаны."
       />
-
-      <CourseInvites courseId={course.id} />
     </article>
   );
 }

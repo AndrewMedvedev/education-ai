@@ -9,8 +9,9 @@
         grid-template-columns: 280px minmax(0, 1fr);
     }
 
-    .lesson-view-grid.is-course-edit-layout {
-        grid-template-columns: 300px minmax(0, 1fr);
+    .lesson-view-grid.is-course-edit-layout,
+    .course-edit-grid {
+        grid-template-columns: 280px minmax(0, 1fr);
     }
 }
 
@@ -82,13 +83,15 @@
     .profile-info-grid,
     .block-view-grid,
     .lesson-view-grid,
+    .course-edit-grid,
     .practice-view-grid {
         grid-template-columns: 1fr;
     }
 
     .lesson-view-grid.is-learning-layout,
     .lesson-view-grid.generated-course-learning-grid,
-    .lesson-view-grid.has-lesson-chat {
+    .lesson-view-grid.has-lesson-chat,
+    .lesson-view-grid.is-course-edit-layout {
         grid-template-columns: 1fr;
     }
 
@@ -390,7 +393,7 @@
 .ai-model-card:hover {
     border-color: var(--accent);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(var(--accent-rgb), 0.1);
+    box-shadow: 0 8px 24px rgba(15, 42, 76, 0.12);
 }
 
 .ai-model-card.is-selected {

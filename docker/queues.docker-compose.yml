@@ -16,15 +16,30 @@ services:
       timeout: 5s
       retries: 5
 
-  dramatiq:
+  taskiq:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    command: >
-      dramatiq src.courses.agents.course_generator.workflow
-      --processes 1
-      --threads 4
-      --watch /app
+    restart: unless-stopped
+    command:
+      - taskiq
+      - worker
+      - src.core.tkq:taskiq_broker
+      - src.courses.infra.tasks
+      - --workers
+      - "${TASKIQ_WORKERS:-1}"
+      - --max-async-tasks
+      - "${TASKIQ_MAX_ASYNC_TASKS:-25}"
+      - --ack-type
+      - when_saved
+      - --shutdown-timeout
+      - "600"
+      - --wait-tasks-timeout
+      - "600"
+    env_file:
+      - ../.env.prod
+    expose:
+      - "9000"
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -33,9 +48,9 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
-        condition: service_started
-    env_file:
-      - ../.env.prod
+        condition: service_healthy
+    stop_grace_period: 10m
+
 
 
 volumes:

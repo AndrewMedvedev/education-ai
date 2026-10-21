@@ -32,29 +32,33 @@ const formatMermaidError = (error) => {
 /* Theme */
 /* -------------------------------------------------------------------------- */
 const themeVariables = {
-  background: "#f6f1e9",
-  primaryColor: "#e9dce9",
-  primaryTextColor: "#2b2b2b",
-  primaryBorderColor: "#8c718c",
-  secondaryColor: "#dce8f7",
-  tertiaryColor: "#f1e5d8",
-  lineColor: "#66778b",
-  textColor: "#2b2b2b",
-  edgeLabelBackground: "#f6f1e9",
-  noteBkgColor: "#f1dfcf",
-  noteTextColor: "#654329",
-  noteBorderColor: "#c98245",
+  background: "#ffffff",
+  primaryColor: "#dbeafe",
+  primaryTextColor: "#172033",
+  primaryBorderColor: "#3466ca",
+  secondaryColor: "#e0f2fe",
+  tertiaryColor: "#eef2ff",
+  lineColor: "#3466ca",
+  textColor: "#172033",
+  edgeLabelBackground: "#ffffff",
+  noteBkgColor: "#eff6ff",
+  noteTextColor: "#1e3a5f",
+  noteBorderColor: "#60a5fa",
+  fontFamily: '"Manrope", Arial, sans-serif',
 };
 
 /* -------------------------------------------------------------------------- */
 /* Ultimate fallback — всегда валидный SVG, не зависит от Mermaid */
 /* -------------------------------------------------------------------------- */
-const ULTIMATE_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="100%" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-width:100%;display:block;background:#f6f1e9"><rect x="10" y="18" width="120" height="44" rx="8" fill="#e9dce9" stroke="#8c718c" stroke-width="1.5"/><text x="70" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#2b2b2b">Диаграмма</text><path d="M140 40 H180" stroke="#66778b" stroke-width="1.5" fill="none" marker-end="url(#m-arrow)"/><rect x="190" y="18" width="120" height="44" rx="8" fill="#dce8f7" stroke="#8c718c" stroke-width="1.5"/><text x="250" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#2b2b2b">не распознана</text><defs><marker id="m-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#66778b"/></marker></defs></svg>`;
+const ULTIMATE_FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="100%" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;max-width:100%;display:block;background:#ffffff"><rect x="10" y="18" width="120" height="44" rx="8" fill="#dbeafe" stroke="#3466ca" stroke-width="1.5"/><text x="70" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#172033">Диаграмма</text><path d="M140 40 H180" stroke="#49627f" stroke-width="1.5" fill="none" marker-end="url(#m-arrow)"/><rect x="190" y="18" width="120" height="44" rx="8" fill="#e0f2fe" stroke="#3466ca" stroke-width="1.5"/><text x="250" y="45" text-anchor="middle" font-family="system-ui,sans-serif" font-size="13" fill="#172033">не распознана</text><defs><marker id="m-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#49627f"/></marker></defs></svg>`;
 
 /* -------------------------------------------------------------------------- */
 /* Mermaid loader */
 /* -------------------------------------------------------------------------- */
 const getMermaid = async () => {
+  if (typeof document !== "undefined" && document.fonts?.ready) {
+    await document.fonts.ready;
+  }
   if (!mermaidPromise) {
     mermaidPromise = import("mermaid").then(
       (module) => module.default ?? module,
@@ -148,7 +152,7 @@ const quoteUnsafeSquareLabels = (source) =>
         return line;
       }
 
-      return line.replace(/\[([^\]\n]+)\]/g, (match, label) => {
+      return line.replace(/(?<!\[)\[(?!\[)([^\]\n]+)\](?!\])/g, (match, label) => {
         const trimmed = label.trim();
 
         if (!trimmed || /^["'`]/.test(trimmed)) {
@@ -200,6 +204,90 @@ const splitStuckFlowchartStatements = (source) =>
       "$1\n$2",
     );
 
+/* LLM-SLIPS-START */
+/* -------------------------------------------------------------------------- */
+/* Типовые огрехи сгенерированных flowchart-схем                               */
+/* -------------------------------------------------------------------------- */
+const FLOWCHART_PATTERN = /^\s*(flowchart|graph)\b/i;
+
+// Допустимые пары скобок у фигур узла: открывающая -> закрывающая.
+const NODE_SHAPE_CLOSERS = {
+  "[": "]",
+  "(": ")",
+  "{": "}",
+  "[[": "]]",
+  "((": "))",
+  "([": "])",
+  "[(": ")]",
+  "{{": "}}",
+  "(((": ")))",
+};
+
+const UNSAFE_EDGE_LABEL = /[()[\]{}"'<>#;:&]/;
+
+const repairFlowchartSlips = (source) => {
+  const text = String(source ?? "");
+  // Правки ниже специфичны для flowchart; sequence/class/state диаграммы не трогаем.
+  const firstLine = text.split("\n").find((line) => line.trim() && !/^\s*%%/.test(line)) ?? "";
+  if (hasDiagramType(firstLine) && !FLOWCHART_PATTERN.test(firstLine)) return text;
+
+  return text
+    .split("\n")
+    // `% комментарий` с одним процентом и несуществующая директива classId ломают парсер.
+    .filter((line) => !/^\s*%(?!%)/.test(line) && !/^\s*classId\b/i.test(line))
+    // `class a,b,c` без имени класса: список узлов есть, а применять нечего.
+    .filter((line) => !/^\s*class\s+\S+\s*;?\s*$/.test(line))
+    .map((line) => {
+      if (/^\s*%%/.test(line)) return line;
+      let next = line;
+
+      // classDef/style: свойства разделяются запятыми, `;` внутри обрывает инструкцию.
+      if (/^\s*(classDef|style|linkStyle)\b/.test(next)) {
+        // `shape:` не является CSS-свойством и не поддерживается в classDef.
+        next = next.replace(/[;,]\s*shape\s*:\s*[\w-]+/gi, "");
+        return next.replace(/;(?=\s*\S)/g, ",");
+      }
+
+      // subgraph ID [ Заголовок: с двоеточием ] -> subgraph ID ["Заголовок: с двоеточием"]
+      next = next.replace(
+        /^(\s*subgraph\s+[A-Za-z_][\w-]*)\s*\[\s*([^\]"\n]+?)\s*\]\s*$/,
+        (match, head, title) => `${head}["${title.replace(/"/g, "#quot;")}"]`,
+      );
+
+      // `==>>` и `-->>` в flowchart не существуют; `||метка|` — лишняя вертикальная черта.
+      next = next.replace(/(==|--)>>(?=\s*\||\s)/g, "$1>");
+      next = next.replace(/((?:==+|--+|-\.+-)>?)\s*\|\|\s*([^|\n]*?)\s*\|/g, "$1|$2|");
+
+      // Подпись связи со спецсимволами: |230 В (падение U)| -> |"230 В (падение U)"|
+      next = next.replace(
+        /((?:<?(?:==+|--+|-\.+-)[>ox]?))\s*\|([^|\n]+?)\|/g,
+        (match, arrow, label) => {
+          const trimmed = label.trim();
+          if (!trimmed || /^".*"$/.test(trimmed) || !UNSAFE_EDGE_LABEL.test(trimmed)) return match;
+          return `${arrow}|"${trimmed.replace(/"/g, "#quot;")}"|`;
+        },
+      );
+
+      // Узел с подписью в кавычках и несовпавшими скобками: A("текст"] / A["текст"]] / A({{"текст"}})
+      next = next.replace(
+        /([A-Za-z_][\w-]*)([[({]{1,3})("[^"\n]*")([\])}]{1,3})/g,
+        (match, id, open, label, close) => {
+          const expected = NODE_SHAPE_CLOSERS[open];
+          if (expected) return expected === close ? match : `${id}${open}${label}${expected}`;
+          const fallback = open.includes("{{") ? "{{" : open.includes("{") ? "{" : open.includes("(") ? "(" : "[";
+          return `${id}${fallback}${label}${NODE_SHAPE_CLOSERS[fallback]}`;
+        },
+      );
+
+      // Лишняя кавычка после закрывающей скобки в конце строки: Q{"Текст?"}"
+      next = next.replace(/([\])}])"(\s*;?\s*)$/, "$1$2");
+
+      return next;
+    })
+    .join("\n");
+};
+/* LLM-SLIPS-END */
+
 /* -------------------------------------------------------------------------- */
 /* УЛУЧШЕННЫЙ ремонт — удаляем все обратные слеши, вставляем пробелы между узлами */
 /* -------------------------------------------------------------------------- */
@@ -213,14 +301,37 @@ const repairCommonErrors = (source) => {
   // 2. Mermaid поддерживает комментарии отдельной строкой, но inline `%%` часто ломают парсер.
   result = stripInlineComments(result);
 
-  // 3. Убираем все обратные слеши перед кавычками (любое количество)
-  result = result.replace(/\\(?:\\\\)*(["'])/g, "$1");
+  // 2a. Огрехи генерации в flowchart: несовпавшие скобки, лишние кавычки, битые стрелки.
+  result = repairFlowchartSlips(result);
+
+  // Escaped quotes are label content, not Mermaid delimiters.
+  result = result.replace(/\\"/g, "#quot;");
+  result = result.replace(/\\'/g, "#apos;");
+
+  // Mermaid reserves `end`; keep subgraph terminators but rename node ids.
+  result = result.replace(/\bend(?=\s*[\[({])/gi, "node_end");
+  result = result.replace(/(-->\s*)end\b/gi, "$1node_end");
 
   // 4. Разбиваем склеенные инструкции вида A[Текст]B --> C.
   result = splitStuckFlowchartStatements(result);
 
   // 5. Mermaid 11 строже парсит спецсимволы внутри [label].
+  result = result.replace(/([A-Za-z_][\w-]*)(\[\[|\(\()([^\]\)\n]+)(\]\]|\)\))/g,
+    (match, id, open, label, close) => {
+      if ((open === "[[") !== (close === "]]")) return match;
+      const trimmed = label.trim();
+      if (/^".*"$/.test(trimmed)) return match;
+      return `${id}${open}"${trimmed.replace(/"/g, "#quot;")}"${close}`;
+    });
   result = quoteUnsafeSquareLabels(result);
+  result = result.replace(/([A-Za-z_][\w-]*)(\{\{|\{)([^{}\n]+)(\}\}|\})/g,
+    (match, id, open, label, close) => {
+      if ((open === "{{") !== (close === "}}")) return match;
+      const trimmed = label.trim();
+      if (!trimmed || /^".*"$/.test(trimmed)) return match;
+      if (/^[A-Za-z0-9_. -]+$/.test(trimmed)) return match;
+      return `${id}${open}"${trimmed.replace(/"/g, "#quot;")}"${close}`;
+    });
 
   // 6. Повторяем после закавычивания, потому что строка могла стать A["Текст"]B --> C.
   result = splitStuckFlowchartStatements(result);
@@ -239,13 +350,17 @@ const repairCommonErrors = (source) => {
   result = result.replace(/\n\s*\n/g, "\n");
   result = result.replace(/^[ \t]+/gm, "");
 
+  // Links and callbacks are disabled by securityLevel=strict; malformed
+  // legacy click lines must not invalidate the entire diagram.
+  result = result.split("\n").filter((line) => !/^\s*click\s+/i.test(line)).join("\n");
+
   return result.trim();
 };
 
 /* -------------------------------------------------------------------------- */
 /* Render candidates — ТОЛЬКО исправленная версия */
 /* -------------------------------------------------------------------------- */
-const createRenderCandidates = (source) => {
+export const createRenderCandidates = (source) => {
   const normalized = normalizeMermaidSource(source);
   const repaired = repairCommonErrors(normalized);
   const candidates = [];
@@ -258,12 +373,31 @@ const createRenderCandidates = (source) => {
   return [...new Set(candidates.filter(Boolean))];
 };
 
+export const validateMermaidSource = async (chart) => {
+  const candidates = createRenderCandidates(chart);
+  if (!candidates.length) throw new Error("Код Mermaid пустой.");
+  const mermaid = await getMermaid();
+  return enqueueRender(async () => {
+    let lastError;
+    for (const candidate of candidates) {
+      try {
+        await validateCandidate(mermaid, candidate);
+        return candidate;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    const line = lastError?.hash?.loc?.first_line ?? lastError?.hash?.line;
+    throw new Error(`Mermaid${line ? `, строка ${line}` : ""}: ${formatMermaidError(lastError)}`);
+  });
+};
+
 /* -------------------------------------------------------------------------- */
 /* SVG normalization */
 /* -------------------------------------------------------------------------- */
 const sanitizeRenderedSvg = (svgElement) => {
   svgElement
-    .querySelectorAll("script, foreignObject, iframe, object, embed")
+    .querySelectorAll("script, iframe, object, embed")
     .forEach((element) => element.remove());
 
   svgElement.querySelectorAll("*").forEach((element) => {
@@ -290,8 +424,11 @@ const normalizeRenderedSvg = (svg) => {
   if (!svg) return "";
   try {
     const parser = new DOMParser();
-    const parsed = parser.parseFromString(svg, "image/svg+xml");
-    const svgElement = parsed.documentElement;
+    const xmlSafeSvg = svg.replace(/<br\s*\/?>/gi, "<br/>");
+    const parsed = parser.parseFromString(xmlSafeSvg, "image/svg+xml");
+    const svgElement = parsed.querySelector("parsererror")
+      ? parser.parseFromString(svg, "text/html").querySelector("svg")
+      : parsed.documentElement;
     if (!svgElement || svgElement.nodeName.toLowerCase() !== "svg") {
       return svg;
     }
@@ -335,13 +472,10 @@ const isErrorSvg = (svg) => {
 
   try {
     const parser = new DOMParser();
-    const parsed = parser.parseFromString(svg, "image/svg+xml");
-
-    if (parsed.querySelector("parsererror")) {
-      return true;
-    }
-
-    const svgElement = parsed.documentElement;
+    const parsed = parser.parseFromString(svg.replace(/<br\s*\/?>/gi, "<br/>"), "image/svg+xml");
+    const svgElement = parsed.querySelector("parsererror")
+      ? parser.parseFromString(svg, "text/html").querySelector("svg")
+      : parsed.documentElement;
     if (!svgElement || svgElement.nodeName.toLowerCase() !== "svg") {
       return true;
     }
@@ -432,10 +566,10 @@ const renderMermaid = async ({ chart, componentId }) => {
 
     if (!candidates.length) {
       return {
-        svg: ULTIMATE_FALLBACK_SVG,
-        error: null,
-        recovered: true,
-        fallback: true,
+        svg: "",
+        error: "Код диаграммы пустой.",
+        recovered: false,
+        fallback: false,
       };
     }
 
@@ -469,17 +603,27 @@ const renderMermaid = async ({ chart, componentId }) => {
   };
 };
 
+export const auditMermaidRender = (chart, componentId) =>
+  enqueueRender(() => renderMermaid({ chart, componentId }));
+
 /* -------------------------------------------------------------------------- */
 /* Component */
 /* -------------------------------------------------------------------------- */
-export default function MermaidDiagram({ chart }) {
+export default function MermaidDiagram({ chart, onRendered, lessonId, blockId }) {
   const reactId = useId();
+  const svgHostRef = useRef(null);
   const renderVersionRef = useRef(0);
   const [svg, setSvg] = useState("");
   const [status, setStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [showSource, setShowSource] = useState(false);
 
   const normalizedChart = useMemo(() => normalizeMermaidSource(chart), [chart]);
+
+  useEffect(() => {
+    if (svg && onRendered) onRendered(svgHostRef.current?.querySelector("svg") ?? null);
+  }, [svg, onRendered]);
 
   const componentId = useMemo(() => {
     const safeId = String(reactId)
@@ -501,16 +645,18 @@ export default function MermaidDiagram({ chart }) {
 
     const execute = async () => {
       const result = await enqueueRender(() =>
-        renderMermaid({
-          chart: chartToRender,
-          componentId,
-        }),
+        cancelled ? null : renderMermaid({ chart: chartToRender, componentId }),
       );
 
-      if (cancelled || currentVersion !== renderVersionRef.current) return;
+      if (!result || cancelled || currentVersion !== renderVersionRef.current) return;
 
       setSvg(result.svg);
       setErrorMessage(result.error || "");
+      if (result.error) {
+        const detail = { lessonId, blockId, source: normalizedChart, error: result.error };
+        console.error("Mermaid render failed", detail);
+        window.dispatchEvent(new CustomEvent("mermaid:render-error", { detail }));
+      }
       if (result.error) {
         setStatus("error");
       } else if (result.fallback) {
@@ -526,6 +672,9 @@ export default function MermaidDiagram({ chart }) {
       if (cancelled || currentVersion !== renderVersionRef.current) return;
       setSvg("");
       setErrorMessage(formatMermaidError(error));
+      const detail = { lessonId, blockId, source: normalizedChart, error: formatMermaidError(error) };
+      console.error("Mermaid render failed", detail);
+      window.dispatchEvent(new CustomEvent("mermaid:render-error", { detail }));
       setStatus("error");
     });
 
@@ -533,19 +682,27 @@ export default function MermaidDiagram({ chart }) {
       cancelled = true;
       renderVersionRef.current += 1;
     };
-  }, [normalizedChart, componentId]);
+  }, [normalizedChart, componentId, retryCount, lessonId, blockId]);
 
   return (
     <div className={["mermaid-diagram", `is-${status}`].join(" ")}>
       {svg ? (
         <div
+          ref={svgHostRef}
           className="mermaid-diagram-svg"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       ) : status === "error" ? (
         <div className="mermaid-diagram-error" role="alert">
-          <strong>Не удалось отрисовать Mermaid-диаграмму</strong>
+          <strong>Схему пока не удалось показать</strong>
           <span>{errorMessage}</span>
+          <div className="mermaid-diagram-error-actions">
+            <button type="button" onClick={() => setRetryCount((count) => count + 1)}>Повторить отрисовку</button>
+            <button type="button" onClick={() => setShowSource((shown) => !shown)} aria-expanded={showSource}>
+              {showSource ? "Скрыть исходный код" : "Показать исходный код"}
+            </button>
+          </div>
+          {showSource && <pre className="mermaid-diagram-source">{normalizedChart}</pre>}
         </div>
       ) : (
         <div

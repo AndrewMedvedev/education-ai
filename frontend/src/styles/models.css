@@ -225,7 +225,7 @@
 .page[data-theme="dark"] .model-form input,
 .page[data-theme="dark"] .model-form textarea {
     color: var(--heading);
-    background: rgba(24, 24, 24, 0.75);
+    background: rgba(9, 31, 59, 0.9);
     border-color: rgba(var(--accent-rgb), 0.56);
 }
 

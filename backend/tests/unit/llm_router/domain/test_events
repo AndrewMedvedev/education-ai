@@ -1,0 +1,47 @@
+from uuid import uuid4
+
+from src.llm_router.domain.events import LLMInvocationCreated
+from src.llm_router.domain.vo import LLMInvocationStatus
+
+
+def test_llm_invocation_created_event_contains_invocation_data() -> None:
+    request_id = uuid4()
+
+    event = LLMInvocationCreated(
+        request_id=request_id,
+        model="gpt-5-mini",
+        total_tokens=10,
+        request={"input": "test"},
+        response={"output": "result"},
+        duration_ms=150,
+        status=LLMInvocationStatus.COMPLETED,
+    )
+
+    assert event.event_type == "llm_router.invocation.created"
+    assert event.request_id == request_id
+    assert event.model == "gpt-5-mini"
+    assert event.total_tokens == 10
+    assert event.request == {"input": "test"}
+    assert event.response == {"output": "result"}
+    assert event.duration_ms == 150
+    assert event.status is LLMInvocationStatus.COMPLETED
+    assert event.error is None
+
+
+def test_llm_invocation_created_event_is_frozen() -> None:
+    event = LLMInvocationCreated(
+        request_id=uuid4(),
+        model="gpt-5-mini",
+        total_tokens=10,
+        request={},
+        response={},
+        duration_ms=100,
+        status=LLMInvocationStatus.COMPLETED,
+    )
+
+    try:
+        event.model = "gpt-5-nano"
+    except AttributeError:
+        pass
+    else:
+        raise AssertionError("Event should be immutable")

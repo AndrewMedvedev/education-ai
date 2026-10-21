@@ -1,0 +1,38 @@
+groups:
+  - name: service-health
+    rules:
+      - alert: ServiceMetricsUnavailable
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Нет метрик сервиса {{ $labels.job }}"
+      - alert: BackendHigh5xxRate
+        expr: sum(rate(http_requests_total{job="backend",status="5xx"}[5m])) / sum(rate(http_requests_total{job="backend"}[5m])) > 0.05
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Доля HTTP 5xx выше 5%"
+      - alert: BackendSlowRequests
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_highr_seconds_bucket{job="backend"}[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "HTTP P95 выше 2 секунд"
+      - alert: PostgresUnavailable
+        expr: pg_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Экспортер не может подключиться к PostgreSQL"
+      - alert: RedisUnavailable
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Экспортер не может подключиться к Redis"

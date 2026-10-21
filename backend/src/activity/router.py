@@ -16,6 +16,7 @@ router = APIRouter(prefix="/activity-logs", tags=["История действи
     response_model=Page[ActivityLogResponse],
     dependencies=[Depends(require_role([UserRole.ADMIN]))],
     summary="Получить историю действий",
+    description="Возвращает постраничную историю действий пользователей. Доступно только администраторам.",
 )
 async def get_activity_logs(
         activity_logs: Page[ActivityLogResponse] = Depends(paginate_activity_logs)

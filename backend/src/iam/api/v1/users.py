@@ -18,13 +18,17 @@ router = APIRouter(prefix="/users", tags=["Пользователи | Users"])
     path="/me",
     status_code=status.HTTP_200_OK,
     summary="Получить текущего пользователя",
+    description="Возвращает профиль пользователя, от имени которого выполнен запрос.",
 )
 async def get_me(user: UserResponse = current_user_depends) -> UserResponse:
     return user
 
 
 @router.patch(
-    path="/me", status_code=status.HTTP_200_OK, summary="Обновить данные текущего пользователя."
+    path="/me",
+    status_code=status.HTTP_200_OK,
+    summary="Обновить данные текущего пользователя.",
+    description="Обновляет переданные поля профиля текущего пользователя.",
 )
 async def update_me(
     identity: CurrentIdentity,
@@ -39,6 +43,7 @@ async def update_me(
     status_code=status.HTTP_200_OK,
     dependencies=[require_authentication],
     summary="Найти пользователей",
+    description="Возвращает постраничный список пользователей по заданным параметрам поиска.",
 )
 async def search_users(users: Page[UserResponse] = users_list_depends) -> Page[UserResponse]:
     return users
@@ -49,6 +54,7 @@ async def search_users(users: Page[UserResponse] = users_list_depends) -> Page[U
     status_code=status.HTTP_200_OK,
     dependencies=[require_authentication],
     summary="Получить конкретного пользователя",
+    description="Возвращает профиль пользователя по его идентификатору.",
 )
 async def get_user_by_id(user_id: UUID, crud: UserCrudDep) -> UserResponse:
     return await crud.read(user_id)

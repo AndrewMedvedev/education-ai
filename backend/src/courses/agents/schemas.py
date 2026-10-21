@@ -31,6 +31,11 @@ class Context(CourseContext):
     prompt: str
 
 
+class GenerationContext(Context):
+    order: int
+    module_id: UUID | None = None
+
+
 class Knowledge(BaseModel):
     """Знания полученные в ходе создания образовательного курса"""
 
@@ -55,16 +60,6 @@ class Knowledge(BaseModel):
         le=1.0,
         description="Насколько полезна информация, где 1 максимально релевантная информация",
     )
-
-
-class UserContext(BaseModel):
-    """Контекстная информация пользователя"""
-
-    user_id: PositiveInt
-
-
-class StudentContext(CourseContext, UserContext):
-    """Контекстная информация студента для взаимодействия с чат-ботом"""
 
 
 PASSING_TEST_SCORE = 61

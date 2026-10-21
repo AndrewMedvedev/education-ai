@@ -78,6 +78,8 @@ class UpdateRoleDTO(BaseModel):
 class RoleResponse(BaseModel):
     """Роль - оперирует набором прав."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID = Field(description="Уникальный идентификатор роли.")
     created_at: datetime = Field(description="Дата создания.")
     updated_at: datetime = Field(description="Дата последнего обновления.")

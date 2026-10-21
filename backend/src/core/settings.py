@@ -23,6 +23,7 @@ INSTALLED_MODULES: tuple[str, ...] = (  # Добавь сюда модуль к�
     "organization",
     "media",
     "notifications",
+    "feedback",
 )
 TEMPLATES_DIR = BASE_DIR / "templates"
 # Имя основного S3 бакета

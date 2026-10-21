@@ -21,9 +21,8 @@ class Identity:
 
     id: UUID
     type: IdentityType
-
+    organization_id: UUID
     email: Email | None = None
-    organization_id: UUID | None = None
     membership_id: UUID | None = None
 
     roles: frozenset[str] = field(default_factory=frozenset)

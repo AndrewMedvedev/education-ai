@@ -79,7 +79,7 @@ def to_strict_json_schema(
 # ---------------------------------------------------------------------------
 # Основная рекурсивная функция
 # ---------------------------------------------------------------------------
-def _ensure_strict_json_schema(  # ruff: ignore[complex-structure]
+def _ensure_strict_json_schema(  # noqa: C901
     json_schema: object,
     *,
     path: tuple[str, ...],
@@ -194,7 +194,8 @@ def _ensure_strict_json_schema(  # ruff: ignore[complex-structure]
     # $ref прямо в текущий словарь.
     ref = json_schema.get("$ref")
     if ref and has_more_than_n_keys(json_schema, 1):
-        assert isinstance(ref, str), f"$ref должен быть строкой, получено: {ref!r}"
+        if not isinstance(ref, str):
+            raise TypeError(f"$ref должен быть строкой, получено: {ref!r}")
 
         resolved = resolve_ref(root=root, ref=ref)
         if not is_dict(resolved):
@@ -261,7 +262,7 @@ def has_more_than_n_keys(obj: dict[str, object], n: int) -> bool:
     """
     i = 0
     for _ in obj:
-        i += 1  # ruff: ignore[enumerate-for-loop]
+        i += 1
         if i > n:
             return True
     return False

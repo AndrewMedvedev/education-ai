@@ -54,11 +54,13 @@ class RegistrationService:
             await self._membership_repo.create(membership)
 
             await self._transaction(user, membership)
+        else:
+            await self._transaction(user)
 
         roles = (
-            set(await self._role_repo.get_by_ids(list(membership.roles)))
+            await self._role_repo.get_by_ids(list(membership.roles))
             if membership is not None
             else None
         )
-        await self._transaction(user)
+
         return create_tokens_for_user(user=user, membership=membership, roles=roles)

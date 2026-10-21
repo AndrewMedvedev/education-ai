@@ -17,14 +17,12 @@ __all__ = [
 
 from .dataclasses import StructuredTool
 from .middleware import BaseAgentMiddleware, Messages
+from .protocols import LLMImageServiceProtocol, LLMServiceProtocol, LLMTextServiceProtocol
 from .schemas import (
     LLMImageRequest,
     LLMImageResponse,
-    LLMImageServiceProtocol,
-    LLMServiceProtocol,
     LLMTextRequest,
     LLMTextResponse,
-    LLMTextServiceProtocol,
     Runtime,
 )
 from .services import LLMImageService, LLMTextService

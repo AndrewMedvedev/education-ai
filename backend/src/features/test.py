@@ -3,11 +3,19 @@ from uuid import UUID, uuid4
 
 from langchain_core.runnables import RunnableConfig
 
-from src.core.database import session_factory
-from src.courses.agents.course_generator.subagents import lesson_builder
-from src.courses.agents.schemas import Context, RuntimeContext
+from src.core.tkq import taskiq_broker
+from src.courses.agents.course_generator.serializer import checkpointer
+from src.courses.agents.course_generator.subagents.lesson_builder import (
+    LessonAgent,
+    build_lesson_graph,
+)
+from src.courses.agents.course_generator.subagents.theorist import call_theory_agent
+from src.courses.agents.schemas import Context
+from src.courses.dependencies.base import get_vector_repo
+from src.courses.infra.database.repos.lesson import SqlLessonRepository
+from src.courses.infra.services.client import course_client
 
-user_id = UUID("75a830b9-0781-4b70-bd86-f8777001b6ca")
+user_id = UUID("deade2a0-1e82-4e6a-b369-3428107abe65")
 
 
 def build_prompt(
@@ -32,58 +40,6 @@ def build_prompt(
         "        "
     )
 
-
-# ===========================================================================
-# КУРС 1. Python для начинающих аналитиков данных
-# Урок: Работа со списками и словарями
-# ===========================================================================
-PYTHON_COURSE_ID = UUID("0f51c397-1432-4ad5-918f-065095fccd77")
-PYTHON_MODULE_ID = UUID("6c6a2703-7a64-421d-bb0c-6514deff7591")
-
-PYTHON_AUDIENCE = (
-    "Начинающие аналитики данных без опыта программирования, знакомые с "
-    "Excel и базовой статистикой. Цель — научиться писать простые скрипты "
-    "на Python для обработки табличных данных без использования "
-    "специализированных библиотек на первых этапах. Основные проблемы: "
-    "страх синтаксических ошибок, непонимание разницы между типами данных, "
-    "трудности с чтением сообщений об ошибках интерпретатора. Учащиеся "
-    "умеют работать с формулами Excel, но не знакомы с циклами, условиями "
-    "и структурами данных Python."
-)
-
-PYTHON_OBJECTIVES = [
-    "Объяснять базовые типы данных Python (int, float, str, bool) и приводить примеры их использования.",
-    "Создавать и изменять списки, обращаться к элементам по индексу и срезам.",
-    "Создавать и использовать словари для хранения структурированных данных ключ-значение.",
-    "Применять циклы for и условные конструкции if/elif/else для обработки коллекций данных.",
-    "Писать простые функции для переиспользования кода обработки данных.",
-    "Читать и интерпретировать типичные сообщения об ошибках (TypeError, KeyError, IndexError).",
-]
-
-PYTHON_ORDER = 3
-PYTHON_LESSON_DESCRIPTION = (
-    "Урок 3. Списки и словари как основные структуры данных Python: создание "
-    "списка, добавление и удаление элементов, обращение по индексу и срезам, "
-    "сортировка. Отдельно разбирается словарь — создание пар ключ-значение, "
-    "доступ к значениям, перебор пар через .items(), типичная ошибка KeyError "
-    "и способы её избежать через .get(). Урок должен на практических примерах "
-    "показать, как список товаров с ценами можно представить и как словарём, "
-    "и как списком словарей, чтобы учащийся почувствовал разницу применения "
-    "структур. В конце — мини-задача на агрегацию данных: посчитать сумму "
-    "продаж по категориям из списка словарей."
-)
-
-PYTHON_PROMPT = build_prompt(
-    PYTHON_AUDIENCE, PYTHON_OBJECTIVES, PYTHON_ORDER, PYTHON_LESSON_DESCRIPTION
-)
-
-
-# ===========================================================================
-# КУРС 2. Основы личных финансов
-# Урок: Формирование финансовой подушки безопасности
-# ===========================================================================
-FINANCE_COURSE_ID = UUID("0f51c397-1432-4ad5-918f-065095fccd77")
-FINANCE_MODULE_ID = UUID("6c6a2703-7a64-421d-bb0c-6514deff7591")
 
 FINANCE_AUDIENCE = (
     "Молодые специалисты 22–35 лет с первым стабильным доходом, не имеющие "
@@ -123,12 +79,6 @@ FINANCE_PROMPT = build_prompt(
 )
 
 
-# ===========================================================================
-# КУРС 3. Химия для абитуриентов: основы органической химии
-# Урок: Строение и номенклатура алканов
-# ===========================================================================
-CHEMISTRY_COURSE_ID = UUID("0f51c397-1432-4ad5-918f-065095fccd77")
-CHEMISTRY_MODULE_ID = UUID("6c6a2703-7a64-421d-bb0c-6514deff7591")
 
 CHEMISTRY_AUDIENCE = (
     "Старшеклассники 10–11 классов, готовящиеся к экзаменам по химии, с "
@@ -173,20 +123,134 @@ CHEMISTRY_PROMPT = build_prompt(
 # ---------------------------------------------------------------------------
 # Запуск
 # ---------------------------------------------------------------------------
+
+PQC_AUDIENCE = (
+    "Инженеры-разработчики и архитекторы ПО с опытом работы с TLS, "
+    "PKI и криптографическими библиотеками. Они понимают назначение "
+    "асимметричного шифрования, цифровой подписи, сертификатов и TLS "
+    "на концептуальном уровне, но не изучали постквантовую криптографию. "
+    "Учащиеся должны уметь принимать обоснованные архитектурные решения, "
+    "а не самостоятельно реализовывать криптографические алгоритмы. "
+    "Типичные затруднения: смешение алгоритма обмена ключами с алгоритмом "
+    "подписи, непонимание гибридного режима, недооценка влияния размеров "
+    "ключей и подписей на протоколы и инфраструктуру."
+)
+
+PQC_OBJECTIVES = [
+    "Объяснять, почему алгоритм Шора создаёт риск для широко используемых схем RSA и эллиптических кривых, а алгоритм Гровера влияет на симметричную криптографию иначе.",
+    "Различать задачи инкапсуляции ключа и цифровой подписи, а также объяснять, почему для них нужны разные постквантовые алгоритмы.",
+    "Сопоставлять ML-KEM, ML-DSA и SLH-DSA по назначению и ключевым архитектурным компромиссам, не смешивая стандартизованные алгоритмы с историческими названиями.",
+    "Объяснять назначение гибридного обмена ключами и ограничения, которые он не устраняет.",
+    "Находить потенциальные точки криптографической зависимости в приложении: TLS, VPN, PKI, подпись артефактов, резервные копии и долгосрочно хранимые данные.",
+    "Составлять первичный план миграции, учитывающий инвентаризацию, криптографическую гибкость, совместимость, производительность и управление ключами.",
+    "Отличать опубликованный стандарт от проекта стандарта, рекомендации по миграции и заявления производителя.",
+]
+
+PQC_ORDER = 4
+
+PQC_LESSON_DESCRIPTION = (
+    "Урок 4. Постквантовая криптография и миграция прикладных систем. "
+    "Объясни модель угроз: почему данные, перехваченные сегодня, могут "
+    "стать уязвимыми в будущем, и чем угроза для RSA и эллиптических кривых "
+    "отличается от влияния квантовых алгоритмов на симметричные схемы. "
+    "Затем сравни современные стандартизованные постквантовые механизмы "
+    "для установления ключа и цифровой подписи: укажи их назначение, "
+    "практические ограничения и не называй алгоритм обмена ключами "
+    "алгоритмом шифрования данных. Разбери гибридный обмен ключами в TLS: "
+    "что он даёт, какие зависимости сохраняет и почему его нельзя считать "
+    "универсальным решением для всей PKI. Включи конкретный сценарий "
+    "миграции сервиса с TLS и подписанием релизов: инвентаризация "
+    "криптографии, приоритизация рисков, пилот, проверка совместимости "
+    "и план отката. Используй только проверяемые сведения об актуальных "
+    "стандартах и рекомендациях; для значимых утверждений нужны источники "
+    "с названием документа или организации и ссылкой. Если сведения "
+    "могли измениться, сначала проверь их по надёжным источникам и "
+    "отличай финальные стандарты от черновиков."
+)
+
+PQC_COURSE_ID = UUID("693e6c1a-44a5-46f1-a7b3-d94345a670ee")
+PQC_MODULE_ID = UUID("00e6c33f-cfef-49d7-93fb-6c1b09af12b7")
+
+PQC_PROMPT = build_prompt(
+    PQC_AUDIENCE,
+    PQC_OBJECTIVES,
+    PQC_ORDER,
+    PQC_LESSON_DESCRIPTION,
+)
+SUPPLY_CHAIN_AUDIENCE = (
+    "DevOps- и platform-инженеры, знакомые с Git, CI/CD, контейнерными образами "
+    "и базовыми принципами управления ключами. Они умеют собирать и выкладывать "
+    "приложения, но пока не выстраивали проверяемую цепочку доверия от исходного "
+    "кода до артефакта, установленного в production. Типичные затруднения: "
+    "путаница между SBOM, подписью и provenance; мнение, что наличие SBOM само "
+    "по себе доказывает безопасность сборки; непонимание, кто и на каком этапе "
+    "должен проверять аттестации."
+)
+
+SUPPLY_CHAIN_OBJECTIVES = [
+    "Различать SBOM, provenance/attestation и цифровую подпись артефакта, объяснять назначение каждого элемента.",
+    "Объяснять, какие сведения о компонентах ПО и процессе сборки содержат SBOM и provenance, и чего они сами по себе не доказывают.",
+    "Сопоставлять актуальные форматы и спецификации SBOM, а также подходы к описанию provenance, проверяя их статус по первичным официальным источникам.",
+    "Описывать цепочку доверия от исходного кода и CI-процесса до подписанного артефакта и его развёртывания.",
+    "Составлять проверяемый workflow: сформировать SBOM, получить provenance, подписать артефакт или аттестацию и проверить их перед развёртыванием.",
+    "Разбирать угрозы компрометации CI, подмены артефакта, утечки ключей и ошибочной проверки подписи; предлагать меры снижения риска.",
+    "Отличать факт наличия подписи или SBOM от успешной проверки доверенного издателя, целостности, источника сборки и политики допуска.",
+]
+
+SUPPLY_CHAIN_ORDER = 5
+
+SUPPLY_CHAIN_LESSON_DESCRIPTION = (
+    "Урок 5. Практическая безопасность цепочки поставок ПО: от исходного кода "
+    "до production-артефакта. Объясни роли SBOM, provenance/attestation и цифровой "
+    "подписи и явно покажи, почему ни один из этих элементов по отдельности не "
+    "доказывает, что артефакт безопасен. Рассмотри пример CI/CD-конвейера, который "
+    "собирает контейнер, создаёт SBOM, формирует provenance, подписывает результат "
+    "и перед развёртыванием проверяет подпись и политику доверия. Сопоставь уместные "
+    "стандарты и инструменты, например SPDX или CycloneDX для SBOM, SLSA и in-toto "
+    "для provenance, Sigstore/cosign для подписи и проверки. Не предполагай, что "
+    "названия, версии, уровни или статус этих спецификаций актуальны: проверь текущее "
+    "состояние и конкретные утверждения по официальным первоисточникам. Для важных "
+    "характеристик укажи, какой источник подтверждает утверждение; не смешивай "
+    "стандарт, спецификацию формата, инструмент и рекомендацию. Покажи один "
+    "небольшой пример команд или конфигурации, но не выдавай его за универсальный "
+    "production-рецепт и не вставляй фиктивные ключи или digest. В диаграмме отрази "
+    "этапы сборки, создания аттестаций, подписания, проверки и решения о допуске "
+    "артефакта. Заверши практическим сценарием: подпись валидна, но provenance "
+    "указывает на неожиданный workflow — следует ли разрешить развёртывание и почему?"
+)
+
+SUPPLY_CHAIN_PROMPT = build_prompt(
+    SUPPLY_CHAIN_AUDIENCE,
+    SUPPLY_CHAIN_OBJECTIVES,
+    SUPPLY_CHAIN_ORDER,
+    SUPPLY_CHAIN_LESSON_DESCRIPTION,
+)
+
 LESSONS = [
     {
-        "course_id": PYTHON_COURSE_ID,
-        "module_id": PYTHON_MODULE_ID,
-        "audience_description": PYTHON_AUDIENCE,
-        "learning_objectives": PYTHON_OBJECTIVES,
-        "order": PYTHON_ORDER,
-        "lesson_description": PYTHON_LESSON_DESCRIPTION,
-        "prompt": PYTHON_PROMPT,
-        "label": "Python: списки и словари",
+        # Используй существующие тестовые UUID курса и модуля.
+        "course_id": PQC_COURSE_ID,
+        "module_id": PQC_MODULE_ID,
+        "audience_description": SUPPLY_CHAIN_AUDIENCE,
+        "learning_objectives": SUPPLY_CHAIN_OBJECTIVES,
+        "order": SUPPLY_CHAIN_ORDER,
+        "lesson_description": SUPPLY_CHAIN_LESSON_DESCRIPTION,
+        "prompt": SUPPLY_CHAIN_PROMPT,
+        "label": "Безопасность цепочки поставок ПО",
     },
     {
-        "course_id": FINANCE_COURSE_ID,
-        "module_id": FINANCE_MODULE_ID,
+        "course_id": PQC_COURSE_ID,
+        "module_id": PQC_MODULE_ID,
+        "audience_description": PQC_AUDIENCE,
+        "learning_objectives": PQC_OBJECTIVES,
+        "order": PQC_ORDER,
+        "lesson_description": PQC_LESSON_DESCRIPTION,
+        "prompt": PQC_PROMPT,
+        "label": "Постквантовая криптография: миграция систем",
+    },
+    {
+        "course_id": PQC_COURSE_ID,
+        "module_id": PQC_MODULE_ID,
         "audience_description": FINANCE_AUDIENCE,
         "learning_objectives": FINANCE_OBJECTIVES,
         "order": FINANCE_ORDER,
@@ -194,44 +258,44 @@ LESSONS = [
         "prompt": FINANCE_PROMPT,
         "label": "Финансы: подушка безопасности",
     },
-    {
-        "course_id": CHEMISTRY_COURSE_ID,
-        "module_id": CHEMISTRY_MODULE_ID,
-        "audience_description": CHEMISTRY_AUDIENCE,
-        "learning_objectives": CHEMISTRY_OBJECTIVES,
-        "order": CHEMISTRY_ORDER,
-        "lesson_description": CHEMISTRY_LESSON_DESCRIPTION,
-        "prompt": CHEMISTRY_PROMPT,
-        "label": "Химия: алканы",
-    },
 ]
 
 
 async def run_lesson(lesson: dict) -> None:
-    async with session_factory() as session:
-        result = await lesson_builder.lesson_builder_agent.ainvoke(
-            {
-                "generation_context": Context(
-                    course_id=lesson["course_id"],
-                    user_id=user_id,
-                    prompt=lesson["prompt"],
-                ),
-                "module_id": lesson["module_id"],
-                "audience_description": lesson["audience_description"],
-                "learning_objectives": lesson["learning_objectives"],
-                "order": lesson["order"],
-                "lesson_description": lesson["lesson_description"],
-            },
-            config=RunnableConfig(configurable={"thread_id": f"lesson_thread_{uuid4()}"}),
-            context=RuntimeContext(db_session=session),
-        )
-        print(f"=== {lesson['label']} ===")
-        print(result)
+    lesson_agent = LessonAgent(
+        client=course_client,
+        lesson_repo=SqlLessonRepository,  # pyright: ignore[reportArgumentType]
+        vector_repo=get_vector_repo(),
+        theory_agent=call_theory_agent,
+    )
+    lesson_graph = build_lesson_graph(
+        agent=lesson_agent,
+        checkpointer=checkpointer,
+    )
+
+    result = await lesson_graph.ainvoke(
+        {
+            "generation_context": Context(
+                course_id=lesson["course_id"],
+                user_id=user_id,
+                prompt=lesson["prompt"],
+            ),
+            "module_id": lesson["module_id"],
+            "audience_description": lesson["audience_description"],
+            "learning_objectives": lesson["learning_objectives"],
+            "order": lesson["order"],
+            "lesson_description": lesson["lesson_description"],
+        },
+        config=RunnableConfig(configurable={"thread_id": f"lesson_thread_{uuid4()}"}),
+    )
+    print(f"=== {lesson['label']} ===")
+    print(result)
 
 
 async def main():
-    for lesson in LESSONS:
-        await run_lesson(lesson)
+    await taskiq_broker.startup()
+    for i in LESSONS:
+        await run_lesson(i)
 
 
 if __name__ == "__main__":

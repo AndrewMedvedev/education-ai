@@ -147,23 +147,33 @@ function parseCodeFence(content) {
 
 function normalizeQuestion(question) {
   if (Array.isArray(question)) {
+    if (["multipart", "multiple_choice", "detailed_answer"].includes(String(question[0]).toLowerCase())) {
+      return normalizeQuestion(question[1]);
+    }
     return {
       question: typeof question[0] === "string" ? question[0] : "",
       answer: question.slice(1).filter(Boolean).join("\n"),
+      options: [],
+      explanation: "",
     };
   }
   if (question && typeof question === "object") {
+    const wrapper = question.multipart ?? question.multiple_choice ?? question.detailed_answer;
+    if (wrapper) return normalizeQuestion(wrapper);
     const options = Array.isArray(question.options)
-      ? question.options.join("\n")
-      : question.options;
-    const answerParts = [options, question.answer].filter(Boolean);
-
+      ? question.options
+      : typeof question.options === "string"
+        ? question.options.split(/\r?\n/).filter(Boolean)
+        : [];
+    const rawAnswer = question.answer ?? question.correct_answer ?? question.expected_answer ?? "";
     return {
-      question: typeof question.question === "string" ? question.question : "",
-      answer: answerParts.join("\n\n"),
+      question: question.question || question.text || question.prompt || "",
+      answer: typeof rawAnswer === "number" ? options[rawAnswer] || "" : rawAnswer,
+      options,
+      explanation: question.explanation || question.rationale || "",
     };
   }
-  return { question: typeof question === "string" ? question : "", answer: "" };
+  return { question: typeof question === "string" ? question : "", answer: "", options: [], explanation: "" };
 }
 
 export function createBlock(templateOrContent, type = "text") {
@@ -257,7 +267,22 @@ export function normalizeContentBlock(block, ensureId = false) {
     normalized.explanation = String(source.explanation ?? "");
   }
 
+  // Источники блока не редактируются в форме, но не должны теряться при сохранении.
+  const sources = normalizeBlockSources(source.sources);
+  if (sources) normalized.sources = sources;
+
   return normalized;
+}
+
+function normalizeBlockSources(value) {
+  if (!Array.isArray(value)) return null;
+  return value
+    .map((item) =>
+      item && typeof item === "object"
+        ? String(item.url || item.href || item.title || "").trim()
+        : String(item ?? "").trim(),
+    )
+    .filter(Boolean);
 }
 
 export function normalizeContentBlocks(blocks, fallbackMarkdown = "") {
@@ -294,6 +319,10 @@ export function stripUiFields(block) {
   } else {
     payload.formula = normalized.formula;
     payload.explanation = normalized.explanation;
+  }
+
+  if (Array.isArray(normalized.sources)) {
+    payload.sources = normalized.sources;
   }
 
   return payload;

@@ -32,7 +32,6 @@ class ParamGroup:
 
 @dataclass
 class StructuredTool:
-    """Хранит структурированные данные `StructuredTool`, чтобы передавать их между слоями без словарей."""
     func: Callable
     name: str
     runtime: bool

@@ -7,9 +7,20 @@ discovery.relabel "containers" {
 
   // Оставляем только нужные контейнеры.
   rule {
-    source_labels = ["__meta_docker_container_name"]
-    regex         = "/(backend|postgres|redis|rabbitmq|qdrant|dramatiq)"
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "backend|postgres|redis|rabbitmq|qdrant|taskiq"
     action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "dio-ai-courses(-local)?"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
   }
 
   // /backend -> backend
@@ -24,12 +35,6 @@ discovery.relabel "containers" {
 loki.source.docker "containers" {
   host       = "unix:///var/run/docker.sock"
   targets    = discovery.relabel.containers.output
-  forward_to = [loki.process.docker.receiver]
-}
-
-loki.process "docker" {
-  stage.docker {}
-
   forward_to = [loki.write.default.receiver]
 }
 

@@ -8,6 +8,9 @@ import {
 } from "../stores/agentStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { convertDocumentToMarkdown } from "../utils/api";
+import ConfirmDialog from "./ui/ConfirmDialog";
+import FloatingWindow from "./ui/FloatingWindow";
+import { autosizeTextarea } from "../utils/autosizeTextarea";
 import { attachmentsApi } from "../utils/attachments";
 import { getMediaId, getMediaUrl, MEDIA_FOLDERS } from "../utils/media";
 import {
@@ -82,6 +85,8 @@ export default function LessonContentEditor({
   contentLabel = "Теория",
   blocksLabel = "",
   showInsertControls = true,
+  // ИИ-редактор блока в плавающем окне (перетаскивается и растягивается).
+  floatingAiEditor = false,
 }) {
   const [blocks, setBlocks] = useState(() =>
     normalizeContentBlocks(
@@ -98,6 +103,8 @@ export default function LessonContentEditor({
   const [proposal, setProposal] = useState(null);
   const [proposalError, setProposalError] = useState("");
   const [blockLimitError, setBlockLimitError] = useState("");
+  const [blockToDelete, setBlockToDelete] = useState(null);
+  const aiTextareaRef = useRef(null);
   const aiConversationKey = createAgentConversationKey(
     "editor",
     courseId,
@@ -198,6 +205,10 @@ export default function LessonContentEditor({
     if (!container) return;
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [aiConversation?.messages, isAiSending]);
+
+  useEffect(() => {
+    autosizeTextarea(aiTextareaRef.current, 160);
+  }, [aiInput, isAiOpen, activeBlockId]);
 
   const commitBlocks = (nextBlocks, nextActiveId = activeBlockId) => {
     const normalizedBlocks =
@@ -858,6 +869,18 @@ export default function LessonContentEditor({
                   />
                 </label>
                 <label>
+                  <span>Варианты ответа</span>
+                  <textarea
+                    value={(question.options || []).join("\n")}
+                    onChange={(event) =>
+                      updateQuestion(block.id, questionIndex, {
+                        options: event.target.value.split(/\r?\n/).filter(Boolean),
+                      })
+                    }
+                    placeholder="Каждый вариант с новой строки"
+                  />
+                </label>
+                <label>
                   <span>Ответ</span>
                   <textarea
                     value={question.answer || ""}
@@ -867,6 +890,18 @@ export default function LessonContentEditor({
                       })
                     }
                     placeholder="Введите правильный ответ"
+                  />
+                </label>
+                <label>
+                  <span>Пояснение</span>
+                  <textarea
+                    value={question.explanation || ""}
+                    onChange={(event) =>
+                      updateQuestion(block.id, questionIndex, {
+                        explanation: event.target.value,
+                      })
+                    }
+                    placeholder="Почему этот ответ верный"
                   />
                 </label>
                 <button
@@ -943,8 +978,9 @@ export default function LessonContentEditor({
     </div>
   );
 
-  const renderAiEditor = (block) => (
-    <aside className="lesson-ai-editor">
+  const renderAiEditor = (block, { floating = false } = {}) => (
+    <aside className={`lesson-ai-editor ${floating ? "is-floating" : ""}`}>
+      {!floating && (
       <div className="lesson-ai-editor-head">
         <span>ИИ-редактор</span>
         <button
@@ -956,6 +992,7 @@ export default function LessonContentEditor({
           −
         </button>
       </div>
+      )}
       <div
         className="lesson-ai-messages"
         ref={aiMessagesRef}
@@ -1034,6 +1071,11 @@ export default function LessonContentEditor({
           </>
         )}
         <textarea
+          ref={(element) => {
+            aiTextareaRef.current = element;
+            autosizeTextarea(element, 160);
+          }}
+          rows={2}
           value={aiInput}
           onChange={(event) => setAiInput(event.target.value)}
           placeholder={
@@ -1063,6 +1105,8 @@ export default function LessonContentEditor({
       </div>
     </aside>
   );
+
+  const activeAiBlock = blocks.find((block) => block.id === activeBlockId);
 
   return (
     <div className="lesson-content-editor">
@@ -1103,7 +1147,7 @@ export default function LessonContentEditor({
                       blockRefs.current.delete(block.id);
                     }
                   }}
-                  className={`lesson-editor-block-row ${isActive && isAiOpen && canUseAiEditor ? "has-ai" : ""}`}
+                  className={`lesson-editor-block-row ${!floatingAiEditor && isActive && isAiOpen && canUseAiEditor ? "has-ai" : ""}`}
                 >
                   <article
                     className={`lesson-editor-block is-${block.type} ${isActive ? "is-active" : "is-preview"}`}
@@ -1178,7 +1222,7 @@ export default function LessonContentEditor({
                             </button>
                             <button
                               type="button"
-                              onClick={() => deleteBlock(block.id)}
+                              onClick={() => setBlockToDelete(block)}
                             >
                               Удалить
                             </button>
@@ -1237,7 +1281,8 @@ export default function LessonContentEditor({
                       </div>
                     )}
                   </article>
-                  {isActive &&
+                  {!floatingAiEditor &&
+                    isActive &&
                     isAiOpen &&
                     canUseAiEditor &&
                     renderAiEditor(block)}
@@ -1250,6 +1295,43 @@ export default function LessonContentEditor({
           })}
         </div>
       </div>
+      {floatingAiEditor && (
+        <FloatingWindow
+          open={
+            Boolean(activeAiBlock) &&
+            isAiOpen &&
+            activeAiBlock.content_type !== "video"
+          }
+          eyebrow="ИИ-редактор блока"
+          title={activeAiBlock ? getBlockTitle(activeAiBlock) : ""}
+          subtitle="Опишите правку — предложение появится в блоке, его можно применить или отклонить."
+          onClose={() => setIsAiOpen(false)}
+          storageKey="block-ai-editor"
+          defaultSize={{ width: 420, height: 560 }}
+        >
+          {activeAiBlock
+            ? renderAiEditor(activeAiBlock, { floating: true })
+            : null}
+        </FloatingWindow>
+      )}
+      <ConfirmDialog
+        open={Boolean(blockToDelete)}
+        danger
+        eyebrow="Удаление блока"
+        title="Удалить блок?"
+        description={
+          blockToDelete
+            ? `Блок «${getBlockTitle(blockToDelete)}» пропадёт из урока. Изменение сохранится на сервере только после кнопки «Сохранить».`
+            : ""
+        }
+        confirmLabel="Удалить блок"
+        busyLabel="Удаляем..."
+        onCancel={() => setBlockToDelete(null)}
+        onConfirm={() => {
+          if (blockToDelete) deleteBlock(blockToDelete.id);
+          setBlockToDelete(null);
+        }}
+      />
     </div>
   );
 }

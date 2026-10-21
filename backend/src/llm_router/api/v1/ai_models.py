@@ -17,7 +17,10 @@ router = APIRouter(prefix="/ai-models", tags=["AI Models"])
 
 
 @router.post(
-    "/",
+    "",
+    response_model=AIModel,
+    summary="Добавить AI-модель",
+    description="Создаёт запись о доступной AI-модели с её названием, описанием и размером контекста.",
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(require_permissions(CREATE.code))],
 )
@@ -27,17 +30,16 @@ async def add_model(
     session: DBSession,
 ) -> AIModel:
     """Обрабатывает HTTP-запрос `add_model` и связывает API с сервисным слоем."""
-    result = await repository.create(
-        AIModel(name=schema.name, description=schema.description, context=schema.context)
-    )
+    result = await repository.create(AIModel(**schema.model_dump()))
     await session.commit()
     return result
 
 
 @router.post(
-    "/get",
+    "/search",
     response_model=Page[AIModel],
-    summary="Список AI-моделей",
+    summary="Получить список AI-моделей",
+    description="Возвращает постраничный список доступных AI-моделей. Параметры пагинации передаются в теле запроса.",
     status_code=status.HTTP_200_OK,
 )
 async def get_models(
@@ -51,6 +53,8 @@ async def get_models(
 
 @router.delete(
     "/{uid}",
+    summary="Удалить AI-модель",
+    description="Удаляет указанную AI-модель из списка доступных моделей.",
     status_code=status.HTTP_204_NO_CONTENT,
     dependencies=[Depends(require_permissions(DELETE.code))],
 )

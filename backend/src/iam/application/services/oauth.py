@@ -53,6 +53,6 @@ class OAuthService:
         ):
             raise UnauthorizedError("Invalid client credentials.")
 
-        roles = await self._role_repo.get_by_ids(service_account.roles)
+        roles = await self._role_repo.get_by_ids(service_account.roles)  # pyright: ignore[reportArgumentType]
 
         return _create_token_for_service_account(service_account, roles)

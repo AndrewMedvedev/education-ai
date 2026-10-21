@@ -38,6 +38,7 @@ async def create_presigned_upload_url(
 @router.post(
     path="/confirm-upload/{upload_id}",
     status_code=status.HTTP_201_CREATED,
+    description="Подтверждает успешную загрузку файла в хранилище и создаёт запись о вложении.",
     summary="Подтвердить загрузку и создать вложение",
 )
 async def confirm_upload(
@@ -52,6 +53,7 @@ async def confirm_upload(
 @router.get(
     path="/{stored_object_id}/presigned-download",
     status_code=status.HTTP_200_OK,
+    description="Создаёт временную подписанную ссылку для скачивания указанного вложения.",
     summary="Получить presigned URL для скачивания",
 )
 async def get_presigned_download_url(
@@ -66,6 +68,7 @@ async def get_presigned_download_url(
 @router.get(
     path="/{stored_object_id}",
     status_code=status.HTTP_200_OK,
+    description="Возвращает метаданные указанного вложения без загрузки самого файла.",
     summary="Получение информации и файле",
 )
 async def get_attachment(

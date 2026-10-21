@@ -103,12 +103,12 @@ export default function Header({
               Создать курс
             </NavLink>
             <NavLink
-              to="/manual-course-builder"
+              to="/drag-and-drop-course"
               className={({ isActive }) =>
                 `nav-link ${isActive ? "is-active" : ""}`
               }
             >
-              Создать курс самостоятельно
+              Drag &amp; Drop курс
             </NavLink>
           </>
         )}

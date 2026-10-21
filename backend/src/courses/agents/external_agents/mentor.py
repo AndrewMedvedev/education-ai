@@ -11,7 +11,6 @@ from ...application.repos import ChatRepository
 from ...infra.services.client import SrvCourseClient
 from ..middlewares import (
     ChatCheckpointerMiddleware,
-    LemmatizationMiddleware,
     SummarizationMiddleware,
 )
 from ..prompts import MENTOR_PROMPT, PROMPT_SUMMARIZE_CHAT
@@ -43,12 +42,11 @@ class MentorAgent:
             client=self._client,
             system_prompt=MENTOR_PROMPT,
             middlewares=[
-                LemmatizationMiddleware(),
+                ChatCheckpointerMiddleware(repo=self._repo, session=self._session),
                 SummarizationMiddleware(
                     system_prompt=PROMPT_SUMMARIZE_CHAT,
                     number_of_tokens=70_000,
                 ),
-                ChatCheckpointerMiddleware(repo=self._repo, session=self._session),
             ],
             runtime=Runtime(context=context, state=State(chat_id=chat.chat_id)),
         )

@@ -1,8 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MermaidDiagram from "./MermaidDiagram";
+import DiagramPreviewModal from "./DiagramPreviewModal";
 
 export default function ContentPreviewModal({ preview, onClose }) {
+  if (preview?.type === "diagram") {
+    return <DiagramPreviewModal chart={preview.chart} lessonId={preview.lessonId} blockId={preview.blockId} onClose={onClose} />;
+  }
+  return <OtherContentPreviewModal preview={preview} onClose={onClose} />;
+}
+
+function OtherContentPreviewModal({ preview, onClose }) {
   const [imageZoom, setImageZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);

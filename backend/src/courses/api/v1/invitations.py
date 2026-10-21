@@ -1,11 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, status
+from uuid import UUID
 
-from src.courses.application.dtos import InvitationCreate
+from fastapi import APIRouter, Path, Query, status
+
+from src.courses.application.dtos import InvitationCreate, InvitationResponse
 from src.courses.dependencies.services import InvitationServiceDep
-from src.courses.domain.entities import Invitation, Member
+from src.courses.domain.entities import Member
 from src.iam.dependencies.identity import CurrentIdentity
+from src.shared.application.dtos import Page
+from src.shared.dependencies.params import PaginationDep
 
 router = APIRouter(
     prefix="/courses/invitations", tags=["Приглашения в курсы | Invitations in courses"]
@@ -21,8 +25,41 @@ async def create_invitations(
     identity: CurrentIdentity,
     service: InvitationServiceDep,
     dto: InvitationCreate,
-) -> Invitation:
-    return await service.create(dto=dto, identity=identity)
+) -> InvitationResponse:
+    invitation = await service.create(dto=dto, identity=identity)
+    return InvitationResponse.from_entity(invitation)
+
+
+@router.get(
+    path="",
+    status_code=status.HTTP_200_OK,
+    summary="Приглашения курса, ожидающие ответа",
+)
+async def get_course_invitations(
+    identity: CurrentIdentity,
+    service: InvitationServiceDep,
+    pagination: PaginationDep,
+    course_id: Annotated[UUID, Query(description="Идентификатор курса")],
+) -> Page[InvitationResponse]:
+    page = await service.get_course_invitations(
+        course_id=course_id,
+        identity=identity,
+        pagination=pagination,
+    )
+    return page.to_response(InvitationResponse.from_entity)
+
+
+@router.delete(
+    path="/revoke/{invitation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Отозвать приглашение на курс",
+)
+async def revoke_invitation(
+    invitation_id: UUID,
+    identity: CurrentIdentity,
+    service: InvitationServiceDep,
+) -> None:
+    await service.revoke_invitation(invitation_id=invitation_id, identity=identity)
 
 
 @router.post(

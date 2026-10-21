@@ -2,12 +2,11 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.courses.application.repos import CourseRepository, MemberRepository
+from src.courses.domain.entities import Course, Member
+from src.courses.domain.vo import MemberRole
 from src.shared.application.dtos import Page, Pagination
 from src.shared.domain.exceptions import AlreadyExistsError, NotFoundError
-
-from ...application.repos import CourseRepository, MemberRepository
-from ...domain.entities import Course, Member
-from ...domain.vo import MemberRole
 
 
 class MemberService:

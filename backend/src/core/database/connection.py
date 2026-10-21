@@ -12,6 +12,7 @@ engine = create_async_engine(
     pool_timeout=postgres_config.pool_timeout,
     pool_pre_ping=True,
     echo=postgres_config.echo,
+    hide_parameters=True,
 )
 
 sessionmaker = async_sessionmaker(

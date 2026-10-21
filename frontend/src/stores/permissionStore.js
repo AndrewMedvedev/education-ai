@@ -17,6 +17,12 @@ export const ORGANIZATION_PERMISSIONS = {
   DELETE: "organization:delete",
 };
 
+// Приглашения в организацию. Отдельного приглашения в систему в интерфейсе нет:
+// новых пользователей бэкенд регистрирует через приглашение в организацию.
+export const INVITATION_PERMISSIONS = {
+  ORGANIZATION_INVITE: "organization-invitations:invite",
+};
+
 export const AI_MODEL_PERMISSIONS = {
   CREATE: "ai_model:create",
   DELETE: "ai_model:delete",

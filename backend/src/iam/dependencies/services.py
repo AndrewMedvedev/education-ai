@@ -79,10 +79,12 @@ def get_client_credentials_service(
 def get_invitation_service(
     transaction: TransactionDep,
     invitation_repo: InvitationRepositoryDep,
+    role_repo: RoleRepositoryDep,
 ) -> InvitationService:
     return InvitationService(
         transaction=transaction,
         invitation_repo=invitation_repo,
+        role_repo=role_repo,
     )
 
 

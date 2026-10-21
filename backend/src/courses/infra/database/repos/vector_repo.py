@@ -1,19 +1,18 @@
 from typing import Any
 
 import logging
-import time
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from fastembed.sparse import SparseTextEmbedding
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from qdrant_client import AsyncQdrantClient, models
 
 from src.core.retrieval import embed, rerank
-from src.courses.dependencies.base import splitter
 
 logger = logging.getLogger(__name__)
 
 
-class VectorRepository:
+class QdrantRepository:
     """
     Async RAG repository:
 
@@ -23,53 +22,66 @@ class VectorRepository:
     def __init__(
         self,
         client: AsyncQdrantClient,
+        splitter: RecursiveCharacterTextSplitter,
         collection_name: str = "MAIN_COLLECTION",
     ):
         """Инициализирует объект и сохраняет зависимости, необходимые для дальнейшей работы."""
         self.client = client
+        self.splitter = splitter
         self.collection_name = collection_name
         self.sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
 
-    async def index_document(self, text: str, metadata: dict[str, Any] | None = None) -> None:
-        """Асинхронная индексация"""
-
+    async def create(
+        self,
+        text: str,
+        metadata: dict[str, Any] | None = None,
+        document_id: str | None = None,
+    ) -> None:
         if not text.strip():
-            logger.warning("Attempted to index empty text!")
+            logger.warning("Attempted to index empty text")
             return
 
-        start_time = time.monotonic()
-        logger.info("Starting index document text, length %s characters", len(text))
-        chunks = splitter.split_text(text)
+        metadata = dict(metadata or {})
+
+        chunks = self.splitter.split_text(text)
         points = []
-        for chunk in chunks:
+
+        for index, chunk in enumerate(chunks):
+            point_id = (
+                str(uuid5(NAMESPACE_URL, f"{document_id}:{index}"))
+                if document_id is not None
+                else str(uuid4())
+            )
+
             dense_vector = await embed(inputs=[chunk])
-            sparse = next(self.sparse_model.embed([chunk]))  # pyright: ignore[reportArgumentType]
-            indices = sparse.indices.tolist()
-            values = sparse.values.tolist()
+            sparse = next(iter(self.sparse_model.embed([chunk])))
+
             points.append(
                 models.PointStruct(
-                    id=str(uuid4()),
+                    id=point_id,
                     vector={
                         "dense": dense_vector[0],
                         "bm25": models.SparseVector(
-                            indices=indices,
-                            values=values,
+                            indices=sparse.indices.tolist(),
+                            values=sparse.values.tolist(),
                         ),
                     },
-                    payload=metadata or {},
+                    payload={
+                        **metadata,
+                        "text": chunk,
+                        "chunk_index": index,
+                    },
                 )
             )
 
-        await self.client.upsert(
-            collection_name=self.collection_name,
-            points=points,
-            wait=True,
-        )
-        logger.info(
-            "Finished indexing text, time %s seconds", round(time.monotonic() - start_time, 2)
-        )
+        if points:
+            await self.client.upsert(
+                collection_name=self.collection_name,
+                points=points,
+                wait=True,
+            )
 
-    async def retrieve_documents(
+    async def read(
         self,
         query: str,
         limit: int = 5,
@@ -78,7 +90,7 @@ class VectorRepository:
     ) -> list[str]:
         """Hybrid search: Dense + BM25 + RRF + Rerank."""
         dense_query = (await embed(inputs=[query]))[0]
-        sparse_query = next(self.sparse_model.embed([query]))  # type: ignore
+        sparse_query = next(iter(self.sparse_model.embed([query])))
 
         qdrant_filter = None
         if metadata_filters:
@@ -152,11 +164,13 @@ class VectorRepository:
 
         return [
             (
-                f"**Relevance score:** {round(r['relevance_score'], 2)}\n"
-                f"**Source:** {candidates[r['index']]['payload'].get('source', '')}\n"
-                f"**Category:** {candidates[r['index']]['payload'].get('category', '')}\n"
-                "**Document:**\n"
-                f"{r['document']}"
+                f"Утверждение: {candidates[r['index']]['payload'].get('claim', '')}\n"
+                f"Подтверждение: {candidates[r['index']]['payload'].get('evidence', '')}\n"
+                f"Источник: {candidates[r['index']]['payload'].get('source_title', '')}, "
+                f"{candidates[r['index']]['payload'].get('source_organization', '')}\n"
+                f"URL: {candidates[r['index']]['payload'].get('source_url', '')}\n"
+                f"Категория: {candidates[r['index']]['payload'].get('category', '')}\n"
+                f"Релевантность запросу: {round(r['relevance_score'], 2)}"
             )
             for r in rerank_results
         ]

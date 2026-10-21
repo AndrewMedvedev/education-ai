@@ -305,6 +305,27 @@ ai_tunnel_models = [
     },
 ]
 
+models = [
+    {
+        "name": "gpt-5-nano",
+        "complexity": "easy",
+        "description": "TIER: LIGHT. COST: LOW. SPECIALIZATION: classification, extraction, text-transformation, structured-output. REASONING: LOW-MEDIUM — простые рассуждения, извлечение информации, классификация, суммаризация и выполнение очевидных инструкций. CODING: LOW — простой код и небольшие преобразования. TOOL_CALLING: LOW-MEDIUM — короткие последовательности из 1–3 простых вызовов инструментов. STRUCTURED_OUTPUT: HIGH — строгий JSON/Pydantic с простой и умеренной вложенностью. TOOLS_WITH_STRUCTURED_OUTPUT: MEDIUM-HIGH — простые сценарии с инструментами и обязательным структурированным ответом. USE: классификация, извлечение данных, форматирование, преобразование текста, простые учебные материалы и структурированные ответы. ESCALATE: при сложных рассуждениях, многоэтапном планировании, зависимых вызовах инструментов, сложном программировании или повторных ошибках генерации.",
+        "context": 400000,
+    },
+    {
+        "name": "gpt-5.6-luna-pro",
+        "complexity": "medium",
+        "description": "TIER: STANDARD. COST: LOW-MEDIUM. SPECIALIZATION: reasoning, coding, agentic-workflows, long-context, structured-output, educational-content-generation. REASONING: HIGH — многоэтапный анализ, планирование, логические зависимости и выполнение сложных инструкций. CODING: HIGH — генерация, анализ и исправление программного кода. TOOL_CALLING: HIGH — последовательные и параллельные вызовы инструментов, обработка результатов, ошибок и перепланирование. STRUCTURED_OUTPUT: VERY_HIGH — сложные JSON/Pydantic-схемы, глубокая вложенность, списки объектов, Union и взаимосвязанные поля. TOOLS_WITH_STRUCTURED_OUTPUT: VERY_HIGH — агентные сценарии с обязательным строгим структурированным результатом. LONG_CONTEXT: VERY_HIGH — обработка больших документов, истории диалога и результатов инструментов. USE: основная генерация образовательных курсов, планирование модулей и уроков, создание тестов и практических заданий, RAG, анализ документов, структурированная генерация и агентные сценарии средней сложности. ESCALATE: при экстремально сложных рассуждениях, критичных архитектурных задачах или повторных содержательных ошибках.",
+        "context": 1050000,
+    },
+    {
+        "name": "gpt-5-mini",
+        "complexity": "hard",
+        "description": "TIER: STRONG. COST: MEDIUM. SPECIALIZATION: advanced-reasoning, coding, architecture, debugging, agentic-workflows, structured-output. REASONING: HIGH — сложные многоэтапные рассуждения, анализ неоднозначных требований, выявление логических противоречий и принятие архитектурных решений. CODING: HIGH — сложное программирование, debugging, refactoring, анализ конкурентности и распределённых систем. TOOL_CALLING: HIGH — управление зависимыми цепочками инструментов, анализ ошибок, повторные попытки и изменение плана выполнения. STRUCTURED_OUTPUT: HIGH — сложные JSON/Pydantic-схемы, вложенные структуры, списки объектов, Union и взаимосвязанные ограничения. TOOLS_WITH_STRUCTURED_OUTPUT: HIGH — сложные агентные процессы с обязательным структурированным результатом. USE: проектирование сложных образовательных программ, глубокий технический анализ, архитектурные решения, сложные задачи программирования, многоэтапное планирование и задачи с высокой ценой ошибки. DO_NOT_USE: для простых операций и стандартной генерации контента, если более дешёвая модель обеспечивает необходимое качество.",
+        "context": 400000,
+    },
+]
+
 
 # ========== ЛОГИКА ДОБАВЛЕНИЯ ==========
 async def add_models_to_db(session, models_data):
@@ -325,6 +346,7 @@ async def add_models_to_db(session, models_data):
             # Обновляем существующую запись (updated_at обновится автоматически)
             await repo.update(
                 existing.id,
+                complexity=data["complexity"],
                 description=data["description"],
                 context=data["context"],
             )
@@ -333,6 +355,7 @@ async def add_models_to_db(session, models_data):
             new_entity = AIModel(
                 name=data["name"],
                 description=data["description"],
+                complexity=data["complexity"],
                 context=data["context"],
             )
             await repo.create(new_entity)
@@ -347,7 +370,7 @@ async def main():
 
     """Запускает сценарий модуля и связывает подготовку данных с основным действием."""
     async with session_factory() as session:
-        await add_models_to_db(session, ai_tunnel_models)
+        await add_models_to_db(session, models)
 
     print("✅ Все модели успешно добавлены/обновлены.")
 

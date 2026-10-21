@@ -5,7 +5,7 @@ from typing import Literal, TypedDict
 from datetime import datetime
 from uuid import UUID
 
-from ..domain.vo import ContentType, CourseStatus, DifficultyLevel
+from ..domain.enums import ContentType, CourseStatus, DifficultyLevel
 
 
 class ContentBlockDict(TypedDict):

@@ -3,33 +3,42 @@
 
 import logging
 
-from src.courses.domain.entities import (
+from src.courses.application.dtos import (
     BasicInfo,
+    CourseBasicInfo,
+    LessonBasicInfo,
+    ModuleBasicInfo,
+)
+from src.courses.domain.entities import (
     Chat,
     Course,
-    CourseBasicInfo,
+    CourseProgress,
     Document,
     Invitation,
     Lesson,
-    LessonBasicInfo,
+    LessonProgress,
     LessonTheorySession,
     Member,
     Module,
-    ModuleBasicInfo,
+    ModuleProgress,
     Practice,
 )
+from src.courses.domain.vo import MemberRole
 from src.shared.domain.vo import Email
 from src.shared.infra.database.mappers import ModelMapper
 
 from .models import (
     ChatOrm,
     CourseOrm,
+    CourseProgressOrm,
     DocumentOrm,
     InvitationOrm,
     LessonOrm,
+    LessonProgressOrm,
     LessonTheorySessionOrm,
     MemberOrm,
     ModuleOrm,
+    ModuleProgressOrm,
     PracticeOrm,
 )
 
@@ -221,6 +230,80 @@ class LessonTheorySessionMapper(ModelMapper[LessonTheorySession, LessonTheorySes
         )
 
 
+class LessonProgressMapper(ModelMapper[LessonProgress, LessonProgressOrm]):
+    @staticmethod
+    def from_model(model: LessonProgressOrm) -> LessonProgress:
+        return LessonProgress(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            module_progress_id=model.module_progress_id,
+            lesson_id=model.lesson_id,
+            theory_completed_at=model.theory_completed_at,
+            practice_completed_at=model.practice_completed_at,
+            test_completed_at=model.test_completed_at,
+        )
+
+    @staticmethod
+    def to_model(entity: LessonProgress) -> LessonProgressOrm:
+        return LessonProgressOrm(
+            id=entity.id,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
+            module_progress_id=entity.module_progress_id,
+            lesson_id=entity.lesson_id,
+            theory_completed_at=entity.theory_completed_at,
+            practice_completed_at=entity.practice_completed_at,
+            test_completed_at=entity.test_completed_at,
+        )
+
+
+class ModuleProgressMapper(ModelMapper[ModuleProgress, ModuleProgressOrm]):
+    @staticmethod
+    def from_model(model: ModuleProgressOrm) -> ModuleProgress:
+        return ModuleProgress(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            course_progress_id=model.course_progress_id,
+            module_id=model.module_id,
+        )
+
+    @staticmethod
+    def to_model(entity: ModuleProgress) -> ModuleProgressOrm:
+        return ModuleProgressOrm(
+            id=entity.id,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
+            course_progress_id=entity.course_progress_id,
+            module_id=entity.module_id,
+        )
+
+
+class CourseProgressMapper(ModelMapper[CourseProgress, CourseProgressOrm]):
+    @staticmethod
+    def from_model(model: CourseProgressOrm) -> CourseProgress:
+        return CourseProgress(
+            id=model.id,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+            user_id=model.user_id,
+            course_id=model.course_id,
+            progress_percent=model.progress_percent,
+        )
+
+    @staticmethod
+    def to_model(entity: CourseProgress) -> CourseProgressOrm:
+        return CourseProgressOrm(
+            id=entity.id,
+            created_at=entity.created_at,
+            updated_at=entity.updated_at,
+            user_id=entity.user_id,
+            course_id=entity.course_id,
+            progress_percent=entity.progress_percent,
+        )
+
+
 class DocumentMapper(ModelMapper[Document, DocumentOrm]):
     @staticmethod
     def from_model(model: DocumentOrm) -> Document:
@@ -284,7 +367,7 @@ class MemberMapper(ModelMapper[Member, MemberOrm]):
             id=model.id,
             created_at=model.created_at,
             updated_at=model.updated_at,
-            role=model.role,
+            role=MemberRole(model.role),
             course_id=model.course_id,
             user_id=model.user_id,
         )
@@ -295,7 +378,7 @@ class MemberMapper(ModelMapper[Member, MemberOrm]):
             id=entity.id,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
-            role=entity.role,
+            role=entity.role.value,
             course_id=entity.course_id,
             user_id=entity.user_id,
         )
@@ -314,7 +397,7 @@ class InvitationMapper(ModelMapper[Invitation, InvitationOrm]):
             email=Email(model.email),
             token=model.token,
             invited_by=model.invited_by,
-            role=model.role,
+            role=MemberRole(model.role),
             expires_at=model.expires_at,
             used_at=model.used_at,
             is_used=model.is_used,
@@ -332,7 +415,7 @@ class InvitationMapper(ModelMapper[Invitation, InvitationOrm]):
             email=entity.email.value,
             token=entity.token,
             invited_by=entity.invited_by,
-            role=entity.role,
+            role=entity.role.value,
             expires_at=entity.expires_at,
             used_at=entity.used_at,
             is_used=entity.is_used,

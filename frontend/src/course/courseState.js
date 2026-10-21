@@ -80,6 +80,80 @@ export const mergeLesson = (course, nextLesson) => ({
   })),
 });
 
+// Добавляет модуль в курс или обновляет существующий (например, после генерации ИИ).
+export const upsertModule = (course, nextModule) => {
+  const blocks = course.blocks || [];
+  if (blocks.some((block) => block.id === nextModule.id)) {
+    return mergeModule(course, nextModule);
+  }
+  const block = {
+    duration: "Модуль курса",
+    learningObjectives: [],
+    ...nextModule,
+    lessons: nextModule.lessons || [],
+    practice: nextModule.practice || [],
+  };
+  const order = Number(nextModule.order);
+  const index = Number.isFinite(order)
+    ? Math.min(Math.max(order - 1, 0), blocks.length)
+    : blocks.length;
+  // Порядок остальных модулей сдвигается так же, как на backend.
+  return {
+    ...course,
+    blocks: [...blocks.slice(0, index), block, ...blocks.slice(index)].map(
+      (item, itemIndex) => ({ ...item, order: itemIndex + 1 }),
+    ),
+  };
+};
+
+// Добавляет урок в модуль или обновляет существующий.
+export const upsertLesson = (course, moduleId, nextLesson) => ({
+  ...course,
+  blocks: (course.blocks || []).map((block) => {
+    if (block.id !== moduleId) return block;
+    const lessons = block.lessons || [];
+    if (lessons.some((lesson) => lesson.id === nextLesson.id)) {
+      return {
+        ...block,
+        lessons: lessons.map((lesson) =>
+          lesson.id === nextLesson.id ? { ...lesson, ...nextLesson } : lesson,
+        ),
+      };
+    }
+    const order = Number(nextLesson.order);
+    const index = Number.isFinite(order)
+      ? Math.min(Math.max(order - 1, 0), lessons.length)
+      : lessons.length;
+    return {
+      ...block,
+      lessons: [
+        ...lessons.slice(0, index),
+        nextLesson,
+        ...lessons.slice(index),
+      ].map((item, itemIndex) => ({ ...item, order: itemIndex + 1 })),
+    };
+  }),
+});
+
+// Возвращает в курсе поля модуля или урока (используется при отмене правок).
+export const applyEntityFields = (course, kind, entityId, fields) =>
+  kind === "module"
+    ? {
+        ...course,
+        blocks: (course.blocks || []).map((block) =>
+          block.id === entityId ? { ...block, ...fields } : block,
+        ),
+      }
+    : {
+        ...course,
+        blocks: (course.blocks || []).map((block) => ({
+          ...block,
+          lessons: (block.lessons || []).map((lesson) =>
+            lesson.id === entityId ? { ...lesson, ...fields } : lesson,
+          ),
+        })),
+      };
+
 export function getSelectedCourse(courses, selectedCourseId) {
   return (
     courses.find((course) => course.id === selectedCourseId) ||

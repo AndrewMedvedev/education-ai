@@ -23,8 +23,9 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".pptx", ".xlsx", ".md", ".html", ".txt",
 
 @router.post(
     "/to/markdown",
+    summary="Принимаем файл и переводим в Markdown",
+    description="Принимает файл поддерживаемого формата и возвращает его содержимое, преобразованное в Markdown. Файл не сохраняется.",
     status_code=status.HTTP_200_OK,
-    description="Принимает файл и возвращает его данные в формате markdown",
 )
 async def document_to_markdown(
     _identity: CurrentIdentity,
@@ -48,8 +49,9 @@ async def document_to_markdown(
 
 @router.post(
     "/upload",
+    summary="Загрузка файла и добавление в таблицу пользователя",
     status_code=status.HTTP_201_CREATED,
-    description="Загружает файл в иерархическую таблицу пользователя",
+    description="Загружает файл поддерживаемого формата, обрабатывает его содержимое и сохраняет документ в пользовательском хранилище.",
 )
 async def upload_document(
     identity: CurrentIdentity,

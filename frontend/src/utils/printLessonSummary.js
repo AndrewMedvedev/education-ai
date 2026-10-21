@@ -25,13 +25,13 @@ export function printLessonSummary({ course, block, lesson }) {
     <title>${escapeHtml(documentTitle)}</title>
     <style>
       @page { size: A4; margin: 18mm; }
-      body { color: #24211d; font: 14px/1.65 Arial, sans-serif; }
-      header { border-bottom: 1px solid #d8cfc1; margin-bottom: 24px; padding-bottom: 16px; }
-      small { color: #746b60; }
+      body { color: #172033; font: 14px/1.65 Arial, sans-serif; }
+      header { border-bottom: 1px solid #d5dfec; margin-bottom: 24px; padding-bottom: 16px; }
+      small { color: #526277; }
       h1 { font-size: 24px; line-height: 1.25; margin: 8px 0; }
-      h2 { font-size: 16px; margin: 0; color: #5e4d5e; }
+      h2 { font-size: 16px; margin: 0; color: #1e4fa3; }
       pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
-      footer { border-top: 1px solid #d8cfc1; color: #746b60; margin-top: 28px; padding-top: 12px; }
+      footer { border-top: 1px solid #d5dfec; color: #526277; margin-top: 28px; padding-top: 12px; }
     </style>
   </head>
   <body>

@@ -62,26 +62,22 @@ def _verify_token(
 
 def create_tokens_for_user(
     user: User,
-    membership: Membership | None,
-    roles: Sequence[Role] | None,
+    membership: Membership,
+    roles: Sequence[Role],
 ) -> TokensResponse:
     """Выпуск пары токенов для пользователя."""
 
-    if roles is None:
-        roles = set()
     permissions = {grant.permission for role in roles for grant in role.permissions}
     access_token = create_access_token(
         identity_id=user.id,
         identity_type=IdentityType.USER,
         email=user.email,
         membership_id=membership.id if membership else None,
-        organization_id=membership.organization_id if membership else None,
+        organization_id=membership.organization_id,
         roles={role.code for role in roles},
         permissions=permissions,
     )
-    refresh_token = create_refresh_token(
-        user_id=user.id, membership_id=membership.id if membership else None
-    )
+    refresh_token = create_refresh_token(user_id=user.id, membership_id=membership.id)
 
     access_token_expires_at = get_expiration_timestamp(
         expires_in=timedelta(minutes=jwt_config.access_token_expires_in_minutes),

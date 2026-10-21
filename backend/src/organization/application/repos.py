@@ -4,9 +4,12 @@ from uuid import UUID
 
 from src.iam.application.dtos import InvitationCreate, UserResponse
 from src.iam.application.dtos.membership import CreateMembershipDTO
-from src.iam.domain.entities import Invitation as IAMInvitation
-from src.iam.domain.entities import Membership
-from src.organization.infra.services.client import SrvOrganizationClient
+from src.iam.domain.entities import (
+    Invitation as IAMInvitation,
+)
+from src.iam.domain.entities import (
+    Membership,
+)
 from src.shared.application.repos import Repository
 from src.shared.domain.vo import Email
 
@@ -20,7 +23,10 @@ class OrganizationRepository(Repository[Organization]):
 class InvitationRepository(Repository[Invitation]):
     async def get_by_token(self, token: str) -> Invitation | None: ...
 
-    async def get_active_by_email(self, email: Email) -> tuple[Invitation, ...]: ...
+    async def get_active_by_email(
+        self,
+        email: Email,
+    ) -> tuple[Invitation, ...]: ...
 
     async def get_active_by_email_and_organization(
         self,
@@ -29,24 +35,23 @@ class InvitationRepository(Repository[Invitation]):
     ) -> Invitation | None: ...
 
 
-class UserRepository(Protocol):
-    async def __call__(
+class IAMRepository(Protocol):
+    async def get_user_by_email(
         self,
         email: str,
-        client: SrvOrganizationClient,
     ) -> UserResponse | None: ...
 
-
-class IAMInvitationRepository(Protocol):
-    async def __call__(
+    async def invite_user_in_system(
         self,
         dto: InvitationCreate,
-        client: SrvOrganizationClient,
-    ) -> IAMInvitation | None: ...
+    ) -> IAMInvitation: ...
 
 
 class MembershipRepository(Protocol):
-    async def create_membership(self, dto: CreateMembershipDTO) -> Membership: ...
+    async def create_membership(
+        self,
+        dto: CreateMembershipDTO,
+    ) -> Membership: ...
 
     async def get_user_membership(
         self,

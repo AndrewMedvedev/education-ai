@@ -31,7 +31,7 @@ async def create_invitations(
     path="/accept/{token}",
     status_code=status.HTTP_201_CREATED,
     summary="Принять приглашение",
-    description="Один из способов регистрации.",
+    description="Регистрирует пользователя по токену из приглашения и возвращает токены авторизации.",
 )
 async def accept_invitation(
     token: Annotated[str, Path(description="Токен из пригласительного письма")],

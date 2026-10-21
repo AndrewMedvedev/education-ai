@@ -194,7 +194,7 @@ graph TD
 
 | Процесс | Где | Что делает | Идемпотентность |
 |---|---|---|---|
-| `generate_course` dramatiq actor | `agents/course_generator/workflow.py` | Генерирует курс через workflow/LLM | Из кода не видно гарантий идемпотентности; при ошибке логирует и пробрасывает исключение. |
+| `generate_course` Taskiq task | `agents/course_generator/workflow.py` | Генерирует курс через workflow/LLM | Из кода не видно гарантий идемпотентности; при ошибке логирует и пробрасывает исключение. |
 
 ## 13. Безопасность и права доступа
 

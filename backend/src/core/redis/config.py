@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from ..settings import ENV_FILE  # ruff: ignore[unused-import]
+from ..settings import ENV_FILE  # noqa: F401
 
 
 class RedisConfig(BaseSettings):

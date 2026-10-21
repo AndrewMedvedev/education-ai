@@ -1,0 +1,252 @@
+/* Плавающее окно чата ИИ: перетаскивается, растягивается, сворачивается. */
+.floating-window {
+    --app-modal-row: rgba(244, 247, 251, 0.9);
+    --app-modal-border: rgba(52, 102, 202, 0.2);
+    --app-modal-danger: #b42318;
+    position: fixed;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid rgba(var(--accent-rgb), 0.45);
+    border-radius: 18px;
+    /* Окно рендерится в body, вне .page, поэтому цвет фона задаём явно. */
+    background: #ffffff;
+    box-shadow:
+        0 22px 60px rgba(0, 0, 0, 0.26),
+        0 2px 6px rgba(0, 0, 0, 0.08);
+    color: var(--text);
+    overflow: hidden;
+    animation: floating-window-in 0.16s ease-out;
+}
+
+.page[data-theme="dark"] .floating-window,
+[data-theme="dark"] .floating-window {
+    --app-modal-row: rgba(147, 197, 253, 0.06);
+    --app-modal-border: rgba(147, 197, 253, 0.2);
+    --app-modal-danger: #ff9a8f;
+    border-color: rgba(147, 197, 253, 0.24);
+    background: #0d2747;
+}
+
+.floating-window-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 12px 10px 16px;
+    border-bottom: 1px solid var(--app-modal-border);
+    background: rgba(var(--accent-rgb), 0.08);
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+}
+
+.floating-window-head:active {
+    cursor: grabbing;
+}
+
+.floating-window.is-mobile .floating-window-head {
+    cursor: default;
+}
+
+.floating-window-titles {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.floating-window-eyebrow {
+    display: block;
+    color: var(--eyebrow, var(--muted));
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.floating-window-titles h3 {
+    margin: 2px 0 0;
+    color: var(--heading, var(--text));
+    font-size: 1rem;
+    line-height: 1.25;
+}
+
+.floating-window-titles p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+.floating-window-actions {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+}
+
+.floating-window-actions .btn {
+    min-height: 32px;
+    padding: 3px 12px;
+    font-size: 0.8rem;
+}
+
+.floating-window-btn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--app-modal-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.05rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.floating-window-btn:hover {
+    color: var(--text);
+    border-color: rgba(var(--accent-rgb), 0.7);
+}
+
+.floating-window-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 14px 14px;
+    overflow: auto;
+}
+
+.floating-window.is-minimized {
+    height: auto;
+}
+
+.floating-window.is-minimized .floating-window-head {
+    border-bottom: 0;
+}
+
+/* Ручки растягивания по краям и углам. */
+.floating-window-resize {
+    position: absolute;
+    z-index: 2;
+    touch-action: none;
+}
+
+.floating-window-resize.is-e {
+    top: 16px;
+    right: -3px;
+    bottom: 16px;
+    width: 8px;
+    cursor: ew-resize;
+}
+
+.floating-window-resize.is-w {
+    top: 16px;
+    left: -3px;
+    bottom: 16px;
+    width: 8px;
+    cursor: ew-resize;
+}
+
+.floating-window-resize.is-s {
+    left: 16px;
+    right: 16px;
+    bottom: -3px;
+    height: 8px;
+    cursor: ns-resize;
+}
+
+.floating-window-resize.is-se,
+.floating-window-resize.is-sw {
+    bottom: -2px;
+    width: 18px;
+    height: 18px;
+}
+
+.floating-window-resize.is-se {
+    right: -2px;
+    cursor: nwse-resize;
+    background: linear-gradient(
+        135deg,
+        transparent 55%,
+        rgba(var(--accent-rgb), 0.55) 55%,
+        rgba(var(--accent-rgb), 0.55) 62%,
+        transparent 62%,
+        transparent 72%,
+        rgba(var(--accent-rgb), 0.55) 72%,
+        rgba(var(--accent-rgb), 0.55) 79%,
+        transparent 79%
+    );
+}
+
+.floating-window-resize.is-sw {
+    left: -2px;
+    cursor: nesw-resize;
+}
+
+/* Мобильный вид: окно снизу на всю ширину. */
+.floating-window.is-mobile {
+    left: 8px !important;
+    right: 8px;
+    bottom: 8px;
+    top: auto !important;
+    width: auto !important;
+    height: min(72vh, 620px) !important;
+}
+
+.floating-window.is-mobile.is-minimized {
+    height: auto !important;
+}
+
+/* Чат агента внутри окна растягивается по высоте окна. */
+.floating-window .agent-chat {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.floating-window .agent-chat-messages {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 80px;
+}
+
+/* ИИ-редактор контент-блока внутри окна. */
+.floating-window .lesson-ai-editor {
+    position: static;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+.floating-window .lesson-ai-messages {
+    flex: 1 1 auto;
+    max-height: none;
+    min-height: 80px;
+}
+
+/* Подсказка в полях ввода окна должна читаться в обеих темах. */
+.floating-window textarea::placeholder,
+.floating-window input::placeholder {
+    color: var(--muted);
+    opacity: 0.9;
+}
+
+@keyframes floating-window-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+}

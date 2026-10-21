@@ -10,6 +10,7 @@ services:
 
     volumes:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-ai_data:/prometheus
 
     secrets:
@@ -42,6 +43,11 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GRAFANA_LLM_DB_URL: "${GRAFANA_LLM_DB_URL:-postgres:${POSTGRES_PORT:-5432}}"
+      GRAFANA_LLM_DB_NAME: ${GRAFANA_LLM_DB_NAME:-${POSTGRES_DB:-postgres}}
+      GRAFANA_LLM_DB_USER: ${GRAFANA_LLM_DB_USER:-grafana_llm_reader}
+      GRAFANA_LLM_DB_PASSWORD: ${GRAFANA_LLM_DB_PASSWORD:-}
+      GRAFANA_LLM_DB_SSL_MODE: ${GRAFANA_LLM_DB_SSL_MODE:-require}
 
     ports:
       - "${GRAFANA_PORT}:3000"
@@ -67,6 +73,7 @@ services:
 
     volumes:
       - ../monitoring/loki/config.yml:/etc/loki/config.yml:ro
+      - ../monitoring/loki/rules:/etc/loki/rules/fake:ro
       - loki-ai_data:/loki
 
     command:
@@ -100,6 +107,16 @@ services:
 
     depends_on:
       - loki-ai
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/alertmanager/config.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    ports:
+      - "127.0.0.1:9093:9093"
 
 
 secrets:

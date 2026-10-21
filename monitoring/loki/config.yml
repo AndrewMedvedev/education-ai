@@ -31,7 +31,12 @@ limits_config:
   volume_enabled: true
 
 ruler:
-  alertmanager_url: http://localhost:9093
+  alertmanager_url: http://alertmanager:9093
+  storage:
+    type: local
+    local:
+      directory: /etc/loki/rules
+  rule_path: /loki/ruler-tmp
   enable_api: true
   ring:
     kvstore:

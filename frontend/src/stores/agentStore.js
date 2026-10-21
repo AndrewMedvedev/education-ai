@@ -1,9 +1,30 @@
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import {
   askEditorAgent,
   askInterviewerAgent,
+  askLessonInterviewerAgent,
   askMentorAgent,
+  askModuleInterviewerAgent,
 } from "../utils/api";
+import { getLocalStorage } from "../utils/storage";
+import { isAgentMockEnabled, mockInterviewer } from "../services/agentMockHook";
+
+// Диалоги интервьюеров (курс, модуль, урок) сохраняются в браузере вместе с chat_id,
+// чтобы после перезагрузки страницы можно было продолжить ту же беседу.
+// На backend нет ручки чтения истории чата, поэтому история живёт только здесь.
+const PERSISTED_AGENTS = new Set([
+  "interviewer",
+  "module_interviewer",
+  "lesson_interviewer",
+]);
+const MAX_PERSISTED_MESSAGES = 200;
+const MAX_PERSISTED_CONVERSATIONS = 30;
+const MEMORY_STORAGE = {
+  getItem: () => null,
+  setItem: () => {},
+  removeItem: () => {},
+};
 
 const MAX_MESSAGE_LENGTH = 10_000;
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -11,7 +32,7 @@ const requestControllers = new Map();
 let messageSequence = 0;
 
 /**
- * @typedef {"interviewer" | "editor" | "mentor"} AgentType
+ * @typedef {"interviewer" | "module_interviewer" | "lesson_interviewer" | "editor" | "mentor"} AgentType
  * @typedef {"idle" | "loading" | "success" | "error"} AgentStatus
  * @typedef {{ id: string, role: "user" | "assistant", text: string }} AgentMessage
  * @typedef {{
@@ -110,9 +131,25 @@ function normalizeProgress(value) {
   return Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
 }
 
+const MOCK_AGENT_KINDS = {
+  interviewer: "course",
+  module_interviewer: "module",
+  lesson_interviewer: "lesson",
+};
+
 function callAgent(agent, payload, options) {
+  // Демо-режим (только dev, ?ai-mock=1): интервьюеры отвечают без LLM.
+  if (MOCK_AGENT_KINDS[agent] && isAgentMockEnabled()) {
+    return mockInterviewer(MOCK_AGENT_KINDS[agent], payload);
+  }
   if (agent === "interviewer") {
     return askInterviewerAgent(payload, options);
+  }
+  if (agent === "module_interviewer") {
+    return askModuleInterviewerAgent(payload, options);
+  }
+  if (agent === "lesson_interviewer") {
+    return askLessonInterviewerAgent(payload, options);
   }
   if (agent === "mentor") {
     return askMentorAgent(payload, options);
@@ -126,253 +163,318 @@ function callAgent(agent, payload, options) {
 export const createAgentConversationKey = (agent, courseId, contextId = "") =>
   [agent, courseId || "missing-course", contextId].join(":");
 
-export const useAgentStore = create((set, get) => ({
-  /** @type {Record<string, AgentConversation>} */
-  conversations: {},
-  /** @type {Record<string, AgentGenerationState>} */
-  generations: {},
-
-  initializeConversation: ({ key, agent, courseId, initialMessage = "" }) => {
-    set((state) => {
-      if (state.conversations[key]) return state;
-      return {
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            agent,
-            courseId,
-            chatId: null,
-            messages: initialMessage
-              ? [createMessage("assistant", initialMessage)]
-              : [],
-            status: "idle",
-            error: "",
-            activeRequestId: null,
-          },
-        },
+function partializeAgentState(state) {
+  const conversations = {};
+  const generations = {};
+  // Храним только последние диалоги, чтобы localStorage не разрастался.
+  Object.entries(state.conversations || {})
+    .filter(([, conversation]) => PERSISTED_AGENTS.has(conversation?.agent))
+    .slice(-MAX_PERSISTED_CONVERSATIONS)
+    .forEach(([key, conversation]) => {
+      if (!PERSISTED_AGENTS.has(conversation?.agent)) return;
+      conversations[key] = {
+        ...conversation,
+        messages: (conversation.messages || []).slice(-MAX_PERSISTED_MESSAGES),
+        status:
+          conversation.status === "loading" ? "idle" : conversation.status,
+        activeRequestId: null,
       };
+      if (state.generations?.[key]) generations[key] = state.generations[key];
     });
-  },
+  return { conversations, generations };
+}
 
-  setChatId: (key, chatId) => {
-    set((state) => {
-      const conversation = state.conversations[key];
-      if (!conversation) return state;
-      return {
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            ...conversation,
-            chatId: chatId || null,
-          },
-        },
-      };
-    });
-  },
+export const useAgentStore = create(
+  persist(
+    (set, get) => ({
+      /** @type {Record<string, AgentConversation>} */
+      conversations: {},
+      /** @type {Record<string, AgentGenerationState>} */
+      generations: {},
 
-  appendMessage: (key, role, text) => {
-    if (!String(text ?? "").trim()) return;
-    set((state) => {
-      const conversation = state.conversations[key];
-      if (!conversation) return state;
-      return {
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            ...conversation,
-            messages: [
-              ...conversation.messages,
-              createMessage(role, String(text).trim()),
-            ],
-          },
-        },
-      };
-    });
-  },
-
-  clearConversation: (key) => {
-    requestControllers.get(key)?.abort();
-    requestControllers.delete(key);
-    set((state) => {
-      const conversations = { ...state.conversations };
-      const generations = { ...state.generations };
-      delete conversations[key];
-      delete generations[key];
-      return { conversations, generations };
-    });
-  },
-
-  cancelRequest: (key) => {
-    requestControllers.get(key)?.abort();
-    requestControllers.delete(key);
-    set((state) => {
-      const conversation = state.conversations[key];
-      if (!conversation) return state;
-      return {
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            ...conversation,
-            status: "idle",
-            activeRequestId: null,
-          },
-        },
-      };
-    });
-  },
-
-  getGeneration: (key) =>
-    get().generations[key] || createInitialGenerationState(),
-
-  setGeneration: (key, patch) => {
-    if (!key) return;
-    set((state) => {
-      const current = state.generations[key] || createInitialGenerationState();
-      const nextPatch =
-        typeof patch === "function" ? patch(current) || {} : { ...patch };
-      if (Object.prototype.hasOwnProperty.call(nextPatch, "progress")) {
-        nextPatch.progress = normalizeProgress(nextPatch.progress);
-      }
-      return {
-        generations: {
-          ...state.generations,
-          [key]: {
-            ...current,
-            ...nextPatch,
-          },
-        },
-      };
-    });
-  },
-
-  resetGeneration: (key) => {
-    if (!key) return;
-    set((state) => ({
-      generations: {
-        ...state.generations,
-        [key]: createInitialGenerationState(),
-      },
-    }));
-  },
-
-  sendMessage: async ({
-    key,
-    agent,
-    courseId,
-    content,
-    contentBlocks = [],
-    editorPayload = {},
-    emptyResponseMessage = "Агент вернул пустой ответ. Попробуйте ещё раз.",
-    responseDisplayMessage,
-  }) => {
-    const normalizedContent = normalizeUserContent(content);
-    if (!courseId) {
-      throw new Error("Не указан курс для обращения к ИИ-агенту.");
-    }
-
-    requestControllers.get(key)?.abort();
-    const controller = new AbortController();
-    let didTimeout = false;
-    const timeoutId = setTimeout(() => {
-      didTimeout = true;
-      controller.abort();
-    }, REQUEST_TIMEOUT_MS);
-    requestControllers.set(key, controller);
-    const requestId = Date.now() + Math.random();
-    const current = getConversation(get(), key, agent, courseId);
-
-    set((state) => ({
-      conversations: {
-        ...state.conversations,
-        [key]: {
-          ...current,
-          agent,
-          courseId,
-          messages: [
-            ...current.messages,
-            createMessage("user", normalizedContent),
-          ],
-          status: "loading",
-          error: "",
-          activeRequestId: requestId,
-        },
-      },
-    }));
-
-    try {
-      const response = await callAgent(
+      initializeConversation: ({
+        key,
         agent,
-        {
-          ...editorPayload,
-          chat_id: current.chatId,
-          course_id: courseId,
-          role: "user",
-          content: normalizedContent,
-          content_blocks: Array.isArray(contentBlocks) ? contentBlocks : [],
-        },
-        { signal: controller.signal },
-      );
-      const latest = get().conversations[key];
-      if (latest?.activeRequestId !== requestId) return response;
+        courseId,
+        initialMessage = "",
+      }) => {
+        set((state) => {
+          if (state.conversations[key]) return state;
+          return {
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                agent,
+                courseId,
+                chatId: null,
+                messages: initialMessage
+                  ? [createMessage("assistant", initialMessage)]
+                  : [],
+                status: "idle",
+                error: "",
+                activeRequestId: null,
+              },
+            },
+          };
+        });
+      },
 
-      const responseText =
-        typeof response?.content === "string" ? response.content.trim() : "";
-      const visibleResponseText =
-        responseDisplayMessage === undefined
-          ? responseText
-          : String(
-              typeof responseDisplayMessage === "function"
-                ? responseDisplayMessage(response)
-                : responseDisplayMessage,
-            ).trim();
-      set((state) => ({
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            ...state.conversations[key],
-            chatId: response?.chatId || current.chatId,
-            messages:
-              visibleResponseText || emptyResponseMessage
-                ? [
-                    ...state.conversations[key].messages,
-                    createMessage(
-                      "assistant",
-                      visibleResponseText || emptyResponseMessage,
-                    ),
-                  ]
-                : state.conversations[key].messages,
-            status: "success",
-            error: "",
-            activeRequestId: null,
-          },
-        },
-      }));
-      return response;
-    } catch (error) {
-      const latest = get().conversations[key];
-      if (latest?.activeRequestId !== requestId) return null;
-      if (controller.signal.aborted && !didTimeout) return null;
+      setChatId: (key, chatId) => {
+        set((state) => {
+          const conversation = state.conversations[key];
+          if (!conversation) return state;
+          return {
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...conversation,
+                chatId: chatId || null,
+              },
+            },
+          };
+        });
+      },
 
-      const errorMessage = didTimeout
-        ? "ИИ-сервис не ответил вовремя. Попробуйте отправить сообщение ещё раз."
-        : getPublicError(error);
-      set((state) => ({
-        conversations: {
-          ...state.conversations,
-          [key]: {
-            ...state.conversations[key],
-            status: "error",
-            error: errorMessage,
-            activeRequestId: null,
-          },
-        },
-      }));
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-      if (requestControllers.get(key) === controller) {
+      appendMessage: (key, role, text) => {
+        if (!String(text ?? "").trim()) return;
+        set((state) => {
+          const conversation = state.conversations[key];
+          if (!conversation) return state;
+          return {
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...conversation,
+                messages: [
+                  ...conversation.messages,
+                  createMessage(role, String(text).trim()),
+                ],
+              },
+            },
+          };
+        });
+      },
+
+      // Убирает последнее сообщение указанной роли (нужно для повторной отправки после ошибки).
+      removeLastMessage: (key, role = "user") => {
+        set((state) => {
+          const conversation = state.conversations[key];
+          if (!conversation) return state;
+          const index = [...conversation.messages]
+            .reverse()
+            .findIndex((message) => message.role === role);
+          if (index < 0) return state;
+          const realIndex = conversation.messages.length - 1 - index;
+          return {
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...conversation,
+                messages: conversation.messages.filter(
+                  (_, messageIndex) => messageIndex !== realIndex,
+                ),
+                status: "idle",
+                error: "",
+              },
+            },
+          };
+        });
+      },
+
+      clearConversation: (key) => {
+        requestControllers.get(key)?.abort();
         requestControllers.delete(key);
-      }
-    }
-  },
-}));
+        set((state) => {
+          const conversations = { ...state.conversations };
+          const generations = { ...state.generations };
+          delete conversations[key];
+          delete generations[key];
+          return { conversations, generations };
+        });
+      },
+
+      cancelRequest: (key) => {
+        requestControllers.get(key)?.abort();
+        requestControllers.delete(key);
+        set((state) => {
+          const conversation = state.conversations[key];
+          if (!conversation) return state;
+          return {
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...conversation,
+                status: "idle",
+                activeRequestId: null,
+              },
+            },
+          };
+        });
+      },
+
+      getGeneration: (key) =>
+        get().generations[key] || createInitialGenerationState(),
+
+      setGeneration: (key, patch) => {
+        if (!key) return;
+        set((state) => {
+          const current =
+            state.generations[key] || createInitialGenerationState();
+          const nextPatch =
+            typeof patch === "function" ? patch(current) || {} : { ...patch };
+          if (Object.prototype.hasOwnProperty.call(nextPatch, "progress")) {
+            nextPatch.progress = normalizeProgress(nextPatch.progress);
+          }
+          return {
+            generations: {
+              ...state.generations,
+              [key]: {
+                ...current,
+                ...nextPatch,
+              },
+            },
+          };
+        });
+      },
+
+      resetGeneration: (key) => {
+        if (!key) return;
+        set((state) => ({
+          generations: {
+            ...state.generations,
+            [key]: createInitialGenerationState(),
+          },
+        }));
+      },
+
+      sendMessage: async ({
+        key,
+        agent,
+        courseId,
+        content,
+        contentBlocks = [],
+        editorPayload = {},
+        emptyResponseMessage = "Агент вернул пустой ответ. Попробуйте ещё раз.",
+        responseDisplayMessage,
+      }) => {
+        const normalizedContent = normalizeUserContent(content);
+        if (!courseId) {
+          throw new Error("Не указан курс для обращения к ИИ-агенту.");
+        }
+
+        requestControllers.get(key)?.abort();
+        const controller = new AbortController();
+        let didTimeout = false;
+        const timeoutId = setTimeout(() => {
+          didTimeout = true;
+          controller.abort();
+        }, REQUEST_TIMEOUT_MS);
+        requestControllers.set(key, controller);
+        const requestId = Date.now() + Math.random();
+        const current = getConversation(get(), key, agent, courseId);
+
+        set((state) => ({
+          conversations: {
+            ...state.conversations,
+            [key]: {
+              ...current,
+              agent,
+              courseId,
+              messages: [
+                ...current.messages,
+                createMessage("user", normalizedContent),
+              ],
+              status: "loading",
+              error: "",
+              activeRequestId: requestId,
+            },
+          },
+        }));
+
+        try {
+          const response = await callAgent(
+            agent,
+            {
+              ...editorPayload,
+              chat_id: current.chatId,
+              course_id: courseId,
+              role: "user",
+              content: normalizedContent,
+              content_blocks: Array.isArray(contentBlocks) ? contentBlocks : [],
+            },
+            { signal: controller.signal },
+          );
+          const latest = get().conversations[key];
+          if (latest?.activeRequestId !== requestId) return response;
+
+          const responseText =
+            typeof response?.content === "string"
+              ? response.content.trim()
+              : "";
+          const visibleResponseText =
+            responseDisplayMessage === undefined
+              ? responseText
+              : String(
+                  typeof responseDisplayMessage === "function"
+                    ? responseDisplayMessage(response)
+                    : responseDisplayMessage,
+                ).trim();
+          set((state) => ({
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...state.conversations[key],
+                chatId: response?.chatId || current.chatId,
+                messages:
+                  visibleResponseText || emptyResponseMessage
+                    ? [
+                        ...state.conversations[key].messages,
+                        createMessage(
+                          "assistant",
+                          visibleResponseText || emptyResponseMessage,
+                        ),
+                      ]
+                    : state.conversations[key].messages,
+                status: "success",
+                error: "",
+                activeRequestId: null,
+              },
+            },
+          }));
+          return response;
+        } catch (error) {
+          const latest = get().conversations[key];
+          if (latest?.activeRequestId !== requestId) return null;
+          if (controller.signal.aborted && !didTimeout) return null;
+
+          const errorMessage = didTimeout
+            ? "ИИ-сервис не ответил вовремя. Попробуйте отправить сообщение ещё раз."
+            : getPublicError(error);
+          set((state) => ({
+            conversations: {
+              ...state.conversations,
+              [key]: {
+                ...state.conversations[key],
+                status: "error",
+                error: errorMessage,
+                activeRequestId: null,
+              },
+            },
+          }));
+          throw error;
+        } finally {
+          clearTimeout(timeoutId);
+          if (requestControllers.get(key) === controller) {
+            requestControllers.delete(key);
+          }
+        }
+      },
+    }),
+    {
+      name: "ai-course-agent-chats-v1",
+      version: 1,
+      storage: createJSONStorage(() => getLocalStorage() || MEMORY_STORAGE),
+      partialize: partializeAgentState,
+    },
+  ),
+);

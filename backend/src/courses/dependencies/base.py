@@ -3,15 +3,20 @@ from typing import Annotated
 from fastapi import Depends
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from src.core.qdrant import qdrant_client
+from src.courses.infra.database.repos.vector_repo import QdrantRepository
 from src.shared.dependencies.database import DBSession
 
 from ..infra.database.repos.chat import SqlChatRepository
 from ..infra.database.repos.course import SqlCourseRepository
+from ..infra.database.repos.course_progress import SqlCourseProgressRepository
 from ..infra.database.repos.document import SqlDocumentRepository
 from ..infra.database.repos.invitation import SqlInvitationRepository
 from ..infra.database.repos.lesson import SqlLessonRepository
+from ..infra.database.repos.lesson_progress import SqlLessonProgressRepository
 from ..infra.database.repos.member import SqlMemberRepository
 from ..infra.database.repos.module import SqlModuleRepository
+from ..infra.database.repos.module_progress import SqlModuleProgressRepository
 from ..infra.database.repos.practice import SqlPracticeRepository
 from ..infra.database.repos.theory_session import SqlLessonTheorySessionRepository
 
@@ -21,6 +26,21 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=150, le
 def get_lesson_repo(session: DBSession) -> SqlLessonRepository:
     """Получает lesson repo, чтобы вызывающий код работал через единый интерфейс."""
     return SqlLessonRepository(session)
+
+
+def get_lesson_progress_repo(session: DBSession) -> SqlLessonProgressRepository:
+    """Возвращает репозиторий для работы с прогрессом уроков."""
+    return SqlLessonProgressRepository(session)
+
+
+def get_module_progress_repo(session: DBSession) -> SqlModuleProgressRepository:
+    """Возвращает репозиторий для работы с прогрессом модулей."""
+    return SqlModuleProgressRepository(session)
+
+
+def get_course_progress_repo(session: DBSession) -> SqlCourseProgressRepository:
+    """Возвращает репозиторий для работы с прогрессом курсов."""
+    return SqlCourseProgressRepository(session)
 
 
 def get_module_repo(session: DBSession) -> SqlModuleRepository:
@@ -63,7 +83,20 @@ def get_invitation_repo(session: DBSession) -> SqlInvitationRepository:
     return SqlInvitationRepository(session)
 
 
+def get_vector_repo() -> QdrantRepository:
+    return QdrantRepository(qdrant_client, splitter)
+
+
 LessonRepoDep = Annotated[SqlLessonRepository, Depends(get_lesson_repo)]
+LessonProgressRepoDep = Annotated[
+    SqlLessonProgressRepository, Depends(get_lesson_progress_repo)
+]
+ModuleProgressRepoDep = Annotated[
+    SqlModuleProgressRepository, Depends(get_module_progress_repo)
+]
+CourseProgressRepoDep = Annotated[
+    SqlCourseProgressRepository, Depends(get_course_progress_repo)
+]
 ModuleRepoDep = Annotated[SqlModuleRepository, Depends(get_module_repo)]
 CourseRepoDep = Annotated[SqlCourseRepository, Depends(get_course_repo)]
 PracticeRepoDep = Annotated[SqlPracticeRepository, Depends(get_practice_repo)]
@@ -74,3 +107,4 @@ TheorySessionRepoDep = Annotated[
 ]
 MemberRepoDep = Annotated[SqlMemberRepository, Depends(get_member_repo)]
 InvitationRepoDep = Annotated[SqlInvitationRepository, Depends(get_invitation_repo)]
+VectorRepoDep = Annotated[QdrantRepository, Depends(get_vector_repo)]

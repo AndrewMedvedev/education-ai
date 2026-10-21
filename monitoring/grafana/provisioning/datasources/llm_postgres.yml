@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: LLM Router PostgreSQL
+    type: postgres
+    uid: llm_postgres
+    access: proxy
+    url: $GRAFANA_LLM_DB_URL
+    user: $GRAFANA_LLM_DB_USER
+    editable: false
+    jsonData:
+      database: $GRAFANA_LLM_DB_NAME
+      sslmode: $GRAFANA_LLM_DB_SSL_MODE
+      postgresVersion: 1600
+      maxOpenConns: 5
+      maxIdleConns: 5
+    secureJsonData:
+      password: $GRAFANA_LLM_DB_PASSWORD
+

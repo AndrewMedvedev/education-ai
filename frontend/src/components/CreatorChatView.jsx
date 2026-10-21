@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useNavigate } from "react-router-dom";
 import "../creator/creator-chat.css";
+import ConfirmDialog from "./ui/ConfirmDialog";
+import { isAgentMockEnabled } from "../services/agentMockHook";
+import {
+  CONFIRM_LAUNCH_MESSAGE,
+  getLastAssistantMessage,
+  isAwaitingLaunchConfirmation,
+  looksLikeLaunchConfirmation,
+} from "./editor/agentChatUtils";
 
 import { intakeQuestions } from "../creator/creatorChatConfig";
 import {
@@ -196,7 +205,11 @@ function getStatusErrorMessage(error) {
 }
 
 export default function CreatorChatView() {
+  const navigate = useNavigate();
   const [courseId, setCourseId] = useState(createCourseId);
+  // Текст, который уйдёт агенту после подтверждения запуска генерации.
+  const [confirmLaunchText, setConfirmLaunchText] = useState(null);
+  const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
   const conversationKey = useMemo(
     () => createAgentConversationKey("interviewer", courseId),
     [courseId],
@@ -622,9 +635,21 @@ export default function CreatorChatView() {
     updateGeneration,
   ]);
 
-  const submitMessage = async () => {
-    const text = inputValue.trim();
-    const hasFiles = uploadedFiles.length > 0;
+  const submitMessage = async (overrideText) => {
+    const isConfirmedLaunch = typeof overrideText === "string";
+    const text = (isConfirmedLaunch ? overrideText : inputValue).trim();
+    const hasFiles = !isConfirmedLaunch && uploadedFiles.length > 0;
+
+    // Согласие на запуск генерации сначала показываем в окне подтверждения.
+    if (
+      !isConfirmedLaunch &&
+      !hasFiles &&
+      awaitingLaunchConfirmation &&
+      looksLikeLaunchConfirmation(text)
+    ) {
+      setConfirmLaunchText(text);
+      return;
+    }
 
     if (
       (!text && !hasFiles) ||
@@ -658,7 +683,10 @@ export default function CreatorChatView() {
       setUploadedFiles([]);
     }
 
-    setInputValue("");
+    if (!isConfirmedLaunch) setInputValue("");
+    // Курс и chat_id запоминаем с первого сообщения, чтобы после перезагрузки
+    // страницы продолжить ту же беседу.
+    getLocalStorage()?.setItem(ACTIVE_CREATOR_COURSE_KEY, courseId);
     try {
       const response = await sendAgentMessage({
         key: conversationKey,
@@ -796,6 +824,14 @@ export default function CreatorChatView() {
     setIsUploadingFiles(false);
   };
 
+  const awaitingLaunchConfirmation =
+    !isGenerating &&
+    !hasGenerationStarted &&
+    !isThinking &&
+    isAwaitingLaunchConfirmation(messages);
+  const lastAssistantMessage = getLastAssistantMessage(messages);
+  const generatedCourseId = generation.generatedCourseId || courseId;
+
   const startNewChat = () => {
     stopGenerationTimers();
     clearGenerationState(courseId);
@@ -813,6 +849,12 @@ export default function CreatorChatView() {
 
   return (
     <section className="creator-chat-shell">
+      {isAgentMockEnabled() ? (
+        <p className="agent-mock-badge">
+          Демо-режим: ответы ИИ имитируются, модель не вызывается. Курс
+          создаётся настоящими запросами к backend.
+        </p>
+      ) : null}
       {hasGenerationStarted && (
         <article className="glass-card creator-chat-topbar">
           <div className="creator-chat-top-main">
@@ -927,15 +969,25 @@ export default function CreatorChatView() {
 
             <div className="creator-chat-actions creator-chat-new-actions">
               <span>
-                Можно начать новый диалог для создания следующего курса.
+                Курс сохранён черновиком. Откройте его, чтобы проверить и
+                отредактировать, или начните новый диалог.
               </span>
-              <button
-                type="button"
-                className="btn btn-solid"
-                onClick={startNewChat}
-              >
-                Новый чат
-              </button>
+              <div className="creator-chat-actions-buttons">
+                <button
+                  type="button"
+                  className="btn btn-solid"
+                  onClick={() => navigate(`/course/${generatedCourseId}/edit`)}
+                >
+                  Открыть курс
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={startNewChat}
+                >
+                  Новый чат
+                </button>
+              </div>
             </div>
           </article>
         </div>
@@ -998,6 +1050,23 @@ export default function CreatorChatView() {
                 </p>
               )}
             </div>
+
+            {awaitingLaunchConfirmation && (
+              <div className="creator-chat-launch">
+                <span>
+                  ИИ подготовил структуру курса. Проверьте описание и цели
+                  обучения перед запуском — после запуска генерацию нельзя
+                  отменить.
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-solid"
+                  onClick={() => setConfirmLaunchText(CONFIRM_LAUNCH_MESSAGE)}
+                >
+                  Проверить и запустить
+                </button>
+              </div>
+            )}
 
             <div className="creator-chat-composer-wrap">
               <input
@@ -1110,7 +1179,11 @@ export default function CreatorChatView() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={clearChat}
+                  onClick={() =>
+                    messages.length > 0
+                      ? setIsClearConfirmOpen(true)
+                      : clearChat()
+                  }
                 >
                   Очистить чат
                 </button>
@@ -1119,6 +1192,50 @@ export default function CreatorChatView() {
           </article>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmLaunchText !== null}
+        size="lg"
+        eyebrow="Проверьте перед запуском"
+        title="Запустить генерацию курса?"
+        description="Описание и цели обучения, которые подготовил ИИ. Если что-то не так — нажмите «Отмена» и напишите правки в чат."
+        confirmLabel="Подтвердить и запустить"
+        busyLabel="Отправляем..."
+        onCancel={() => setConfirmLaunchText(null)}
+        onConfirm={async () => {
+          const text = confirmLaunchText || CONFIRM_LAUNCH_MESSAGE;
+          setConfirmLaunchText(null);
+          if (text !== CONFIRM_LAUNCH_MESSAGE) setInputValue("");
+          await submitMessage(text);
+        }}
+      >
+        <div className="agent-launch-summary">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            urlTransform={safeMarkdownUrl}
+          >
+            {lastAssistantMessage?.text || ""}
+          </ReactMarkdown>
+        </div>
+        <p className="app-modal-note">
+          После подтверждения ИИ поставит курс в очередь на генерацию. Это
+          займёт несколько минут, страницу можно не держать открытой.
+        </p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={isClearConfirmOpen}
+        danger
+        title="Очистить чат?"
+        description="Вся переписка с ИИ по этому курсу удалится. Отменить это нельзя."
+        confirmLabel="Очистить"
+        busyLabel="Очищаем..."
+        onCancel={() => setIsClearConfirmOpen(false)}
+        onConfirm={() => {
+          clearChat();
+          setIsClearConfirmOpen(false);
+        }}
+      />
     </section>
   );
 }

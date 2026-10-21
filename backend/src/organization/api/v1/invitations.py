@@ -5,10 +5,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, status
 
 from src.iam.dependencies import CurrentIdentity, require_permissions
+from src.iam.domain.entities import Invitation as IAMInvitation
 from src.iam.domain.entities import Membership
 from src.organization.application.dtos import InvitationCreate
 from src.organization.dependencies.services import InvitationServiceDep
-from src.organization.domain.entities import Invitation
+from src.organization.domain.entities import Invitation as OrganizationInvitation
 from src.organization.domain.permissions.invitations import DELETE_INVITATION, INVITE
 
 router = APIRouter(
@@ -27,8 +28,8 @@ async def create_invitations(
     dto: InvitationCreate,
     service: InvitationServiceDep,
     identity: CurrentIdentity,
-) -> Invitation:
-    return await service.create(dto=dto, invited_by=identity.id)
+) -> OrganizationInvitation | IAMInvitation:
+    return await service.create(dto=dto, identity=identity)
 
 
 @router.post(

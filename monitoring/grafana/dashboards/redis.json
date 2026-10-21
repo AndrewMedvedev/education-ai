@@ -17,24 +17,44 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "Обзор",
+      "type": "link",
+      "url": "/d/infra-overview",
+      "keepTime": true
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
       "id": 1,
+      "title": "Состояние",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 2,
       "type": "stat",
-      "title": "Redis Connection",
+      "title": "Подключение к Redis",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
         "x": 0,
-        "y": 0
+        "y": 1,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -52,7 +72,21 @@
               }
             ]
           },
-          "mappings": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -79,24 +113,264 @@
           "expr": "redis_up",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Подключение к Redis"
         }
       ],
       "description": "redis_up from redis-exporter. 1 means exporter authenticated and can query Redis."
     },
     {
-      "id": 2,
+      "title": "Время работы Redis",
       "type": "stat",
-      "title": "Connected Clients",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_uptime_in_seconds{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Время работы Redis",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "id": 4,
+      "title": "Нагрузка",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Команды в секунду",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 0
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(redis_commands_processed_total[$__rate_interval]))",
+          "legendFormat": "Команды в секунду",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Операции по командам",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(redis_commands_total[$__rate_interval])) by (cmd)",
+          "legendFormat": "{{cmd}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Ключи по базам Redis",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "redis_db_keys",
+          "legendFormat": "db{{db}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Ёмкость и насыщение",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Подключённые клиенты",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -137,23 +411,24 @@
           "expr": "redis_connected_clients",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Подключённые клиенты"
         }
       ]
     },
     {
-      "id": 3,
+      "id": 10,
       "type": "stat",
-      "title": "Used Memory",
+      "title": "Используемая память",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 0
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -194,23 +469,24 @@
           "expr": "redis_memory_used_bytes",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Используемая память"
         }
       ]
     },
     {
-      "id": 4,
+      "id": 11,
       "type": "stat",
-      "title": "Max Memory (0 = unlimited)",
+      "title": "Лимит памяти (0 — без ограничения)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 0
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -251,23 +527,24 @@
           "expr": "redis_memory_max_bytes",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Лимит памяти (0 — без ограничения)"
         }
       ]
     },
     {
-      "id": 5,
+      "id": 12,
       "type": "stat",
-      "title": "Hit Rate",
+      "title": "Доля попаданий в кеш",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -305,26 +582,260 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "(sum(rate(redis_keyspace_hits_total[5m])) / clamp_min(sum(rate(redis_keyspace_hits_total[5m])) + sum(rate(redis_keyspace_misses_total[5m])), 0.000000001)) or vector(0)",
+          "expr": "(sum(rate(redis_keyspace_hits_total[$__rate_interval])) / clamp_min(sum(rate(redis_keyspace_hits_total[$__rate_interval])) + sum(rate(redis_keyspace_misses_total[$__rate_interval])), 0.000000001)) or vector(0)",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Доля попаданий в кеш"
         }
       ]
     },
     {
-      "id": 6,
+      "title": "Заблокированные клиенты",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_blocked_clients{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Заблокированные клиенты",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Память процесса (RSS)",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_memory_used_rss_bytes{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Память процесса (RSS)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 34,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Коэффициент фрагментации памяти",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_mem_fragmentation_ratio{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Коэффициент фрагментации памяти",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Попадания и промахи кеша в секунду",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(redis_keyspace_hits_total{job=\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Попадания",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(redis_keyspace_misses_total{job=\"redis\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Промахи",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "x": 12,
+        "y": 42,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 17,
+      "title": "Ошибки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 18,
       "type": "stat",
-      "title": "Evicted Keys",
+      "title": "Ключи, вытесненные из памяти",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 0
+        "x": 0,
+        "y": 51,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -369,39 +880,132 @@
           "expr": "sum(increase(redis_evicted_keys_total[$__range])) or vector(0)",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Ключи, вытесненные из памяти"
         }
       ]
     },
     {
-      "id": 7,
+      "title": "Истёкшие ключи за период",
       "type": "timeseries",
-      "title": "Commands / sec",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(redis_expired_keys_total{job=\"redis\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "Истёкшие ключи за период",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 19,
       "gridPos": {
-        "h": 8,
+        "x": 12,
+        "y": 51,
         "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Отклонённые подключения за период",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(redis_rejected_connections_total{job=\"redis\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "Отклонённые подключения за период",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 20,
+      "gridPos": {
         "x": 0,
-        "y": 4
+        "y": 59,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Ошибки / отклонения команд",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -409,8 +1013,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -422,41 +1025,51 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(rate(redis_commands_processed_total[5m]))",
-          "legendFormat": "commands/s",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum by (cmd) (rate(redis_commands_failed_calls_total{job=\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Ошибки — {{cmd}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (cmd) (rate(redis_commands_rejected_calls_total{job=\"redis\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Отклонено — {{cmd}}",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 21,
+      "gridPos": {
+        "x": 12,
+        "y": 59,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 8,
+      "title": "Ошибки в логах / с",
       "type": "timeseries",
-      "title": "Ops by Command",
+      "description": "Совпадения ERROR/exception/panic/fatal/critical в логах.",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus_main"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
+        "type": "loki",
+        "uid": "loki_main"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -464,8 +1077,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -474,44 +1086,56 @@
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus_main"
+            "type": "loki",
+            "uid": "loki_main"
           },
-          "expr": "sum(rate(redis_commands_total[5m])) by (cmd)",
-          "legendFormat": "{{cmd}}",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum(rate({service=\"redis\"} |~ \"(?i)error|exception|panic|fatal|critical\" [$__interval]))",
+          "refId": "A",
+          "legendFormat": "Ошибки в логах / с",
+          "instant": false,
+          "range": true
         }
-      ]
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Keys per DB",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus_main"
-      },
+      ],
+      "id": 22,
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 12
+        "y": 67,
+        "w": 12,
+        "h": 8
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 23,
+      "title": "Задержки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 75,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "Средняя задержка команд",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -519,8 +1143,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -532,41 +1155,577 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "redis_db_keys",
-          "legendFormat": "db{{db}}",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum by (cmd) (rate(redis_commands_duration_seconds_total{job=\"redis\"}[$__rate_interval])) / sum by (cmd) (rate(redis_commands_total{job=\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{cmd}}",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 24,
+      "gridPos": {
+        "x": 0,
+        "y": 76,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 10,
+      "title": "P50 / P95 / P99 команд",
       "type": "timeseries",
-      "title": "Network I/O",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le,cmd) (rate(redis_commands_latencies_usec_bucket{job=\"redis\"}[$__rate_interval]))) / 1000000",
+          "refId": "A",
+          "legendFormat": "P50 {{cmd}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le,cmd) (rate(redis_commands_latencies_usec_bucket{job=\"redis\"}[$__rate_interval]))) / 1000000",
+          "refId": "B",
+          "legendFormat": "P95 {{cmd}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le,cmd) (rate(redis_commands_latencies_usec_bucket{job=\"redis\"}[$__rate_interval]))) / 1000000",
+          "refId": "C",
+          "legendFormat": "P99 {{cmd}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 25,
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 12
+        "y": 76,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Количество записей в журнале медленных команд",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_slowlog_length{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Количество записей в журнале медленных команд",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 26,
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Последняя медленная команда",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_last_slow_execution_duration_seconds{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Последняя медленная команда",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 27,
+      "gridPos": {
+        "x": 12,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 28,
+      "title": "Сохранение данных на диск",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "Состояние сохранения RDB и AOF",
+      "type": "timeseries",
+      "description": "1 = успешная последняя операция. AOF может быть отключён.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_rdb_last_bgsave_status{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Последнее сохранение RDB",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_aof_last_write_status{job=\"redis\"}",
+          "refId": "B",
+          "legendFormat": "Последняя запись AOF",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 29,
+      "gridPos": {
+        "x": 0,
+        "y": 93,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Выполняется сохранение RDB или перезапись AOF",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_rdb_bgsave_in_progress{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "RDB",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_aof_rewrite_in_progress{job=\"redis\"}",
+          "refId": "B",
+          "legendFormat": "AOF",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 30,
+      "gridPos": {
+        "x": 12,
+        "y": 93,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "AOF включён",
+      "type": "stat",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_aof_enabled{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "AOF включён",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 31,
+      "gridPos": {
+        "x": 0,
+        "y": 101,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "title": "Изменения с последнего RDB save",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "redis_rdb_changes_since_last_save{job=\"redis\"}",
+          "refId": "A",
+          "legendFormat": "Изменения с последнего RDB save",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 32,
+      "gridPos": {
+        "x": 12,
+        "y": 101,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 33,
+      "title": "Ресурсы: CPU, память, сеть и диск",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 109,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "CPU контейнеров",
+      "type": "timeseries",
+      "description": "В ядрах CPU; 1 = одно полностью занятое ядро.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 34,
+      "gridPos": {
+        "x": 0,
+        "y": 110,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "RAM контейнеров",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 35,
+      "gridPos": {
+        "x": 12,
+        "y": 110,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Приём и отправка по сети",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "Bps",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -574,8 +1733,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -587,34 +1745,228 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "rate(redis_net_input_bytes_total[5m])",
-          "legendFormat": "in",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Приём — {{name}}",
+          "instant": false,
+          "range": true
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "rate(redis_net_output_bytes_total[5m])",
-          "legendFormat": "out",
-          "refId": "B"
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Отправка — {{name}}",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 36,
+      "gridPos": {
+        "x": 0,
+        "y": 118,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 11,
+      "title": "OOM за период",
+      "type": "timeseries",
+      "description": "OOM events cAdvisor; отсутствие серии не означает ноль.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (increase(container_oom_events_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 37,
+      "gridPos": {
+        "x": 12,
+        "y": 118,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Время работы контейнеров",
+      "type": "timeseries",
+      "description": "Время с запуска контейнера; не история рестартов и не uptime приложения.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "time() - max by (container_label_com_docker_compose_service,name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 38,
+      "gridPos": {
+        "x": 0,
+        "y": 126,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Операции чтения и записи на диск",
+      "type": "timeseries",
+      "description": "Операции блочного I/O cAdvisor, не размер диска/volume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_reads_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Чтение — {{name}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_writes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"redis\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Запись — {{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 39,
+      "gridPos": {
+        "x": 12,
+        "y": 126,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 40,
+      "title": "Логи",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 134,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 41,
       "type": "logs",
-      "title": "Redis Logs",
+      "title": "Логи Redis",
       "datasource": {
         "type": "loki",
         "uid": "loki_main"
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
         "x": 0,
-        "y": 20
+        "y": 135,
+        "w": 24,
+        "h": 9
       },
       "options": {
         "showTime": true,
@@ -632,7 +1984,7 @@
             "type": "loki",
             "uid": "loki_main"
           },
-          "expr": "{container_name=\"redis\"}",
+          "expr": "{service=\"redis\"}",
           "refId": "A"
         }
       ]
@@ -655,6 +2007,6 @@
   "timezone": "",
   "title": "Redis",
   "uid": "redis-overview",
-  "version": 3,
+  "version": 6,
   "weekStart": ""
 }

@@ -59,6 +59,23 @@ export async function getCourse(courseId) {
   return course;
 }
 
+// Сбрасывает кеш, чтобы после генерации или сохранения страницы курса
+// загрузили свежие данные с backend.
+export function forgetCourseCache(courseId, moduleIds = [], lessonIds = []) {
+  if (courseId) courseCache.delete(courseId);
+  moduleIds.forEach((moduleId) => moduleCache.delete(moduleId));
+  lessonIds.forEach((lessonId) => {
+    lessonCache.delete(lessonId);
+    lessonTheoryCache.delete(lessonId);
+  });
+}
+
+export function forgetLessonTheory(lessonId) {
+  if (!lessonId) return;
+  lessonCache.delete(lessonId);
+  lessonTheoryCache.delete(lessonId);
+}
+
 export async function getCourseBasicInfo(courseId) {
   if (!courseId) {
     return getCourse();

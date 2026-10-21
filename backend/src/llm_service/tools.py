@@ -21,14 +21,12 @@ class InjectedToolArg:
 
 
 def _is_injected(annotation: Any) -> bool:
-    """Выполняет внутренний шаг `_is_injected`, чтобы скрыть детали реализации от публичного API."""
     return get_origin(annotation) is Annotated and any(
         isinstance(x, InjectedToolArg) for x in get_args(annotation)[1:]
     )
 
 
 def _unwrap_annotated(annotation: Any) -> Any:
-    """Выполняет внутренний шаг `_unwrap_annotated`, чтобы скрыть детали реализации от публичного API."""
     return get_args(annotation)[0] if get_origin(annotation) is Annotated else annotation
 
 
@@ -36,7 +34,6 @@ def _build_args_model_and_groups(
     func: Callable,
     model_name: str,
 ) -> tuple[type[BaseModel], dict[str, ParamGroup]]:
-    """Выполняет внутренний шаг `_build_args_model_and_groups`, чтобы скрыть детали реализации от публичного API."""
     sig = inspect.signature(func)
     hints = get_type_hints(func, include_extras=True)
 
@@ -119,10 +116,8 @@ def tool(
     name: str | None = None,
     description: str | None = None,
 ) -> Callable[[Callable], StructuredTool]:
-    """Выполняет действие `tool`, чтобы поддержать основной сценарий модуля."""
 
     def decorator(func: Callable) -> StructuredTool:
-        """Выполняет действие `decorator`, чтобы поддержать основной сценарий модуля."""
         tool_name = name or (func.__name__)
 
         args_model, param_groups = _build_args_model_and_groups(

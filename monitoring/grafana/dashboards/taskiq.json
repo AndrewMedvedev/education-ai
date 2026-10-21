@@ -1,0 +1,1752 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Обзор",
+      "type": "link",
+      "url": "/d/infra-overview",
+      "keepTime": true
+    }
+  ],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Состояние",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "Taskiq доступен",
+      "type": "stat",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "up{job=\"taskiq\"}",
+          "refId": "A",
+          "legendFormat": "Taskiq доступен",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "title": "Доступные точки сбора метрик",
+      "type": "stat",
+      "description": "Количество доступных целей Prometheus, не число worker-процессов.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(up{job=\"taskiq\"})",
+          "refId": "A",
+          "legendFormat": "Доступные точки сбора метрик",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "id": 4,
+      "title": "Нагрузка",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Успешные попытки выполнения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(increase(success_tasks_total{job=\"taskiq\"}[$__range]))",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Успешные попытки выполнения"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Ошибочные попытки выполнения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(increase(found_errors_total{job=\"taskiq\"}[$__range]))",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Ошибочные попытки выполнения"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Сохранённые результаты задач",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(increase(saved_results_total{job=\"taskiq\"}[$__range]))",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Сохранённые результаты задач"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Попытки выполнения задач в секунду",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum by (task_name) (rate(received_tasks_total{job=\"taskiq\"}[$__rate_interval]))",
+          "legendFormat": "{{task_name}}",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Успешные и ошибочные попытки по задачам",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum by (task_name) (rate(success_tasks_total{job=\"taskiq\"}[$__rate_interval]))",
+          "legendFormat": "Успех — {{task_name}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum by (task_name) (rate(found_errors_total{job=\"taskiq\"}[$__rate_interval]))",
+          "legendFormat": "Ошибка — {{task_name}}",
+          "refId": "B"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Ёмкость и насыщение",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Задачи, ожидающие выполнения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rabbitmq_queue_messages_ready{job=\"rabbitmq\",queue=\"myapp_tasks\"})",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Задачи, ожидающие выполнения"
+        }
+      ]
+    },
+    {
+      "title": "Задачи без подтверждения",
+      "type": "timeseries",
+      "description": "Задачи, выданные consumer и ещё не подтверждённые; не точное число выполняющихся задач.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_messages_unacked{job=\"rabbitmq\",queue=\"myapp_tasks\"})",
+          "refId": "A",
+          "legendFormat": "Задачи без подтверждения",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "x": 12,
+        "y": 29,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Получатели рабочей очереди",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_consumers{job=\"rabbitmq\",queue=\"myapp_tasks\"})",
+          "refId": "A",
+          "legendFormat": "Получатели рабочей очереди",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Доля успешных завершённых попыток",
+      "type": "timeseries",
+      "description": "Успех / (успех + ошибка) среди завершённых попыток, не итоговый результат задачи после всех retries.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (task_name) (rate(success_tasks_total{job=\"taskiq\"}[$__rate_interval])) / (sum by (task_name) (rate(success_tasks_total{job=\"taskiq\"}[$__rate_interval])) + sum by (task_name) (rate(found_errors_total{job=\"taskiq\"}[$__rate_interval])))",
+          "refId": "A",
+          "legendFormat": "{{task_name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 37,
+        "w": 12,
+        "h": 8
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "title": "Задачи в аварийной очереди",
+      "description": "Общая dead-letter очередь AioPikaBroker taskiq.dead_letter. Текущий backlog, не исторический счётчик failed задач и не только генерации курсов.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rabbitmq_queue_messages{job=\"rabbitmq\",queue=\"taskiq.dead_letter\"})",
+          "range": true,
+          "instant": false,
+          "legendFormat": "Задачи в аварийной очереди"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Задержки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Среднее время выполнения задач",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum by (task_name) (rate(execution_time_sum{job=\"taskiq\"}[$__rate_interval])) / sum by (task_name) (rate(execution_time_count{job=\"taskiq\"}[$__rate_interval]))",
+          "legendFormat": "{{task_name}}",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "title": "P50 времени выполнения задач",
+      "type": "timeseries",
+      "description": "Стандартная гистограмма Taskiq заканчивается на 10 с. Percentile скрывается, если попадает выше этой границы; для долгих генераций используйте среднее.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by (le,task_name) (rate(execution_time_bucket{job=\"taskiq\"}[$__rate_interval]))) and on(task_name) ((sum by (task_name) (rate(execution_time_bucket{job=\"taskiq\",le=\"10.0\"}[$__rate_interval])) / sum by (task_name) (rate(execution_time_count{job=\"taskiq\"}[$__rate_interval]))) >= 0.5)",
+          "refId": "A",
+          "legendFormat": "{{task_name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 17,
+      "gridPos": {
+        "x": 12,
+        "y": 54,
+        "w": 12,
+        "h": 8
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "title": "P95 времени выполнения задач",
+      "type": "timeseries",
+      "description": "Стандартная гистограмма Taskiq заканчивается на 10 с. Percentile скрывается, если попадает выше этой границы; для долгих генераций используйте среднее.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le,task_name) (rate(execution_time_bucket{job=\"taskiq\"}[$__rate_interval]))) and on(task_name) ((sum by (task_name) (rate(execution_time_bucket{job=\"taskiq\",le=\"10.0\"}[$__rate_interval])) / sum by (task_name) (rate(execution_time_count{job=\"taskiq\"}[$__rate_interval]))) >= 0.95)",
+          "refId": "A",
+          "legendFormat": "{{task_name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 12,
+        "h": 8
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "title": "P99 времени выполнения задач",
+      "type": "timeseries",
+      "description": "Стандартная гистограмма Taskiq заканчивается на 10 с. Percentile скрывается, если попадает выше этой границы; для долгих генераций используйте среднее.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.99, sum by (le,task_name) (rate(execution_time_bucket{job=\"taskiq\"}[$__rate_interval]))) and on(task_name) ((sum by (task_name) (rate(execution_time_bucket{job=\"taskiq\",le=\"10.0\"}[$__rate_interval])) / sum by (task_name) (rate(execution_time_count{job=\"taskiq\"}[$__rate_interval]))) >= 0.99)",
+          "refId": "A",
+          "legendFormat": "{{task_name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 19,
+      "gridPos": {
+        "x": 12,
+        "y": 62,
+        "w": 12,
+        "h": 8
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Ошибки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "Ошибки по типам задач",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (task_name) (increase(found_errors_total{job=\"taskiq\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "{{task_name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 21,
+      "gridPos": {
+        "x": 0,
+        "y": 71,
+        "w": 12,
+        "h": 8
+      },
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_success/",
+            "renamePattern": "Тест: успешная задача"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_failure/",
+            "renamePattern": "Тест: ошибка и повтор"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/monitoring_smoke:smoke_timeout/",
+            "renamePattern": "Тест: таймаут"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "/src\\.courses\\.agents\\.course_generator\\.workflow:generate_course/",
+            "renamePattern": "Генерация курса"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Ошибки в логах / с",
+      "type": "timeseries",
+      "description": "Совпадения ERROR/exception/panic/fatal/critical в логах.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate({service=\"taskiq\"} |~ \"(?i)error|exception|panic|fatal|critical\" [$__interval]))",
+          "refId": "A",
+          "legendFormat": "Ошибки в логах / с",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 22,
+      "gridPos": {
+        "x": 12,
+        "y": 71,
+        "w": 12,
+        "h": 8
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 23,
+      "title": "Ресурсы: CPU, память, сеть и диск",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 79,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "CPU контейнеров",
+      "type": "timeseries",
+      "description": "В ядрах CPU; 1 = одно полностью занятое ядро.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 24,
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "RAM контейнеров",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 25,
+      "gridPos": {
+        "x": 12,
+        "y": 80,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Приём и отправка по сети",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Приём — {{name}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Отправка — {{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 26,
+      "gridPos": {
+        "x": 0,
+        "y": 88,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "OOM за период",
+      "type": "timeseries",
+      "description": "OOM events cAdvisor; отсутствие серии не означает ноль.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (increase(container_oom_events_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 27,
+      "gridPos": {
+        "x": 12,
+        "y": 88,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Время работы контейнеров",
+      "type": "timeseries",
+      "description": "Время с запуска контейнера; не история рестартов и не uptime приложения.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "time() - max by (container_label_com_docker_compose_service,name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 28,
+      "gridPos": {
+        "x": 0,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Операции чтения и записи на диск",
+      "type": "timeseries",
+      "description": "Операции блочного I/O cAdvisor, не размер диска/volume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_reads_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Чтение — {{name}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_writes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"taskiq\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Запись — {{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 29,
+      "gridPos": {
+        "x": 12,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 30,
+      "title": "Логи",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 104,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 31,
+      "type": "logs",
+      "title": "Логи Taskiq",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 105,
+        "w": 24,
+        "h": 9
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_main"
+          },
+          "expr": "{service=\"taskiq\"}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "tags": [
+    "taskiq",
+    "queue",
+    "workers"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Taskiq Workers",
+  "uid": "taskiq-overview",
+  "version": 8,
+  "weekStart": "",
+  "description": "Taskiq PrometheusMiddleware: попытки выполнения, результаты и длительность. Глубина очереди — из RabbitMQ. Ошибки включают неудачные попытки, после которых возможен повтор."
+}

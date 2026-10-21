@@ -5,14 +5,14 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.courses.domain.entities import Course
+from src.courses.domain.enums import CourseStatus
 from src.shared.domain.exceptions import NotFoundError
 
 from ...application.dtos import (
     CourseSchema,
     EditCourseSchema,
 )
-from ...domain.entities import Course
-from ...domain.vo import CourseStatus
 from ..repos import (
     CourseRepository,
 )

@@ -36,24 +36,6 @@ def _require_claim[T](
         raise UnauthorizedError(f"Invalid claim '{field}' value.") from None
 
 
-def _optional_claim[T](
-    payload: dict[str, Any],
-    field: str,
-    expected_type: Callable[[Any], T],
-) -> T | None:
-    value = payload.get(field)
-
-    if value is None:
-        return None
-
-    if value == "":
-        return None
-
-    try:
-        return expected_type(value)
-    except (ValueError, TypeError):
-        raise UnauthorizedError(f"Invalid claim '{field}' value.") from None
-
 
 def _build_identity_from_payload(payload: dict[str, Any]) -> Identity:
     """Выполняет парсинг JWT payload и валидирует claims."""
@@ -63,9 +45,9 @@ def _build_identity_from_payload(payload: dict[str, Any]) -> Identity:
     common = {
         "id": _require_claim(payload, "sub", UUID),
         "type": identity_type,
-        "organization_id": _optional_claim(payload, "org_id", UUID),
-        "roles": _optional_claim(payload, "roles", frozenset),
-        "permissions": _optional_claim(payload, "perms", frozenset),
+        "organization_id": _require_claim(payload, "org_id", UUID),
+        "roles": _require_claim(payload, "roles", frozenset),
+        "permissions": _require_claim(payload, "perms", frozenset),
     }
 
     match identity_type:
@@ -73,7 +55,7 @@ def _build_identity_from_payload(payload: dict[str, Any]) -> Identity:
             return Identity(
                 **common,
                 email=_require_claim(payload, "email", Email),
-                membership_id=_optional_claim(payload, "mid", UUID),
+                membership_id=_require_claim(payload, "mid", UUID),
             )
         case IdentityType.SERVICE_ACCOUNT:
             return Identity(**common)

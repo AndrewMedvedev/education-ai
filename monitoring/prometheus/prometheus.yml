@@ -2,6 +2,14 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   # FastAPI backend — уже было
   - job_name: "backend"
@@ -9,10 +17,10 @@ scrape_configs:
     static_configs:
       - targets: ["backend:8000"]
 
-  # Dramatiq worker metrics (dramatiq[prometheus], отдельный http-сервер миддлвари)
-  - job_name: "dramatiq"
+  # Taskiq PrometheusMiddleware
+  - job_name: "taskiq"
     static_configs:
-      - targets: ["dramatiq:9191"] # поменяйте на реальный host:port воркера
+      - targets: ["taskiq:9000"]
 
   # Postgres — через postgres_exporter
   - job_name: "postgres"
@@ -26,7 +34,7 @@ scrape_configs:
 
   # RabbitMQ — встроенный плагин rabbitmq_prometheus (порт 15692)
   - job_name: "rabbitmq"
-    metrics_path: "/metrics"
+    metrics_path: "/metrics/per-object"
     static_configs:
       - targets: ["rabbitmq:15692"]
 

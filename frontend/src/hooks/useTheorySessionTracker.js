@@ -7,6 +7,9 @@ import {
 import { useActiveTimeTracker } from "./useActiveTimeTracker";
 
 const SCROLL_THROTTLE_MS = 250;
+// Насколько низ теории может не доходить до края видимой области, чтобы считать,
+// что ученик долистал до конца.
+const CONTENT_END_TOLERANCE_PX = 48;
 const createSessionPromises = new Map();
 const completedSessionIds = new Set();
 
@@ -41,6 +44,23 @@ function isElementScrollable(element) {
     element.scrollHeight > element.clientHeight + 1 &&
     ["auto", "scroll", "overlay"].includes(overflowY)
   );
+}
+
+function isContentEndVisible(contentElement, scrollContainer) {
+  const rect = contentElement.getBoundingClientRect();
+  if (rect.height <= 0) {
+    return false;
+  }
+
+  let visibleBottom = getViewportHeight();
+  if (isElementScrollable(scrollContainer)) {
+    visibleBottom = Math.min(
+      visibleBottom,
+      scrollContainer.getBoundingClientRect().bottom,
+    );
+  }
+
+  return rect.bottom <= visibleBottom + CONTENT_END_TOLERANCE_PX;
 }
 
 function getElementScrollPercent(element) {
@@ -97,6 +117,9 @@ export function useTheorySessionTracker(
     scrollContainerRef = null,
     contentRef = null,
     isContentReady = true,
+    // Вызывается один раз за открытие урока, когда низ теории оказался в зоне видимости.
+    onReachEnd = null,
+    canReachEnd = true,
   } = {},
 ) {
   const sessionRef = useRef(null);
@@ -106,9 +129,14 @@ export function useTheorySessionTracker(
   const lastScrollMeasureAtRef = useRef(0);
   const latestLessonIdRef = useRef(lessonId);
   const isContentReadyRef = useRef(isContentReady);
+  const onReachEndRef = useRef(onReachEnd);
+  const canReachEndRef = useRef(canReachEnd);
+  const reachedEndLessonIdRef = useRef(null);
 
   latestLessonIdRef.current = lessonId;
   isContentReadyRef.current = isContentReady;
+  onReachEndRef.current = onReachEnd;
+  canReachEndRef.current = canReachEnd;
 
   const handleActiveTimeTick = useCallback((seconds) => {
     activeTimeSecondsRef.current = seconds;
@@ -145,6 +173,18 @@ export function useTheorySessionTracker(
 
       if (depth > maxScrollDepthRef.current) {
         maxScrollDepthRef.current = depth;
+      }
+
+      const currentLessonId = latestLessonIdRef.current;
+      if (
+        onReachEndRef.current &&
+        canReachEndRef.current &&
+        currentLessonId &&
+        reachedEndLessonIdRef.current !== currentLessonId &&
+        isContentEndVisible(contentElement, scrollContainer)
+      ) {
+        reachedEndLessonIdRef.current = currentLessonId;
+        onReachEndRef.current(currentLessonId);
       }
       markActivity();
     },
@@ -214,6 +254,7 @@ export function useTheorySessionTracker(
     activeTimeSecondsRef.current = 0;
     maxScrollDepthRef.current = 0;
     lastScrollMeasureAtRef.current = 0;
+    reachedEndLessonIdRef.current = null;
     reset();
     markActivity();
 
@@ -256,6 +297,13 @@ export function useTheorySessionTracker(
     }
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleResize);
+    // Высота теории меняется после первой отрисовки (картинки, диаграммы) —
+    // перемеряем, чтобы короткий урок засчитался без прокрутки.
+    const resizeObserver =
+      typeof ResizeObserver === "function"
+        ? new ResizeObserver(() => updateScrollDepth(true))
+        : null;
+    resizeObserver?.observe(contentRef.current);
     updateScrollDepth(true);
 
     return () => {
@@ -264,8 +312,10 @@ export function useTheorySessionTracker(
       }
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
+      resizeObserver?.disconnect();
     };
   }, [
+    canReachEnd,
     contentRef,
     enabled,
     isContentReady,

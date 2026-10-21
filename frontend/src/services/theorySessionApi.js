@@ -19,7 +19,7 @@ async function parseError(response, fallbackMessage) {
 
 export async function createSession(lessonId, options = {}) {
   const response = await apiFetch(
-    `/theory/session/${encodeURIComponent(lessonId)}`,
+    `/theory-sessions/${encodeURIComponent(lessonId)}`,
     {
       ...options,
       method: "POST",
@@ -36,7 +36,7 @@ export async function createSession(lessonId, options = {}) {
 
 export async function updateSession(sessionId, metrics, options = {}) {
   const response = await apiFetch(
-    `/theory/session/${encodeURIComponent(sessionId)}`,
+    `/theory-sessions/${encodeURIComponent(sessionId)}`,
     {
       ...options,
       method: "PUT",
@@ -92,7 +92,7 @@ export async function getTheorySessions(
 
   const query = buildSessionsQuery(filters);
   const response = await apiFetch(
-    `/theory/session/${encodeURIComponent(lessonId)}/${encodeURIComponent(userId)}${query ? `?${query}` : ""}`,
+    `/theory-sessions/${encodeURIComponent(lessonId)}/users/${encodeURIComponent(userId)}${query ? `?${query}` : ""}`,
     {
       ...options,
       method: "GET",
@@ -115,7 +115,7 @@ export function updateSessionKeepalive(sessionId, metrics) {
     return false;
   }
 
-  fetch(`${API_BASE}/theory/session/${encodeURIComponent(sessionId)}`, {
+  fetch(`${API_BASE}/theory-sessions/${encodeURIComponent(sessionId)}`, {
     method: "PUT",
     keepalive: true,
     headers: {

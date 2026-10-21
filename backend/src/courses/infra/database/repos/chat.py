@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 class SqlChatRepository(SqlAlchemyRepository[Chat, ChatOrm]):
     model = ChatOrm
-    model_mapper = ChatMapper  # type: ignore  # ruff:ignore[blanket-type-ignore]
+    model_mapper = ChatMapper  # type: ignore
 
     async def read(self, user_id: UUID, course_id: UUID, chat_id: UUID) -> Chat | None:
         """Получает существующую запись по идентификатору или заданным параметрам."""

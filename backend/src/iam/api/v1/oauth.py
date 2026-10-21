@@ -12,6 +12,7 @@ router = APIRouter(prefix="/oauth", tags=["OAuth | Machine2Machine"])
     path="/token",
     status_code=status.HTTP_200_OK,
     summary="Получить токен",
+    description="Выдаёт токен доступа для сервисного аккаунта по его учётным данным.",
 )
 async def issue_token(
         credentials: Annotated[OAuthCredentials, Depends()],

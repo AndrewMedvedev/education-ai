@@ -5,13 +5,13 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.shared.domain.exceptions import NotFoundError
-
-from ...application.dtos import (
+from src.courses.application.dtos import (
     EditLessonSchema,
     LessonSchema,
 )
-from ...domain.entities import AnyContentBlock, Lesson
+from src.courses.domain.entities import AnyContentBlock, Lesson
+from src.shared.domain.exceptions import NotFoundError
+
 from ..repos import LessonRepository, ModuleRepository
 from .base_course import BaseCourseService
 

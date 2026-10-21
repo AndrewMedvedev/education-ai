@@ -176,7 +176,7 @@ def extract_json(text: str) -> dict[str, Any]:
         if isinstance(parsed, dict):
             return parsed
 
-    except Exception:  # ruff: ignore[blind-except, try-except-pass]
+    except Exception:
         pass
 
     raise StructuredOutputError(
@@ -262,7 +262,7 @@ def _response_item_to_dict(item: Any) -> dict[str, Any]:
 
 
 @traceable(run_type="parser", name="ParseLLMResponse")
-def parse_llm_response(  # ruff: ignore[complex-structure]
+def parse_llm_response(
     response: Response,
     input_messages: list[dict[str, Any]] | str,
     text_format: dict[str, Any] | None = None,
@@ -452,8 +452,6 @@ def to_langsmith_llm_output(result: LLMTextResponse | None) -> dict[str, Any]:
     return {
         "output": result,
         "usage_metadata": {
-            "input_tokens": None,
-            "output_tokens": None,
             "total_tokens": result.total_tokens,
         },
     }

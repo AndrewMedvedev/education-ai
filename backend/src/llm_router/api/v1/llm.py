@@ -10,7 +10,11 @@ from ...dependencies import LLMImageRouterDep, LLMTextRouterDep
 router = APIRouter(prefix="/responses", tags=["LLM Router"])
 
 
-@router.post(path="/text")
+@router.post(
+    path="/text",
+    summary="Получить текстовый ответ от AI-модели",
+    description="Отправляет текстовый запрос выбранной AI-модели и возвращает сгенерированный ответ.",
+)
 async def invoke_text(
     schema: LLMTextRequest,
     service: LLMTextRouterDep,
@@ -21,7 +25,11 @@ async def invoke_text(
     return await service.call_llm(schema=schema, model=model)
 
 
-@router.post(path="/image")
+@router.post(
+    path="/image",
+    summary="Сгенерировать изображение с помощью AI-модели",
+    description="Отправляет запрос на генерацию изображения выбранной AI-модели и возвращает результат.",
+)
 async def invoke(
     schema: LLMImageRequest,
     service: LLMImageRouterDep,

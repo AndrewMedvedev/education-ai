@@ -3,7 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "aiobotocore>=3.7.0",
     "aiohttp>=3.13.5",
@@ -13,11 +13,11 @@ dependencies = [
     "asyncpg>=0.31.0",
     "ddgs>=9.14.4",
     "dotenv>=0.9.9",
-    "dramatiq[prometheus,redis,watch]>=2.2.0",
     "fastapi[all]>=0.136.1",
     "faststream[rabbit]>=0.7.4",
     "freezegun>=1.5.5",
     "greenlet>=3.5.0",
+    "headroom-ai>=0.37.0",
     "html-to-markdown>=3.5.7",
     "html2text>=2025.4.15",
     "json-repair>=0.63.4",
@@ -45,6 +45,11 @@ dependencies = [
     "redis>=7.4.1",
     "sqlalchemy>=2.0.49",
     "sse-starlette>=3.4.11",
+    "taskiq[metrics]>=0.13.0",
+    "taskiq-aio-pika>=0.6.1",
+    "taskiq-fastapi>=0.5.0",
+    "taskiq-faststream>=0.1.6",
+    "taskiq-redis>=1.2.4",
     "tiktoken>=0.13.0",
     "types-passlib>=1.7.7.20260211",
     "types-pytz>=2026.2.0.20260506",
@@ -58,7 +63,7 @@ dependencies = [
 # ---------------------------------------------------------------------------
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py314"
 line-length = 99
 
 # Добавляем исключения поверх стандартных исключений Ruff.
@@ -295,3 +300,8 @@ ignore_names = [
 
 [tool.basedpyright]
 typeCheckingMode = "basic"
+
+[dependency-groups]
+dev = [
+    "testcontainers[postgres]>=4.14.2",
+]

@@ -7,6 +7,7 @@ import aiohttp
 from fastapi import status
 from pydantic import BaseModel
 
+from ..middlewares import create_request_id_trace_config
 from .config import SrvBaseConfig
 from .exceptions import SrvBaseError
 
@@ -49,6 +50,7 @@ class SrvBaseClient:
                 base_url=str(self._config.base_url).rstrip("/"),
                 timeout=timeout,
                 connector=connector,
+                trace_configs=[create_request_id_trace_config()],
             )
 
         yield self._session
@@ -67,14 +69,24 @@ class SrvBaseClient:
         ):
             data = await response.json()
             if response.status != status.HTTP_200_OK:
-                error_code = data.get("error_code") or "UNKNOWN_ERROR"
-                error_msg = data.get("message", "")
+                error = data.get("error")
+                if not isinstance(error, dict):
+                    error = data
+
+                error_code = (
+                    error.get("code")
+                    or error.get("grant")
+                    or error.get("error_code")
+                    or "UNKNOWN_ERROR"
+                )
+                error_msg = (
+                    error.get("message") or data.get("detail") or "OAuth token request failed."
+                )
+
                 raise SrvBaseError(
                     f"[OAuth] Failed to fetch token. HTTP status: {response.status}. "
                     f"Error code: '{error_code}'. Message: {error_msg}"
                 )
-
-            data = await response.json()
 
             return _OAuthToken.model_validate(data)
 

@@ -110,7 +110,7 @@ def create_access_token(
     *,
     identity_id: UUID,
     identity_type: IdentityType,
-    organization_id: UUID | None,
+    organization_id: UUID,
     roles: set[str],
     permissions: set[str],
     email: Email | None = None,
@@ -129,12 +129,10 @@ def create_access_token(
         "jti": str(uuid4()),
         # Кастомные поля
         "idt": identity_type.value,
+        "org_id": str(organization_id),
         "roles": list(roles),
         "perms": list(permissions),
     }
-
-    if organization_id is not None:
-        payload["org_id"] = str(organization_id)
 
     # Специфичные для пользователя поля
     if email is not None:
@@ -146,7 +144,7 @@ def create_access_token(
     return jwt.encode(payload=payload, key=settings.secret_key, algorithm=jwt_config.algorithm)
 
 
-def create_refresh_token(user_id: UUID, membership_id: UUID | None) -> str:
+def create_refresh_token(user_id: UUID, membership_id: UUID) -> str:
     """Выпускает долгоживущий токен для получения новой пары access + refresh."""
 
     now = current_datetime()
@@ -159,10 +157,9 @@ def create_refresh_token(user_id: UUID, membership_id: UUID | None) -> str:
         "iat": now.timestamp(),
         "typ": "refresh",
         "jti": str(uuid4()),
+        # Кастомные поля
+        "mid": str(membership_id),
     }
-
-    if membership_id is not None:
-        payload["mid"] = str(membership_id)
 
     return jwt.encode(payload=payload, key=settings.secret_key, algorithm=jwt_config.algorithm)
 

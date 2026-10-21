@@ -1,8 +1,6 @@
-# ruff: file-ignore[no-self-use, unused-method-argument]
 # pyright: reportOptionalSubscript=false, reportArgumentType=false, reportGeneralTypeIssues=false, reportOptionalIterable=false
 from typing import Any, Literal
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 from asyncio import Semaphore, gather
@@ -15,10 +13,10 @@ from src.shared.infra.services import SrvBaseClient
 
 from .dataclasses import StructuredTool
 from .middleware import BaseAgentMiddleware
+from .protocols import LLMServiceProtocol
 from .schemas import (
     LLMImageRequest,
     LLMImageResponse,
-    LLMServiceProtocol,
     LLMTextRequest,
     LLMTextResponse,
     Runtime,
@@ -83,8 +81,9 @@ class BaseLLMService[RequestT: BaseModel, ResponseT: BaseModel](ABC):
         self.runtime = runtime
 
     async def _send_request(self, request: RequestT, path: str) -> ResponseT:
-        async with self._client._get_token_session() as session:
+        async with self._client._get_token_session() as session:  # noqa: SLF001
             response = await session.post(url=path, json=request.model_dump(exclude_none=True))
+
             return self.response_model.model_validate(await response.json())
 
     @abstractmethod
@@ -107,7 +106,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         reasoning: Literal["low", "medium", "high"] | None = None,
         temperature: float | None = None,
         runtime: Runtime | None = None,
-        maximum_number_of_parallel_executions: int = 4,
+        max_parallel: int = 4,
     ) -> None:
         super().__init__(client=client, runtime=runtime, middlewares=middlewares)
         self.model = model
@@ -115,7 +114,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         self.tools = tools
         self.reasoning: Literal["low", "medium", "high"] | None = reasoning
         self.temperature = temperature
-        self.semaphore = Semaphore(maximum_number_of_parallel_executions)
+        self.semaphore = Semaphore(max_parallel)
 
     @execute_once_per_loop
     async def invoke(
@@ -123,7 +122,6 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         messages: list[dict[str, Any]],
         schema: type[BaseModel] | None = None,
     ) -> LLMTextResponse:
-        await asyncio.sleep(15)
         return await self._run_loop(messages=messages, schema=schema)
 
     @execute_each_invoke
@@ -146,7 +144,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
             request.format_schema(schema)
         return await self._send_request(
             request=request,
-            path=f"/api/v1/responses/text{f'?model={self.model}' if self.model is not None else ''}",
+            path=f"/api/v1/responses/text{f'?model={self.model}' if self.model is not None else ''}",  # noqa: E501
         )
         # return await self._send_request(
         #     request=request,
@@ -178,9 +176,17 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
     async def _process_tool(self, tool: ToolCallParsed) -> dict:
 
         logger.info("tool call %s", tool.name)
-        callable_func = self.tools.get(tool.name)  # pyright: ignore[reportOptionalMemberAccess]
+        callable_func = (self.tools or {}).get(tool.name)
         if callable_func is None:
-            return {}
+            logger.warning(
+                "Unknown tool requested: name=%s, call_id=%s",
+                tool.name,
+                tool.call_id,
+            )
+            return StructuredTool.to_tool_result(
+                call_id=tool.call_id,
+                result={"error": f"Unknown tool '{tool.name}'. Use only available tools."},
+            )
         async with self.semaphore:
             try:
                 result = await callable_func.run_tool(
@@ -244,7 +250,7 @@ class LLMImageService(BaseLLMService[LLMImageRequest, LLMImageResponse]):
             self.runtime.messages = messages
         return await self._send_request(
             request=request,
-            path=f"/api/v1/responses/image{f'?model={self.model}' if self.model is not None else ''}",
+            path=f"/api/v1/responses/image{f'?model={self.model}' if self.model is not None else ''}",  # noqa: E501
         )
         # return await self._send_request(
         #     request=request,

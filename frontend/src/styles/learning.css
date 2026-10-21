@@ -1,3 +1,50 @@
+.course-viewer,
+.lesson-view {
+    --muted: #526277;
+    --eyebrow: #1d4ed8;
+    --ink-accent: #1e4fa3;
+    --info-text: #49627f;
+    /* Плотность подобрана так, чтобы линии фоновой сетки не читались сквозь текст:
+       верхний уровень = полупрозрачный фон + сильный блюр, вложенные карточки = почти
+       непрозрачный фон без второго блюра. */
+    --glass-bg: rgba(255, 255, 255, 0.82);
+    --glass-bg-strong: rgba(248, 250, 252, 0.96);
+    --glass-blur: 18px;
+    --glass-backdrop: blur(var(--glass-blur)) saturate(140%);
+    --glass-fallback-bg: rgba(248, 250, 252, 0.96);
+}
+
+.page[data-theme="dark"] .course-viewer,
+.page[data-theme="dark"] .lesson-view {
+    --muted: #b7c7da;
+    --eyebrow: #93c5fd;
+    --ink-accent: #bfdbfe;
+    --info-text: #b7cbea;
+    --glass-bg: rgba(13, 39, 71, 0.82);
+    --glass-bg-strong: rgba(16, 45, 78, 0.96);
+    --glass-fallback-bg: rgba(9, 31, 59, 0.98);
+}
+
+.course-viewer .glass-card,
+.lesson-view .glass-card:not(.lesson-main-card) {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    backdrop-filter: var(--glass-backdrop);
+}
+
+.course-viewer .glass-card::after,
+.lesson-view .glass-card::after {
+    content: none;
+}
+
+.course-viewer .glass-card .glass-card,
+.lesson-view .glass-card .glass-card:not(.lesson-main-card),
+.lesson-scroll-frame .glass-card {
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
 .course-nav-tree {
     align-self: start;
     position: sticky;
@@ -11,14 +58,15 @@
     border-radius: 20px;
     background:
         linear-gradient(var(--glass-highlight), var(--glass-highlight)),
-        rgba(var(--accent-rgb), 0.05);
+        rgba(var(--accent-rgb), 0.05),
+        var(--glass-bg);
     box-shadow:
         var(--glass-shadow),
         var(--glass-inset),
         inset 0 0 20px -5px var(--glass-glow),
         inset 0 1px 0 var(--glass-top-shine);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: var(--glass-backdrop);
+    -webkit-backdrop-filter: var(--glass-backdrop);
     padding: 18px 16px;
     color: var(--text);
     scrollbar-width: thin;
@@ -154,11 +202,11 @@
 }
 
 .page[data-theme="dark"] .course-nav-tree {
-    border-color: rgba(var(--accent-rgb), 0.24);
+    border-color: rgba(147, 197, 253, 0.24);
     background:
         linear-gradient(var(--glass-highlight), var(--glass-highlight)),
-        rgba(24, 24, 24, 0.72);
-    color: var(--text);
+        var(--glass-bg);
+    color: #eaf2fc;
 }
 
 .page[data-theme="dark"] .course-nav-tree-head {
@@ -167,20 +215,20 @@
 
 .page[data-theme="dark"] .course-nav-tree-head strong,
 .page[data-theme="dark"] .course-nav-block-btn strong {
-    color: var(--heading);
+    color: #f8fafc;
 }
 
 .page[data-theme="dark"] .course-nav-tree-head span {
-    color: var(--muted);
+    color: #b7c7da;
 }
 
 .page[data-theme="dark"] .course-nav-block-btn span,
 .page[data-theme="dark"] .course-nav-item-number {
-    color: var(--ink-accent);
+    color: #60a5fa;
 }
 
 .page[data-theme="dark"] .course-nav-item-title {
-    color: var(--text);
+    color: #eaf2fc;
 }
 
 .page[data-theme="dark"] .course-nav-item-btn:hover,
@@ -193,7 +241,7 @@
 }
 
 .page[data-theme="dark"] .course-nav-practice-btn {
-    color: var(--muted);
+    color: #bfdbfe;
 }
 
 .page[data-theme="dark"] .course-nav-item-status {
@@ -201,7 +249,7 @@
 }
 
 .course-block-index {
-    color: var(--accent);
+    color: var(--ink-accent);
     font-size: 0.74rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -427,7 +475,6 @@
 }
 
 .lesson-view.has-lesson-chat,
-.lesson-view.is-course-edit-layout,
 .lesson-view.is-learning-layout {
     width: min(1600px, 98vw);
 }
@@ -455,8 +502,66 @@
     column-gap: 10px;
 }
 
-.lesson-view-grid.is-course-edit-layout {
-    grid-template-columns: 320px minmax(0, 1fr);
+/* Редактор готового курса (курс, модуль, урок) — та же сетка, что в режиме обучения:
+   ширина страницы, дерево 300px слева, отступ 18px и запас справа, как под панель ИИ. */
+.lesson-view.is-course-edit-layout,
+.block-view.is-course-edit-layout,
+.course-details-view.is-course-edit-layout {
+    position: relative;
+    width: min(1720px, 98vw);
+}
+
+.lesson-view-grid.is-course-edit-layout,
+.course-edit-grid {
+    grid-template-columns: 300px minmax(0, 1fr) 68px;
+    gap: 18px;
+}
+
+.course-edit-grid {
+    margin-top: 16px;
+    display: grid;
+    align-items: start;
+}
+
+.course-edit-grid > * {
+    min-width: 0;
+}
+
+.course-edit-main {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+}
+
+.course-edit-main > .course-page-actions,
+.course-edit-main > .block-view-grid,
+.course-edit-main > .course-details-grid {
+    margin-top: 0;
+}
+
+/* Курс: сначала описание курса, под ним модули — как на странице курса в обучении. */
+.course-edit-main .course-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.course-edit-main .course-details-main {
+    order: 1;
+}
+
+.course-edit-main .course-details-modules {
+    order: 2;
+}
+
+/* «Назад» стоит в строке заголовка, чтобы сетка начиналась на той же высоте, что в обучении. */
+.is-course-edit-layout > .section-top {
+    padding-right: 56px;
+}
+
+.is-course-edit-layout > .back-btn {
+    position: absolute;
+    top: 18px;
+    right: 0;
+    margin: 0;
 }
 
 .lesson-view-grid > *,
@@ -602,6 +707,8 @@ body.is-resizing-lesson-chat * {
     background: transparent;
     box-shadow: none;
     isolation: auto;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
 .lesson-main-card::after {
@@ -622,10 +729,10 @@ body.is-resizing-lesson-chat * {
     border-radius: 20px 20px 0 0;
     background: linear-gradient(
         180deg,
-        rgba(245, 241, 232, 0.98) 0%,
-        rgba(245, 241, 232, 0.98) 30%,
-        rgba(245, 241, 232, 0.84) 58%,
-        rgba(245, 241, 232, 0) 100%
+        rgba(248, 250, 252, 0.98) 0%,
+        rgba(248, 250, 252, 0.98) 30%,
+        rgba(248, 250, 252, 0.84) 58%,
+        rgba(248, 250, 252, 0) 100%
     );
     box-shadow: none;
     backdrop-filter: blur(12px);
@@ -646,10 +753,10 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .lesson-main-card::before {
     background: linear-gradient(
         180deg,
-        rgba(31, 31, 31, 0.98) 0%,
-        rgba(31, 31, 31, 0.98) 30%,
-        rgba(31, 31, 31, 0.86) 58%,
-        rgba(31, 31, 31, 0) 100%
+        rgba(9, 31, 59, 0.98) 0%,
+        rgba(9, 31, 59, 0.98) 30%,
+        rgba(9, 31, 59, 0.86) 58%,
+        rgba(9, 31, 59, 0) 100%
     );
 }
 
@@ -662,8 +769,10 @@ body.is-resizing-lesson-chat * {
     padding: clamp(28px, 3vw, 42px);
     border: 1px solid var(--glass-border);
     border-radius: 24px;
-    background: transparent;
+    background: var(--glass-bg);
     box-shadow: var(--glass-shadow), var(--glass-inset);
+    -webkit-backdrop-filter: var(--glass-backdrop);
+    backdrop-filter: var(--glass-backdrop);
 }
 
 .lesson-scroll-frame > * {
@@ -685,21 +794,22 @@ body.is-resizing-lesson-chat * {
 }
 
 .lesson-scroll-frame::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
-    filter: url(#glass-distortion);
-    -webkit-filter: url("#glass-distortion");
-    pointer-events: none;
+    content: none;
 }
 
 .page[data-theme="dark"] .lesson-scroll-frame {
-    border-color: rgba(var(--accent-rgb), 0.24);
-    background: transparent;
+    border-color: rgba(147, 197, 253, 0.24);
+    background: var(--glass-bg);
+}
+
+/* Рамка урока тянется на всю высоту контента. Блюр под такой площадью браузер
+   пересчитывает на каждом кадре прокрутки, и FPS падает, поэтому здесь плотный
+   фон без backdrop-filter. Сетка сквозь него всё равно не видна. */
+.lesson-view .lesson-scroll-frame,
+.page[data-theme="dark"] .lesson-view .lesson-scroll-frame {
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
 }
 
 .lesson-main-card,
@@ -1018,7 +1128,7 @@ body.is-resizing-lesson-chat * {
     grid-template-rows: auto minmax(210px, 1fr) auto;
     gap: 10px;
     box-shadow:
-        0 16px 40px rgba(var(--accent-rgb), 0.1),
+        0 16px 40px rgba(15, 42, 76, 0.12),
         var(--glass-inset);
     transition:
         min-height 220ms ease,
@@ -1182,7 +1292,7 @@ body.is-resizing-lesson-chat * {
     line-height: 1.58;
     overflow-wrap: anywhere;
     box-shadow:
-        0 8px 20px rgba(var(--accent-rgb), 0.08),
+        0 8px 20px rgba(15, 42, 76, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.54);
 }
 
@@ -1500,7 +1610,7 @@ body.is-resizing-lesson-chat * {
     padding: 4px;
     border: 1px solid rgba(var(--accent-rgb), 0.34);
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.22);
+    background: var(--glass-bg-strong);
 }
 
 .lesson-mode-switch button {
@@ -1528,12 +1638,12 @@ body.is-resizing-lesson-chat * {
 }
 
 .page[data-theme="dark"] .lesson-mode-switch {
-    background: rgba(255, 255, 255, 0.055);
+    background: var(--glass-bg-strong);
     border-color: rgba(var(--accent-rgb), 0.42);
 }
 
 .page[data-theme="dark"] .lesson-mode-switch button {
-    color: var(--muted);
+    color: #b7c7da;
 }
 
 .page[data-theme="dark"] .lesson-mode-switch button:hover:not(:disabled),
@@ -1623,9 +1733,9 @@ body.is-resizing-lesson-chat * {
 }
 
 .page[data-theme="dark"] .lesson-markdown pre {
-    background: rgba(10, 10, 10, 0.72);
+    background: rgba(1, 8, 20, 0.72);
     border: 1px solid rgba(var(--accent-rgb), 0.32);
-    color: var(--text);
+    color: #eaf2fc;
 }
 
 .lesson-markdown code {
@@ -1645,12 +1755,12 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .lesson-markdown p,
 .page[data-theme="dark"] .lesson-markdown li,
 .page[data-theme="dark"] .lesson-markdown td {
-    color: #e9decb;
+    color: #eaf2fc;
 }
 
 .page[data-theme="dark"] .lesson-markdown :not(pre) > code {
-    background: rgba(255, 255, 255, 0.09);
-    color: #f7dca8;
+    background: rgba(96, 165, 250, 0.12);
+    color: #bfdbfe;
 }
 
 .lesson-markdown table {
@@ -1684,7 +1794,7 @@ body.is-resizing-lesson-chat * {
 
 .page[data-theme="dark"] .lesson-markdown th {
     background: rgba(var(--accent-rgb), 0.22);
-    color: var(--heading);
+    color: #f8fafc;
 }
 
 .lesson-markdown a {
@@ -1766,15 +1876,17 @@ body.is-resizing-lesson-chat * {
 }
 
 .content-preview-modal.is-diagram {
-    width: 100vw;
-    height: 100vh;
-    max-height: none;
+    width: 95vw;
+    height: 90vh;
+    max-height: 90vh;
     overflow: hidden;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
+    border: 1px solid rgba(52, 102, 202, 0.4);
+    border-radius: 14px;
+    background: #ffffff;
     box-shadow: none;
     padding: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .content-preview-close {
@@ -1841,29 +1953,99 @@ body.is-resizing-lesson-chat * {
 }
 
 .content-preview-body.is-diagram {
-    width: 100vw;
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
+    position: relative;
+    width: 100%;
+    min-height: 0;
+    flex: 1;
+    display: block;
     overflow: hidden;
-    padding: 72px 24px 24px;
+    padding: 0;
+    background: #ffffff;
+    cursor: grab;
+    touch-action: none;
 }
 
-.content-preview-diagram-scale {
-    min-width: 100%;
+.content-preview-body.is-diagram.is-dragging {
+    cursor: grabbing;
+}
+
+.diagram-preview-toolbar {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 64px;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid rgba(112, 109, 120, 0.35);
 }
 
 .content-preview-modal.is-diagram .content-preview-close,
 .content-preview-modal.is-diagram .content-preview-zoom-controls {
-    position: fixed;
+    position: static;
+}
+
+.content-preview-modal.is-diagram .content-preview-close {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    padding: 0 14px;
+    white-space: nowrap;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #20202a;
+    background: #fff;
+}
+
+.content-preview-modal.is-diagram .content-preview-zoom {
+    min-width: 44px;
+    height: 44px;
+    color: #20202a;
+    background: #fff;
+}
+
+.diagram-preview-scale {
+    min-width: 54px;
+    text-align: center;
+    color: #20202a;
+    font-weight: 700;
+}
+
+.diagram-preview-fit {
+    font-size: 0.85rem;
+}
+
+.content-preview-backdrop.is-dark .content-preview-modal.is-diagram,
+.content-preview-backdrop.is-dark .diagram-preview-toolbar {
+    background: #0d2747;
+    border-color: #3e668f;
+}
+
+.content-preview-backdrop.is-dark .content-preview-modal.is-diagram .content-preview-close,
+.content-preview-backdrop.is-dark .content-preview-modal.is-diagram .content-preview-zoom {
+    background: #163858;
+    color: #eaf2fc;
+    border-color: #4b739c;
+}
+
+.content-preview-backdrop.is-dark .diagram-preview-scale {
+    color: #eaf2fc;
 }
 
 .content-preview-modal.is-diagram .content-preview-diagram-scale {
-    width: max-content;
-    min-width: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
     max-width: none;
-    transform-origin: center center;
-    will-change: transform;
+    transform-origin: top left;
 }
 
 .content-preview-diagram-scale .mermaid-diagram {
@@ -1878,7 +2060,7 @@ body.is-resizing-lesson-chat * {
 }
 
 .content-preview-modal.is-diagram .mermaid-diagram-svg {
-    width: max-content;
+    width: 100%;
     min-width: 0;
 }
 
@@ -1889,8 +2071,17 @@ body.is-resizing-lesson-chat * {
 }
 
 .content-preview-modal.is-diagram .mermaid-diagram svg {
+    width: 100%;
     min-width: 0;
     max-width: none;
+}
+
+@media (max-width: 600px) {
+    .content-preview-backdrop { padding: 8px; }
+    .content-preview-modal.is-diagram { width: calc(100vw - 16px); height: calc(100dvh - 16px); max-height: none; }
+    .diagram-preview-toolbar { padding: 6px; }
+    .content-preview-modal.is-diagram .content-preview-zoom-controls { gap: 2px; }
+    .content-preview-modal.is-diagram .content-preview-zoom { padding: 0 7px; }
 }
 
 .content-preview-body.is-image {
@@ -1937,15 +2128,15 @@ body.is-resizing-lesson-chat * {
     margin: 12px 0;
     width: 100%;
     overflow-x: auto;
-    border: 1px solid rgba(var(--accent-soft-rgb), 0.32);
+    border: 1px solid rgba(52, 102, 202, 0.32);
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.36);
+    background: #ffffff;
     padding: 12px;
 }
 
 .page[data-theme="dark"] .mermaid-diagram {
     background: #222831;
-    border-color: rgba(155, 182, 209, 0.5);
+    border-color: rgba(183, 151, 183, 0.5);
 }
 
 .mermaid-diagram svg {
@@ -1973,8 +2164,14 @@ body.is-resizing-lesson-chat * {
 }
 
 .content-block-card .mermaid-diagram-svg {
-    width: max-content;
-    min-width: 100%;
+    width: 100%;
+    min-width: 0;
+}
+
+.content-block-card .mermaid-diagram-svg svg {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .page[data-theme="dark"] .mermaid-diagram .node rect,
@@ -1991,8 +2188,8 @@ body.is-resizing-lesson-chat * {
 .page[data-theme="dark"] .mermaid-diagram .nodeLabel,
 .page[data-theme="dark"] .mermaid-diagram text,
 .page[data-theme="dark"] .mermaid-diagram tspan {
-    fill: var(--text) !important;
-    color: var(--text) !important;
+    fill: #eaf2fc !important;
+    color: #eaf2fc !important;
 }
 
 .page[data-theme="dark"] .mermaid-diagram .cluster rect {
@@ -2002,8 +2199,8 @@ body.is-resizing-lesson-chat * {
 
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel,
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel p {
-    background: #252b34 !important;
-    color: var(--text) !important;
+    background: #0d2747 !important;
+    color: #eaf2fc !important;
 }
 
 .page[data-theme="dark"] .mermaid-diagram .edgeLabel rect {
@@ -2059,6 +2256,37 @@ body.is-resizing-lesson-chat * {
     border: 1px dashed rgba(196, 89, 89, 0.42);
     border-radius: 10px;
     background: rgba(196, 89, 89, 0.08);
+    padding: 16px;
+    overflow: auto;
+}
+
+.mermaid-diagram-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.mermaid-diagram-error-actions button {
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid rgba(var(--accent-rgb), 0.55);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.mermaid-diagram-source {
+    max-width: 100%;
+    max-height: 240px;
+    overflow: auto;
+    margin: 0;
+    padding: 10px;
+    text-align: left;
+    white-space: pre;
+    color: var(--ink);
+    background: var(--glass-bg-strong);
 }
 
 .page[data-theme="dark"] .mermaid-diagram-placeholder {
@@ -2107,7 +2335,9 @@ body.is-resizing-lesson-chat * {
     width: 100%;
     border: 1px solid rgba(var(--accent-rgb), 0.38);
     border-radius: 14px;
-    background: rgba(var(--accent-rgb), 0.1);
+    background:
+        linear-gradient(rgba(var(--accent-rgb), 0.1), rgba(var(--accent-rgb), 0.1)),
+        var(--glass-bg-strong);
     padding: 10px 12px;
     display: flex;
     justify-content: space-between;
@@ -2142,7 +2372,9 @@ body.is-resizing-lesson-chat * {
     display: inline-flex;
     padding: 5px 10px;
     border-radius: 999px;
-    background: rgba(var(--accent-soft-rgb), 0.2);
+    background:
+        linear-gradient(rgba(var(--accent-soft-rgb), 0.2), rgba(var(--accent-soft-rgb), 0.2)),
+        var(--glass-bg-strong);
     color: var(--info-text);
     font-size: 0.82rem;
     border: 1px solid rgba(var(--accent-soft-rgb), 0.45);
@@ -2253,4 +2485,42 @@ body.is-resizing-lesson-chat * {
 .lesson-practice-list li {
     color: var(--muted);
     line-height: 1.4;
+}
+
+/* На узких экранах блюр легче: это самая дорогая часть эффекта. */
+@media (max-width: 760px) {
+    .course-viewer,
+    .lesson-view {
+        --glass-blur: 12px;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .course-viewer,
+    .lesson-view {
+        --glass-backdrop: none;
+        --glass-bg-strong: var(--glass-fallback-bg);
+    }
+
+    .course-viewer .glass-card,
+    .lesson-view .glass-card,
+    .course-nav-tree,
+    .lesson-scroll-frame {
+        background: var(--glass-fallback-bg);
+    }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .course-viewer,
+    .lesson-view {
+        --glass-backdrop: none;
+        --glass-bg-strong: var(--glass-fallback-bg);
+    }
+
+    .course-viewer .glass-card,
+    .lesson-view .glass-card,
+    .course-nav-tree,
+    .lesson-scroll-frame {
+        background: var(--glass-fallback-bg);
+    }
 }

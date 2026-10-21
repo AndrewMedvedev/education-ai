@@ -2,9 +2,11 @@ import { forwardRef, useId, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ContentPreviewModal from "../ContentPreviewModal";
+import ContentBlockSources, { hasSources } from "./ContentBlockSources";
 import MermaidDiagram from "../MermaidDiagram";
 import SyntaxHighlightedCode from "../SyntaxHighlightedCode";
 import { getMediaUrl, MEDIA_FOLDERS } from "../../utils/media";
+import { normalizeQuizQuestions } from "../../utils/quiz";
 
 const allowedImageDataUrl =
   /^data:image\/(?:png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i;
@@ -23,7 +25,7 @@ function safeMarkdownUrl(url) {
   return value.includes(":") ? "" : value;
 }
 
-const createMarkdownComponents = (onPreview) => ({
+const createMarkdownComponents = (onPreview, lessonId, blockId) => ({
   code({ className, children, ...props }) {
     const match = /language-(\w+)/.exec(className || "");
     const language = match?.[1]?.toLowerCase();
@@ -34,10 +36,10 @@ const createMarkdownComponents = (onPreview) => ({
         <button
           type="button"
           className="content-preview-trigger content-preview-diagram-trigger"
-          onClick={() => onPreview({ type: "diagram", chart: code })}
+          onClick={() => onPreview({ type: "diagram", chart: code, lessonId, blockId })}
           aria-label="Открыть схему для подробного просмотра"
         >
-          <MermaidDiagram chart={code} />
+          <MermaidDiagram chart={code} lessonId={lessonId} blockId={blockId} />
         </button>
       );
     }
@@ -65,7 +67,7 @@ const getTextContent = (block) => {
   );
 };
 
-function TextBlock({ block, index, onPreview }) {
+function TextBlock({ block, index, onPreview, lessonId }) {
   const text = getTextContent(block);
 
   return (
@@ -76,7 +78,7 @@ function TextBlock({ block, index, onPreview }) {
         <div className="lesson-markdown content-block-markdown">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            components={createMarkdownComponents(onPreview)}
+            components={createMarkdownComponents(onPreview, lessonId, index)}
             urlTransform={safeMarkdownUrl}
           >
             {text}
@@ -89,63 +91,19 @@ function TextBlock({ block, index, onPreview }) {
   );
 }
 
-const normalizeQuizQuestions = (block) => {
-  const sourceQuestions = block?.questions;
+// В текстах квиза встречается markdown-выделение **так**: показываем его жирным,
+// а не звёздочками. Полный markdown здесь не нужен.
+const renderQuizInline = (text) =>
+  String(text ?? "")
+    .split(/\*\*(.+?)\*\*/g)
+    .map((part, partIndex) =>
+      partIndex % 2 === 1 ? <strong key={partIndex}>{part}</strong> : part,
+    );
 
-  if (Array.isArray(sourceQuestions)) {
-    return sourceQuestions.map((question) => {
-      if (Array.isArray(question)) {
-        return {
-          title: typeof question[0] === "string" ? question[0] : "Вопрос",
-          answer: question.slice(1).filter(Boolean).join("\n"),
-        };
-      }
+const stripQuizMarkup = (text) => String(text ?? "").replace(/\*\*(.+?)\*\*/g, "$1");
 
-      if (question && typeof question === "object") {
-        const options = Array.isArray(question.options)
-          ? question.options.join("\n")
-          : question.options;
-        const answerParts = [options, question.answer].filter(Boolean);
-
-        return {
-          title:
-            typeof question.question === "string" && question.question.trim()
-              ? question.question
-              : "Вопрос",
-          answer: answerParts.join("\n\n"),
-        };
-      }
-
-      return {
-        title: typeof question === "string" ? question : "Вопрос",
-        answer: "",
-      };
-    });
-  }
-
-  if (sourceQuestions && typeof sourceQuestions === "object") {
-    const options = Array.isArray(sourceQuestions.options)
-      ? sourceQuestions.options.join("\n")
-      : sourceQuestions.options;
-    const answerParts = [options, sourceQuestions.answer].filter(Boolean);
-
-    return [
-      {
-        title:
-          typeof sourceQuestions.question === "string" &&
-          sourceQuestions.question.trim()
-            ? sourceQuestions.question
-            : "Вопрос",
-        answer: answerParts.join("\n\n"),
-      },
-    ];
-  }
-
-  return [];
-};
-
-function QuizBlock({ block, index }) {
-  const questions = normalizeQuizQuestions(block);
+function QuizBlock({ block, index, lessonId }) {
+  const questions = normalizeQuizQuestions(block, lessonId);
   const reactId = useId();
   const quizId = String(reactId).replace(/[^a-zA-Z0-9_-]/g, "");
   const [expandedQuestions, setExpandedQuestions] = useState({});
@@ -157,15 +115,35 @@ function QuizBlock({ block, index }) {
     }));
   };
 
+  const answerableIndexes = questions
+    .map((question, questionIndex) => (question.answer || question.explanation ? questionIndex : -1))
+    .filter((questionIndex) => questionIndex >= 0);
+  const allExpanded =
+    answerableIndexes.length > 0 &&
+    answerableIndexes.every((questionIndex) => expandedQuestions[questionIndex]);
+  const toggleAll = () => {
+    setExpandedQuestions(
+      allExpanded ? {} : Object.fromEntries(answerableIndexes.map((questionIndex) => [questionIndex, true])),
+    );
+  };
+
+  if (!questions.length) return null;
+
   return (
     <article className="content-block-card">
       <div className="course-viewer-eyebrow">Блок {index + 1} · quiz</div>
-      <h3>{block.title || "Проверочные вопросы"}</h3>
-      {questions.length > 0 ? (
+      <div className="quiz-block-head">
+        <h3>{block.title || "Проверочные вопросы"}</h3>
+        {answerableIndexes.length > 1 && (
+          <button type="button" className="quiz-toggle-all" onClick={toggleAll} aria-pressed={allExpanded}>
+            {allExpanded ? "Скрыть все ответы" : "Показать все ответы"}
+          </button>
+        )}
+      </div>
         <ol className="quiz-question-list">
           {questions.map((question, questionIndex) => {
-            const title = question.title;
-            const details = question.answer;
+            const title = question.question;
+            const hasAnswerDetails = Boolean(question.answer || question.explanation);
             const isExpanded = Boolean(expandedQuestions[questionIndex]);
             const answerId = `quiz-answer-${quizId}-${index}-${questionIndex}`;
 
@@ -175,26 +153,31 @@ function QuizBlock({ block, index }) {
                   type="button"
                   className="quiz-question-toggle"
                   aria-expanded={isExpanded}
-                  aria-controls={details ? answerId : undefined}
+                  aria-controls={hasAnswerDetails ? answerId : undefined}
                   onClick={() => toggleQuestion(questionIndex)}
                 >
-                  <strong>{title}</strong>
+                  <strong>{stripQuizMarkup(title)}</strong>
                   <span aria-hidden="true">
-                    {isExpanded ? "Скрыть" : "Показать"}
+                    {isExpanded ? "Скрыть ответ" : "Показать ответ"}
                   </span>
                 </button>
-                {details && isExpanded && (
-                  <pre id={answerId} className="content-block-pre">
-                    {details}
-                  </pre>
+                {question.options.length > 0 && (
+                  <ul className="quiz-answer-options">
+                    {question.options.map((option, optionIndex) => (
+                      <li key={`option-${optionIndex}`}>{renderQuizInline(option)}</li>
+                    ))}
+                  </ul>
+                )}
+                {hasAnswerDetails && isExpanded && (
+                  <div id={answerId} className="quiz-answer-details">
+                    {question.answer && <p><strong>Ответ:</strong> {renderQuizInline(question.answer)}</p>}
+                    {question.explanation && <p><strong>Пояснение:</strong> {renderQuizInline(question.explanation)}</p>}
+                  </div>
                 )}
               </li>
             );
           })}
         </ol>
-      ) : (
-        <p className="course-viewer-muted">Вопросы в quiz-блоке отсутствуют.</p>
-      )}
     </article>
   );
 }
@@ -239,7 +222,7 @@ function ImageBlock({ block, index, ownerUserId }) {
   );
 }
 
-function MermaidBlock({ block, index, onPreview }) {
+function MermaidBlock({ block, index, onPreview, lessonId }) {
   return (
     <article className="content-block-card">
       <div className="course-viewer-eyebrow">Блок {index + 1} · mermaid</div>
@@ -252,11 +235,13 @@ function MermaidBlock({ block, index, onPreview }) {
             onPreview({
               type: "diagram",
               chart: block.md_content,
+              lessonId,
+              blockId: index,
             })
           }
           aria-label={`Открыть схему${block.title ? `: ${block.title}` : ""}`}
         >
-          <MermaidDiagram chart={block.md_content} />
+          <MermaidDiagram chart={block.md_content} lessonId={lessonId} blockId={index} />
         </button>
       ) : (
         <p className="course-viewer-muted">Код диаграммы отсутствует.</p>
@@ -344,7 +329,7 @@ function getBlockContentType(block) {
   return aliases[rawType] || rawType;
 }
 
-function renderContentBlock(block, index, onPreview, ownerUserId) {
+function renderContentBlock(block, index, onPreview, ownerUserId, lessonId) {
   const normalizedBlock = {
     ...block,
     content_type: getBlockContentType(block),
@@ -358,6 +343,7 @@ function renderContentBlock(block, index, onPreview, ownerUserId) {
           block={normalizedBlock}
           index={index}
           onPreview={onPreview}
+          lessonId={lessonId}
         />
       );
     case "video":
@@ -383,6 +369,7 @@ function renderContentBlock(block, index, onPreview, ownerUserId) {
           key={`content-${index}`}
           block={normalizedBlock}
           index={index}
+          lessonId={lessonId}
         />
       );
     case "program_code":
@@ -400,6 +387,7 @@ function renderContentBlock(block, index, onPreview, ownerUserId) {
           block={normalizedBlock}
           index={index}
           onPreview={onPreview}
+          lessonId={lessonId}
         />
       );
     case "math_formula":
@@ -441,7 +429,7 @@ function renderContentBlock(block, index, onPreview, ownerUserId) {
 }
 
 const ContentBlocks = forwardRef(function ContentBlocks(
-  { blocks, ownerUserId },
+  { blocks, ownerUserId, lessonId },
   ref,
 ) {
   const [preview, setPreview] = useState(null);
@@ -465,7 +453,20 @@ const ContentBlocks = forwardRef(function ContentBlocks(
       <h2 id="theory-title">Теория урока</h2>
       <div ref={ref} className="content-blocks-list">
         {blocks.map((block, index) =>
-          renderContentBlock(block, index, setPreview, ownerUserId),
+          hasSources(block?.sources) ? (
+            <div key={`content-${index}`} className="content-block-with-sources">
+              {renderContentBlock(
+                block,
+                index,
+                setPreview,
+                ownerUserId,
+                lessonId,
+              )}
+              <ContentBlockSources sources={block.sources} />
+            </div>
+          ) : (
+            renderContentBlock(block, index, setPreview, ownerUserId, lessonId)
+          ),
         )}
       </div>
       <ContentPreviewModal preview={preview} onClose={() => setPreview(null)} />

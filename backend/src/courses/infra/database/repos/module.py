@@ -1,19 +1,20 @@
 import logging
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
-from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository
-
-from ....domain.entities import (
+from src.courses.application.dtos import (
     BasicInfo,
-    Module,
     ModuleBasicInfo,
 )
+from src.courses.domain.entities import Module
+from src.shared.domain.exceptions import NotFoundError
+from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository
+
 from ..mappers import (
     ModuleMapper,
 )
-from ..models import LessonOrm, ModuleOrm
+from ..models import CourseOrm, LessonOrm, ModuleOrm
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,86 @@ logger = logging.getLogger(__name__)
 class SqlModuleRepository(SqlAlchemyRepository[Module, ModuleOrm]):
     model = ModuleOrm
     model_mapper = ModuleMapper  # type: ignore
+
+    async def create_at(self, module: Module) -> Module:
+        if module.order < 0:
+            raise ValueError("Module order must be non-negative")
+
+        if module.course_id is None:
+            raise ValueError("course_id is required")
+
+        locked = await self._session.scalar(
+            select(CourseOrm.id)
+            .where(CourseOrm.id == module.course_id)
+            .with_for_update(key_share=True)
+        )
+        if locked is None:
+            raise NotFoundError(f"Course {module.course_id} does not exist")
+
+        max_order = await self._session.scalar(
+            select(func.coalesce(func.max(self.model.order), 0)).where(
+                self.model.course_id == module.course_id
+            )
+        )
+
+        target = min(module.order, max_order + 1)  # pyright: ignore[reportOptionalOperand]
+
+        await self._session.execute(
+            update(self.model)
+            .where(
+                self.model.course_id == module.course_id,
+                self.model.order >= target,
+            )
+            .values(order=self.model.order + 1)
+            .execution_options(synchronize_session=False)
+        )
+
+        module.order = target
+        return await self.create(module)
+
+    async def delete_and_compact(self, module_id: UUID) -> None:
+        course_id = await self._session.scalar(
+            select(self.model.course_id).where(self.model.id == module_id)
+        )
+        if course_id is None:
+            exists = await self.exists(module_id)
+
+            if not exists:
+                raise NotFoundError(f"Module with id {module_id} not found")
+
+            # Модуль существует, но не привязан к курсу.
+            # Уплотнять порядок нечего.
+            await self.delete(module_id)
+            return
+
+        await self._session.execute(
+            select(CourseOrm.id).where(CourseOrm.id == course_id).with_for_update(key_share=True)
+        )
+
+        module_row = (
+            await self._session.execute(
+                select(self.model.order)
+                .where(
+                    self.model.id == module_id,
+                    self.model.course_id == course_id,
+                )
+                .with_for_update(key_share=True)
+            )
+        ).one_or_none()
+
+        if module_row is None:
+            raise NotFoundError(f"Module with id {module_id} not found")
+
+        await self.delete(module_id)
+
+        await self._session.execute(
+            update(self.model)
+            .where(
+                self.model.course_id == course_id,
+                self.model.order > module_row.order,
+            )
+            .values(order=self.model.order - 1)
+        )
 
     async def assign_course(
         self,
@@ -73,7 +154,20 @@ class SqlModuleRepository(SqlAlchemyRepository[Module, ModuleOrm]):
 
         return self.model_mapper.basic_info_mapper(module_row, lessons)  # type: ignore
 
-    async def read_course_id(self, module_id: UUID) -> UUID | None:
-        stmt = select(self.model.course_id).where(self.model.id == module_id)
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+    async def read_course_ownership(
+        self,
+        uid: UUID,
+    ) -> tuple[UUID, UUID] | None:
+        stmt = (
+            select(
+                CourseOrm.id.label("course_id"),
+                CourseOrm.creator_id,
+            )
+            .select_from(self.model)
+            .join(CourseOrm, CourseOrm.id == self.model.course_id)
+            .where(self.model.id == uid)
+        )
+
+        row = (await self._session.execute(stmt)).one_or_none()
+
+        return (row.course_id, row.creator_id) if row is not None else None

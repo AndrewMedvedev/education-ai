@@ -204,7 +204,9 @@ class InvitationMapper(ModelMapper[Invitation, InvitationOrm]):
             email=Email(model.email),
             token=model.token,
             invited_by=model.invited_by,
-            granted_roles=set(model.granted_roles) if model.granted_roles else None,
+            granted_roles=set(UUID(role_id) for role_id in model.granted_roles)
+            if model.granted_roles
+            else None,
             organization_id=model.organization_id,
             expires_at=model.expires_at,
             used_at=model.used_at,
@@ -221,7 +223,9 @@ class InvitationMapper(ModelMapper[Invitation, InvitationOrm]):
             email=invitation.email.value,
             token=invitation.token,
             invited_by=invitation.invited_by,
-            granted_roles=list(invitation.granted_roles) if invitation.granted_roles else None,
+            granted_roles=[str(role_id) for role_id in invitation.granted_roles]
+            if invitation.granted_roles
+            else None,
             organization_id=invitation.organization_id,
             expires_at=invitation.expires_at,
             used_at=invitation.used_at,

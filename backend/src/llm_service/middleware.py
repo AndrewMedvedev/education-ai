@@ -1,5 +1,3 @@
-# ruff: file-ignore[abstract-base-class-without-abstract-method, no-self-use, unused-method-argument]
-
 from __future__ import annotations
 
 from typing import Any
@@ -7,17 +5,17 @@ from typing import Any
 from abc import ABC
 from collections.abc import Awaitable, Callable
 
-from .schemas import (
+from .protocols import (
     LLMServiceProtocol,
     LLMTextServiceProtocol,
     ResponseT,
-    ToolCallParsed,
 )
+from .schemas import ToolCallParsed
 
 Messages = list[dict[str, Any]] | str
 
 
-class BaseAgentMiddleware(ABC):
+class BaseAgentMiddleware(ABC):  # noqa: B024
     """
     Базовый класс миддлвари для LLMService.
     Переопределяйте только нужные хуки — остальные по умолчанию
@@ -30,41 +28,36 @@ class BaseAgentMiddleware(ABC):
         service: LLMServiceProtocol,
         messages: Messages,
     ) -> Messages:
-        """Выполняет шаг middleware `before_agent`, чтобы расширить поведение агента без изменения сервиса."""
         return messages
 
     async def after_agent(
         self,
-        service: LLMServiceProtocol,
+        service: LLMServiceProtocol,  # noqa: ARG002
         response: ResponseT,
     ) -> ResponseT:
-        """Выполняет шаг middleware `after_agent`, чтобы расширить поведение агента без изменения сервиса."""
         return response
 
     # --- срабатывает перед/после КАЖДОГО вызова модели ---
     async def before_model(
         self,
-        service: LLMServiceProtocol,
+        service: LLMServiceProtocol,  # noqa: ARG002
         messages: Messages,
     ) -> Messages:
-        """Выполняет шаг middleware `before_model`, чтобы расширить поведение агента без изменения сервиса."""
         return messages
 
     async def after_model(
         self,
-        service: LLMServiceProtocol,
+        service: LLMServiceProtocol,  # noqa: ARG002
         response: ResponseT,
     ) -> ResponseT:
-        """Выполняет шаг middleware `after_model`, чтобы расширить поведение агента без изменения сервиса."""
         return response
 
     # --- оборачивает КАЖДЫЙ вызов инструмента ---
     async def wrap_tool_call(
         self,
-        service: LLMTextServiceProtocol,
+        service: LLMTextServiceProtocol,  # noqa: ARG002
         tool: ToolCallParsed,
         handler: Callable[[ToolCallParsed], Awaitable[dict]],
     ) -> dict:
         # по умолчанию просто вызываем следующий слой цепочки
-        """Выполняет шаг middleware `wrap_tool_call`, чтобы расширить поведение агента без изменения сервиса."""
         return await handler(tool)

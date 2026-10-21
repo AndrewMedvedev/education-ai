@@ -974,7 +974,7 @@
 .page[data-theme="dark"] .teacher-field textarea,
 .page[data-theme="dark"] .teacher-add-student input {
     color: var(--heading);
-    background: rgba(24, 24, 24, 0.75);
+    background: rgba(9, 31, 59, 0.9);
     border-color: rgba(var(--accent-rgb), 0.56);
 }
 
@@ -1016,7 +1016,7 @@
 .track-meta {
     margin-top: 18px;
     padding-top: 14px;
-    border-top: 1px solid rgba(var(--accent-rgb), 0.18);
+    border-top: 1px solid rgba(206, 195, 178, 0.86);
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1119,4 +1119,68 @@
     gap: 16px;
     color: var(--muted);
     font-size: 0.76rem;
+}
+
+
+/* Прогресс курса в карточках «Мои курсы» (SGK-042). */
+.profile-course-progress {
+    --profile-progress-done: #2f7d4f;
+    --profile-progress-active: #a86a00;
+    --profile-progress-track: rgba(var(--accent-rgb), 0.18);
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 6px;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.page[data-theme="dark"] .profile-course-progress {
+    --profile-progress-done: #7fd19b;
+    --profile-progress-active: #f0c060;
+    --profile-progress-track: rgba(255, 255, 255, 0.12);
+}
+
+.profile-course-progress-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.profile-course-progress-row b {
+    color: var(--heading);
+    font-weight: 800;
+}
+
+.profile-course-progress.is-in_progress .profile-course-progress-row b {
+    color: var(--profile-progress-done);
+}
+
+.profile-course-progress.is-completed .profile-course-progress-row b {
+    color: var(--profile-progress-done);
+}
+
+.profile-course-progress-bar {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--profile-progress-track);
+}
+
+.profile-course-progress-bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--profile-progress-done);
+    transition: width 0.4s ease;
+}
+
+.profile-course-progress.is-in_progress .profile-course-progress-bar > span {
+    background: var(--profile-progress-done);
+}
+
+.profile-course-progress.is-loading {
+    font-style: italic;
 }

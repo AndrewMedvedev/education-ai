@@ -28,8 +28,9 @@ from src.organization.infra.database.repos.organization import SqlOrganizationRe
 logger = logging.getLogger(__name__)
 
 ADMIN_ROLE_CODE = "admin"
-USER_ROLE_CODE = "user"
+DEFAULT_ROLE_CODE = "default_role"
 PERMISSION_PACKAGES = (
+    "src.feedback.domain.permissions",
     "src.iam.domain.permissions",
     "src.organization.domain.permissions",
     "src.courses.domain.permissions",
@@ -73,12 +74,12 @@ async def _get_or_create_user_role(session: AsyncSession) -> Role:
     _load_system_permission_modules()
     role_repo = SqlRoleRepository(session)
 
-    if role := await role_repo.get_by_code(USER_ROLE_CODE):
+    if role := await role_repo.get_by_code(DEFAULT_ROLE_CODE):
         return role
 
     role = Role(
-        name="User",
-        code=USER_ROLE_CODE,
+        name="Default_Role",
+        code=DEFAULT_ROLE_CODE,
         description="Built-in role with user system permissions.",
         permissions={
             PermissionGrant(permission=data["permission"], scope=PermissionScope(data["scope"]))
@@ -95,7 +96,7 @@ async def _get_or_create_user_role(session: AsyncSession) -> Role:
         is_default=True,
     )
     await role_repo.create(role)
-    logger.info("User role created successfully")
+    logger.info("Default_Role role created successfully")
     return role
 
 

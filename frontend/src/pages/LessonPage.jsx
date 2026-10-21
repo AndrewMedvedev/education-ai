@@ -13,6 +13,7 @@ import { getLessonContentBlocks } from "../services/courseService";
 import { useGoBack } from "../hooks/useGoBack";
 import { useTheorySessionTracker } from "../hooks/useTheorySessionTracker";
 import { useUiLayoutStore } from "../stores/uiLayoutStore";
+import { draftKey, useEditorDraftStore } from "../stores/editorDraftStore";
 import { printLessonSummary } from "../utils/printLessonSummary";
 
 export default function LessonPage({
@@ -40,6 +41,13 @@ export default function LessonPage({
   const [theoryError, setTheoryError] = useState("");
   const theoryContainerRef = useRef(null);
   const theoryContentRef = useRef(null);
+  // Несохранённая версия содержимого урока (ждёт подтверждения сохранения).
+  const pendingContentBlocks = useEditorDraftStore(
+    (state) =>
+      state.edits[draftKey("lesson", selectedLesson.id)]?.changes
+        ?.contentBlocks,
+  );
+  const draftRevision = useEditorDraftStore((state) => state.revision);
   const showStudentTabs = !isCourseEditMode;
   const activeTab = showStudentTabs ? persistedActiveTab : "theory";
   const isChatAvailable = !isCourseEditMode && activeTab === "theory";
@@ -61,11 +69,14 @@ export default function LessonPage({
             },
           ]
         : [];
+  const editorContentBlocks = Array.isArray(pendingContentBlocks)
+    ? pendingContentBlocks
+    : visibleContentBlocks;
   const editorLesson = isCourseEditMode
     ? {
         ...selectedLesson,
-        contentBlocks: visibleContentBlocks,
-        content_blocks: visibleContentBlocks,
+        contentBlocks: editorContentBlocks,
+        content_blocks: editorContentBlocks,
       }
     : selectedLesson;
   const isEditorWaitingForTheory =
@@ -295,11 +306,14 @@ export default function LessonPage({
                       </article>
                     ) : (
                       <LessonContentEditor
-                        key={`${selectedLesson.id}:${contentBlocksLessonId}`}
+                        key={`${selectedLesson.id}:${contentBlocksLessonId}:${draftRevision}`}
                         courseId={selectedCourse.id}
                         lesson={editorLesson}
+                        floatingAiEditor
                         onChange={(changes) =>
-                          updateLesson(selectedLesson.id, changes)
+                          updateLesson(selectedLesson.id, changes, {
+                            originalContentBlocks: visibleContentBlocks,
+                          })
                         }
                       />
                     )}
@@ -324,6 +338,7 @@ export default function LessonPage({
                     <ContentBlocks
                       ref={theoryContentRef}
                       blocks={visibleContentBlocks}
+                      lessonId={selectedLesson.id}
                     />
                   </div>
                 ) : null}

@@ -15,6 +15,7 @@ import {
   getModuleById,
 } from "../../services/courseService";
 import ContentBlocks from "./ContentBlocks";
+import CourseInviteDialog from "./CourseInviteDialog";
 import CourseBasicInfo from "./CourseBasicInfo";
 import LessonBasicInfo from "./LessonBasicInfo";
 import LessonList from "./LessonList";
@@ -27,6 +28,8 @@ import { useSessionStore } from "../../stores/sessionStore";
 import { useStudentStore } from "../../stores/studentStore";
 import { useUiLayoutStore } from "../../stores/uiLayoutStore";
 import { useTheorySessionTracker } from "../../hooks/useTheorySessionTracker";
+import { useCourseProgress } from "../../hooks/useCourseProgress";
+import { getModuleProgressSummary } from "../../services/progressService";
 import { getErrorMessage } from "../../utils/errors";
 import { isTokenExpired, isUuid } from "../../utils/api";
 import ModuleList from "./ModuleList";
@@ -39,6 +42,26 @@ function findBlockByLesson(course, lessonId) {
       block.lessons.some((lesson) => lesson.id === lessonId),
     ) ?? null
   );
+}
+
+// Краткая информация о курсе приходит без уроков: подставляем уроки из полной
+// структуры, чтобы дерево могло показать прогресс по каждому уроку.
+function mergeCourseLessons(course, structure) {
+  if (!course || !structure?.blocks?.length) {
+    return course;
+  }
+
+  let isChanged = false;
+  const blocks = course.blocks.map((block) => {
+    const fullBlock = structure.blocks.find((item) => item.id === block.id);
+    if (!fullBlock?.lessons?.length || block.lessons?.length) {
+      return block;
+    }
+    isChanged = true;
+    return { ...block, lessons: fullBlock.lessons };
+  });
+
+  return isChanged ? { ...course, blocks } : course;
 }
 
 function toModuleBasicInfoFromLearningBlock(block) {
@@ -92,6 +115,39 @@ function toLessonBasicInfoFromLearningLesson(lesson) {
   };
 }
 
+function CourseProgressBar({ summary }) {
+  return (
+    <div className="course-progress-summary">
+      <div className="course-progress-summary-row">
+        <span>
+          Пройдено уроков: {summary.completed} из {summary.total}
+        </span>
+        <b>{summary.percent}%</b>
+      </div>
+      <div
+        className="course-nav-progress-bar"
+        role="progressbar"
+        aria-label="Прогресс курса"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={summary.percent}
+      >
+        <span style={{ width: `${summary.percent}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function LessonPartMark({ done }) {
+  return (
+    <span
+      className={`lesson-mode-progress ${done ? "is-done" : ""}`}
+      title={done ? "Пройдено" : "Ещё не пройдено"}
+      aria-label={done ? "Пройдено" : "Ещё не пройдено"}
+    />
+  );
+}
+
 export default function CourseViewer({ localCourse = null, mode = "view" }) {
   const { courseId, blockId, lessonId } = useParams();
   const navigate = useNavigate();
@@ -117,12 +173,14 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     state.hasPermission(COURSE_PERMISSIONS.UPDATE),
   );
   const [course, setCourse] = useState(null);
+  const loadedCourseIdRef = useRef(null);
   const [selectedModuleId, setSelectedModuleId] = useState(blockId ?? null);
   const [selectedLessonId, setSelectedLessonId] = useState(lessonId ?? null);
   const [isLearningStarted, setIsLearningStarted] = useState(
     Boolean(blockId || lessonId),
   );
   const [contentBlocks, setContentBlocks] = useState([]);
+  const [contentLessonId, setContentLessonId] = useState(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollmentError, setEnrollmentError] = useState("");
   const theoryContainerRef = useRef(null);
@@ -155,6 +213,27 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     currentUserId && courseCreatorId && currentUserId === courseCreatorId,
   );
   const canViewWithoutEnrollment = isOwnCourse;
+  const canInviteToCourse = isOwnCourse || canUpdateCourse;
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const inviteControls = canInviteToCourse ? (
+    <>
+      <button
+        type="button"
+        className="btn btn-outline"
+        onClick={() => setIsInviteOpen(true)}
+      >
+        Пригласить
+      </button>
+      <CourseInviteDialog
+        open={isInviteOpen}
+        onClose={() => setIsInviteOpen(false)}
+        courseId={course?.id || effectiveCourseId}
+        courseTitle={course?.title}
+        canViewMembers={canUpdateCourse}
+        currentUserId={currentUserId}
+      />
+    </>
+  ) : null;
   const canNavigateCourseContent = isMetricsMode
     ? canUpdateCourse
     : canReadCourseContent;
@@ -205,18 +284,91 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     (isEnrolled || isOwnCourse) &&
     activeTab === "theory";
 
+  // Прогресс ведём только для записанного на курс ученика.
+  const isProgressTracked =
+    mode === "view" &&
+    canReadCourseContent &&
+    isEnrolled &&
+    isUuid(course?.id || "");
+  const {
+    lessonProgressById,
+    structure: progressStructure,
+    summary: progressSummary,
+    trackLesson,
+    completeTheory,
+    refreshLesson,
+  } = useCourseProgress(course?.id, { enabled: isProgressTracked });
+  const selectedLessonProgress = selectedLesson
+    ? lessonProgressById[selectedLesson.id]
+    : null;
+  const moduleProgressById = useMemo(() => {
+    if (!isProgressTracked || !course) {
+      return null;
+    }
+    return Object.fromEntries(
+      course.blocks.map((block) => [
+        block.id,
+        getModuleProgressSummary(block, lessonProgressById),
+      ]),
+    );
+  }, [course, isProgressTracked, lessonProgressById]);
+
   useTheorySessionTracker(selectedLesson?.id, {
     enabled: shouldTrackTheorySession,
     scrollContainerRef: theoryContainerRef,
     contentRef: theoryContentRef,
-    isContentReady: !isLoadingLesson && !error,
+    // При смене адреса курс перезагружается и теория монтируется заново —
+    // учитываем это, иначе трекер держит ссылку на уже снятый DOM-узел.
+    isContentReady: !isLoadingCourse && !isLoadingLesson && !error,
+    // Теория засчитывается автоматически, когда ученик долистал её до конца.
+    onReachEnd: isProgressTracked
+      ? (reachedLessonId) =>
+          completeTheory(
+            findBlockByLesson(course, reachedLessonId)?.id || selectedBlock?.id,
+            reachedLessonId,
+          )
+      : null,
+    canReachEnd:
+      !isLoadingLesson &&
+      Boolean(selectedLesson?.id) &&
+      contentLessonId === selectedLesson?.id,
   });
+
+  useEffect(() => {
+    if (progressStructure && course) {
+      // mergeCourseLessons возвращает тот же объект, если подставлять нечего.
+      setCourse((currentCourse) =>
+        mergeCourseLessons(currentCourse, progressStructure),
+      );
+    }
+  }, [course, progressStructure]);
+
+  useEffect(() => {
+    if (isProgressTracked && selectedBlock?.id && selectedLesson?.id) {
+      trackLesson(selectedBlock.id, selectedLesson.id);
+    }
+  }, [isProgressTracked, selectedBlock?.id, selectedLesson?.id, trackLesson]);
+
+  const handleAssessmentChecked = (field) => (result) => {
+    if (
+      isProgressTracked &&
+      selectedLesson?.id &&
+      result?.is_passed !== false
+    ) {
+      refreshLesson(selectedLesson.id, field);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadCourse() {
-      setIsLoadingCourse(true);
+      // При переходе по урокам того же курса не показываем полноэкранную загрузку:
+      // иначе дерево и теория пересоздаются, а дерево прыгает в начало.
+      const isSameCourse = loadedCourseIdRef.current === effectiveCourseId;
+      if (!isSameCourse) {
+        setIsLoadingCourse(true);
+      }
       setError(null);
 
       try {
@@ -224,11 +376,23 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
           throw new Error("Идентификатор курса не указан");
         }
 
-        const basicCourse = isMetricsMode
-          ? await getCourseLearningStructure(effectiveCourseId)
-          : !isUuid(effectiveCourseId) && localCourse?.id === effectiveCourseId
-            ? localCourse
-            : await getCourseBasicInfo(effectiveCourseId);
+        // Прямая ссылка или обновление страницы на модуле/уроке: в краткой информации
+        // о курсе уроков нет, поэтому догружаем структуру, иначе урок из адреса
+        // не находится и вместо него открывается обзор курса.
+        const isDeepLink =
+          isUuid(effectiveCourseId) && Boolean(blockId || lessonId);
+        let basicCourse =
+          isMetricsMode || isDeepLink
+            ? await getCourseLearningStructure(effectiveCourseId)
+            : !isUuid(effectiveCourseId) &&
+                localCourse?.id === effectiveCourseId
+              ? localCourse
+              : await getCourseBasicInfo(effectiveCourseId);
+
+        if (!isMetricsMode && isDeepLink && lessonId && isUuid(lessonId)) {
+          await getLessonById(lessonId).catch(() => null);
+          basicCourse = await getCourseBasicInfo(effectiveCourseId);
+        }
 
         if (!isMetricsMode && canReadCourseContent) {
           await loadMyCourses({ page: 1, size: 100 }).catch(() => null);
@@ -245,6 +409,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
           return;
         }
 
+        loadedCourseIdRef.current = effectiveCourseId;
         setCourse(basicCourse);
         setIsEnrolled(enrolled);
         setSelectedModuleId(blockId ?? null);
@@ -282,6 +447,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
   useEffect(() => {
     if (isMetricsMode || !canReadCourseContent || !selectedLesson?.id) {
       setContentBlocks([]);
+      setContentLessonId(null);
       return;
     }
 
@@ -289,6 +455,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
 
     async function loadLessonContent() {
       setIsLoadingLesson(true);
+      setContentLessonId(null);
       setError(null);
 
       try {
@@ -296,6 +463,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
 
         if (isMounted) {
           setContentBlocks(lessonBlocks);
+          setContentLessonId(selectedLesson.id);
         }
       } catch (loadError) {
         if (isMounted) {
@@ -606,6 +774,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                 </button>
               </>
             )}
+            {inviteControls}
           </div>
           {enrollmentError && (
             <p className="lesson-ai-error" role="alert">
@@ -639,6 +808,9 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                 ? "Нажмите кнопку, чтобы открыть структуру курса для чтения."
                 : "Нажмите кнопку, чтобы открыть структуру курса и начать обучение."}
             </p>
+            {isProgressTracked && progressSummary.total > 0 && (
+              <CourseProgressBar summary={progressSummary} />
+            )}
           </div>
           <div className="generated-course-actions">
             <button
@@ -648,7 +820,9 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
             >
               {canViewWithoutEnrollment
                 ? "Посмотреть теорию"
-                : "Перейти к обучению"}
+                : isProgressTracked && progressSummary.started > 0
+                  ? "Продолжить обучение"
+                  : "Перейти к обучению"}
             </button>
             {canUpdateCourse && (
               <>
@@ -668,6 +842,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                 </button>
               </>
             )}
+            {inviteControls}
           </div>
         </article>
       </section>
@@ -720,6 +895,8 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
             openLesson={openLesson}
             openPractice={() => {}}
             mode={isMetricsMode ? "metrics" : "theory"}
+            lessonProgressById={isProgressTracked ? lessonProgressById : null}
+            progressSummary={progressSummary}
           />
         ) : (
           <aside className="course-nav-tree generated-course-navigation-shell">
@@ -766,6 +943,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                   selectedModuleId=""
                   disabled={false}
                   onSelectModule={openBlock}
+                  progressById={moduleProgressById}
                 />
               </>
             ) : !selectedLesson ? (
@@ -775,6 +953,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                   lessons={moduleBasicInfo?.lessons || []}
                   selectedLessonId=""
                   onSelectLesson={openLesson}
+                  progressById={isProgressTracked ? lessonProgressById : null}
                 />
               </>
             ) : (
@@ -793,6 +972,13 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                     }
                   >
                     Теория
+                    {isProgressTracked && (
+                      <LessonPartMark
+                        done={Boolean(
+                          selectedLessonProgress?.theoryCompletedAt,
+                        )}
+                      />
+                    )}
                   </button>
                   <button
                     type="button"
@@ -803,6 +989,11 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                     }
                   >
                     Проверочные вопросы
+                    {isProgressTracked && (
+                      <LessonPartMark
+                        done={Boolean(selectedLessonProgress?.testCompletedAt)}
+                      />
+                    )}
                   </button>
                   <button
                     type="button"
@@ -813,6 +1004,13 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                     }
                   >
                     Практика
+                    {isProgressTracked && (
+                      <LessonPartMark
+                        done={Boolean(
+                          selectedLessonProgress?.practiceCompletedAt,
+                        )}
+                      />
+                    )}
                   </button>
                 </div>
 
@@ -821,12 +1019,14 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                     key={`${selectedBlock.id}:${selectedLesson.id}:test`}
                     moduleId={selectedBlock.id}
                     lessonId={selectedLesson.id}
+                    onChecked={handleAssessmentChecked("testCompletedAt")}
                   />
                 ) : activeTab === "practice" ? (
                   <LessonPracticeAgent
                     key={`${selectedBlock.id}:${selectedLesson.id}:practice`}
                     moduleId={selectedBlock.id}
                     lessonId={selectedLesson.id}
+                    onChecked={handleAssessmentChecked("practiceCompletedAt")}
                   />
                 ) : (
                   <div className="lesson-theory-content">
@@ -840,6 +1040,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                       <ContentBlocks
                         ref={theoryContentRef}
                         blocks={contentBlocks}
+                        lessonId={selectedLesson.id}
                         ownerUserId={courseCreatorId || currentUserId}
                       />
                     )}

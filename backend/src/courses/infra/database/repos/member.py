@@ -3,13 +3,13 @@ from uuid import UUID
 
 from sqlalchemy import exists, select
 
+from src.courses.domain.entities import (
+    Member,
+)
 from src.courses.domain.vo import MemberRole
 from src.shared.application.dtos import Page, Pagination
 from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository, paginate
 
-from ....domain.entities import (
-    Member,
-)
 from ..mappers import (
     MemberMapper,
 )

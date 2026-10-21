@@ -1,0 +1,661 @@
+/* Общие модальные окна редактора: подтверждения и диалоги с ИИ-агентами. */
+.app-modal-backdrop {
+    --app-modal-bg: rgba(255, 255, 255, 0.98);
+    --app-modal-row: rgba(244, 247, 251, 0.9);
+    --app-modal-border: rgba(52, 102, 202, 0.2);
+    --app-modal-danger: #b42318;
+    position: fixed;
+    z-index: 1100;
+    inset: 0;
+    display: grid;
+    place-items: start center;
+    padding: min(8vh, 72px) 16px 24px;
+    overflow-y: auto;
+    background: rgba(16, 18, 24, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: app-modal-fade 0.16s ease-out;
+}
+
+.page[data-theme="dark"] .app-modal-backdrop,
+[data-theme="dark"] .app-modal-backdrop {
+    --app-modal-bg: rgba(9, 31, 59, 0.98);
+    --app-modal-row: rgba(147, 197, 253, 0.06);
+    --app-modal-border: rgba(147, 197, 253, 0.2);
+    --app-modal-danger: #ff9a8f;
+    background: rgba(1, 8, 20, 0.72);
+}
+
+.app-modal {
+    width: min(560px, 100%);
+    max-height: calc(100dvh - min(8vh, 72px) - 24px);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--glass-border, var(--app-modal-border));
+    border-radius: 22px;
+    background: var(--app-modal-bg);
+    box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.28),
+        var(--glass-inset, none);
+    color: var(--text);
+    overflow: hidden;
+    animation: app-modal-pop 0.18s ease-out;
+}
+
+.app-modal--sm {
+    width: min(520px, 100%);
+}
+
+.app-modal--md {
+    width: min(680px, 100%);
+}
+
+.app-modal--lg {
+    width: min(860px, 100%);
+}
+
+.app-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 28px 12px;
+}
+
+.app-modal-eyebrow {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--eyebrow, var(--muted));
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.app-modal-head h2 {
+    margin: 0;
+    color: var(--heading, var(--text));
+    font-size: 1.45rem;
+    line-height: 1.25;
+}
+
+.app-modal-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.app-modal-close {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid var(--app-modal-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.app-modal-close:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(var(--accent-rgb), 0.7);
+}
+
+.app-modal-body {
+    display: grid;
+    gap: 14px;
+    min-height: 0;
+    padding: 4px 28px 18px;
+    overflow-y: auto;
+}
+
+.app-modal-foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 28px 22px;
+    border-top: 1px solid var(--app-modal-border);
+}
+
+.app-modal-danger-btn {
+    background: var(--app-modal-danger) !important;
+    border-color: var(--app-modal-danger) !important;
+    color: #fff !important;
+}
+
+.page[data-theme="dark"] .app-modal-danger-btn {
+    color: #1d1d1d !important;
+}
+
+.app-modal-error {
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(180, 35, 24, 0.1);
+    color: var(--app-modal-danger);
+    font-weight: 700;
+}
+
+.app-modal-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* Список изменений в окне подтверждения сохранения. */
+.app-changes-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.app-changes-entity {
+    display: grid;
+    gap: 8px;
+    padding: 12px 14px;
+    border: 1px solid var(--app-modal-border);
+    border-radius: 14px;
+    background: var(--app-modal-row);
+}
+
+.app-changes-entity > strong {
+    color: var(--heading, var(--text));
+}
+
+.app-changes-fields {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.app-changes-field {
+    display: grid;
+    gap: 2px;
+    font-size: 0.88rem;
+}
+
+.app-changes-field > .app-changes-label {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.app-changes-diff {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    overflow-wrap: anywhere;
+}
+
+.app-changes-diff del {
+    color: var(--muted);
+}
+
+.app-changes-diff ins {
+    color: var(--text);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* Плашка несохранённых изменений редактора курса. */
+.editor-save-bar {
+    position: fixed;
+    z-index: 900;
+    left: 50%;
+    bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    max-width: calc(100% - 32px);
+    padding: 10px 12px 10px 18px;
+    border: 1px solid rgba(var(--accent-rgb), 0.45);
+    border-radius: 999px;
+    background: var(--glass-bg-strong, rgba(248, 250, 252, 0.96));
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+    color: var(--text);
+    transform: translateX(-50%);
+}
+
+.editor-save-bar strong {
+    font-size: 0.92rem;
+}
+
+.editor-save-bar .btn {
+    min-height: 38px;
+    padding: 6px 16px;
+}
+
+.page[data-theme="dark"] .editor-save-bar {
+    background: rgba(9, 31, 59, 0.96);
+    border-color: rgba(147, 197, 253, 0.24);
+}
+
+@media (max-width: 640px) {
+    .editor-save-bar {
+        border-radius: 18px;
+        justify-content: center;
+    }
+}
+
+/* Диалог с ИИ-агентом (интервьюер модуля/урока). */
+.agent-chat {
+    display: grid;
+    gap: 12px;
+}
+
+.agent-chat-messages {
+    display: grid;
+    gap: 10px;
+    max-height: min(52vh, 460px);
+    min-height: 160px;
+    padding: 4px 2px;
+    overflow-y: auto;
+}
+
+.agent-chat-message {
+    max-width: 88%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.agent-chat-message p {
+    margin: 0 0 8px;
+}
+
+.agent-chat-message p:last-child,
+.agent-chat-message ul:last-child,
+.agent-chat-message ol:last-child {
+    margin-bottom: 0;
+}
+
+.agent-chat-message ul,
+.agent-chat-message ol {
+    margin: 0 0 8px;
+    padding-left: 20px;
+}
+
+.agent-chat-message.is-assistant {
+    justify-self: start;
+    border: 1px solid var(--app-modal-border);
+    background: var(--app-modal-row);
+}
+
+.agent-chat-message.is-user {
+    justify-self: end;
+    background: rgba(var(--accent-rgb), 0.22);
+}
+
+.agent-chat-message.is-system {
+    justify-self: center;
+    max-width: 100%;
+    background: rgba(47, 125, 79, 0.12);
+    color: var(--text);
+    font-weight: 700;
+    text-align: center;
+}
+
+.agent-chat-empty,
+.agent-chat-thinking {
+    color: var(--muted);
+    font-size: 0.92rem;
+}
+
+.agent-chat-thinking {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.agent-chat-thinking::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(var(--accent-rgb), 0.35);
+    border-top-color: rgba(var(--accent-rgb), 0.95);
+    border-radius: 50%;
+    animation: app-modal-spin 0.8s linear infinite;
+}
+
+.agent-chat-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.agent-chat-form textarea {
+    min-height: 44px;
+    max-height: 180px;
+    resize: none;
+    line-height: 1.45;
+    padding: 10px 12px;
+    border: 1px solid var(--app-modal-border);
+    border-radius: 14px;
+    background: var(--app-modal-row);
+    color: var(--text);
+    font: inherit;
+}
+
+.agent-chat-launch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid rgba(47, 125, 79, 0.35);
+    border-radius: 14px;
+    background: rgba(47, 125, 79, 0.08);
+}
+
+.agent-chat-launch span {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.agent-chat-status {
+    display: grid;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(var(--accent-rgb), 0.1);
+    font-size: 0.92rem;
+}
+
+.agent-chat-status.is-done {
+    background: rgba(47, 125, 79, 0.12);
+}
+
+.agent-chat-status.is-done > span {
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.agent-chat-status > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.agent-chat-status.is-error {
+    background: rgba(180, 35, 24, 0.1);
+    color: var(--app-modal-danger);
+}
+
+.agent-launch-summary {
+    padding: 12px 14px;
+    border: 1px solid var(--app-modal-border);
+    border-radius: 14px;
+    background: var(--app-modal-row);
+    max-height: 46vh;
+    overflow-y: auto;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.agent-launch-summary p {
+    margin: 0 0 8px;
+}
+
+.agent-launch-summary ul,
+.agent-launch-summary ol {
+    margin: 0 0 8px;
+    padding-left: 20px;
+}
+
+@keyframes app-modal-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes app-modal-pop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+}
+
+@keyframes app-modal-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Кнопки запуска ИИ-генерации на страницах редактора и в чате создания курса. */
+.course-ai-generate {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px dashed rgba(var(--accent-rgb), 0.5);
+    border-radius: 16px;
+}
+
+.course-ai-generate span {
+    flex: 1 1 260px;
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.block-lessons-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.creator-chat-launch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(47, 125, 79, 0.35);
+    border-radius: 16px;
+    background: rgba(47, 125, 79, 0.08);
+}
+
+.creator-chat-launch span {
+    flex: 1 1 260px;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+/* Пословный diff в окне подтверждения: удалённое — красным, добавленное — зелёным. */
+.app-text-diff {
+    display: block;
+    color: var(--muted);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.app-text-diff del {
+    padding: 0 2px;
+    border-radius: 4px;
+    background: rgba(180, 35, 24, 0.14);
+    color: #9b1c12;
+    text-decoration: line-through;
+}
+
+.app-text-diff ins {
+    padding: 0 2px;
+    border-radius: 4px;
+    background: rgba(47, 125, 79, 0.16);
+    color: #1f6b3f;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.page[data-theme="dark"] .app-text-diff del,
+[data-theme="dark"] .app-text-diff del {
+    background: rgba(255, 154, 143, 0.16);
+    color: #ffb4ab;
+}
+
+.page[data-theme="dark"] .app-text-diff ins,
+[data-theme="dark"] .app-text-diff ins {
+    background: rgba(127, 209, 155, 0.16);
+    color: #9be2b3;
+}
+
+.app-text-diff-empty {
+    color: var(--muted);
+    font-style: italic;
+}
+
+.app-changes-blocks {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.app-changes-blocks > li {
+    display: grid;
+    gap: 4px;
+    padding: 8px 10px;
+    border-left: 3px solid rgba(var(--accent-rgb), 0.5);
+    border-radius: 0 10px 10px 0;
+    background: rgba(var(--accent-rgb), 0.05);
+}
+
+.app-changes-blocks strong {
+    font-size: 0.84rem;
+}
+
+.app-changes-more {
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+/* Плашка демо-режима ИИ (?ai-mock=1, только dev). */
+.agent-mock-badge {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border: 1px dashed rgba(212, 150, 30, 0.6);
+    border-radius: 12px;
+    background: rgba(212, 150, 30, 0.12);
+    color: var(--text);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+/* Встроенный чат генерации — прямо в списке модулей/уроков, в месте вставки. */
+.course-insert-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.course-insert-actions button {
+    flex: 1 1 180px;
+}
+
+.course-block-insert button.is-ai,
+.lesson-insert-slot button.is-ai {
+    border-color: rgba(47, 125, 79, 0.45);
+    color: #2f7d4f;
+}
+
+.page[data-theme="dark"] .course-block-insert button.is-ai,
+.page[data-theme="dark"] .lesson-insert-slot button.is-ai {
+    border-color: rgba(127, 209, 155, 0.45);
+    color: #7fd19b;
+}
+
+.course-block-insert button.is-ai:disabled,
+.lesson-insert-slot button.is-ai:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Метка в списке: сюда встанет модуль или урок из плавающего чата. */
+.course-agent-marker,
+.lesson-agent-marker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 2px 0;
+    padding: 8px 12px;
+    border: 1.5px dashed rgba(47, 125, 79, 0.55);
+    border-radius: 14px;
+    background: rgba(47, 125, 79, 0.08);
+    color: #2f7d4f;
+    font-size: 0.84rem;
+    font-weight: 800;
+    list-style: none;
+}
+
+.course-agent-marker > div,
+.lesson-agent-marker > div {
+    display: flex;
+    gap: 6px;
+}
+
+.course-agent-marker button,
+.lesson-agent-marker button {
+    border: 1px solid rgba(47, 125, 79, 0.45);
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    padding: 4px 12px;
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.course-agent-marker button:hover,
+.lesson-agent-marker button:hover {
+    background: rgba(47, 125, 79, 0.12);
+}
+
+.page[data-theme="dark"] .course-agent-marker,
+.page[data-theme="dark"] .lesson-agent-marker {
+    border-color: rgba(127, 209, 155, 0.5);
+    background: rgba(127, 209, 155, 0.08);
+    color: #7fd19b;
+}
+
+.lesson-insert-slot {
+    list-style: none;
+}
+
+.lesson-insert-slot button {
+    width: 100%;
+    border: 1px dashed rgba(47, 125, 79, 0.4);
+    border-radius: 999px;
+    background: transparent;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.lesson-insert-slot button:hover {
+    background: rgba(47, 125, 79, 0.08);
+}

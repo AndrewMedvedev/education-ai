@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import SectionTop from "../components/SectionTop";
+import InviteDialog from "../components/invite/InviteDialog";
 import { useSessionStore } from "../stores/sessionStore";
 import {
   createOrganization,
@@ -197,6 +198,7 @@ function OrganizationDetails({
   onEditChange,
   onUpdate,
   onDelete,
+  headerActions = null,
 }) {
   if (!organization) return null;
 
@@ -207,14 +209,19 @@ function OrganizationDetails({
           <span className="organization-kicker">{title}</span>
           <h3>{organization.name}</h3>
         </div>
-        {canUpdateOrganization && !isEditing && (
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={onStartEdit}
-          >
-            Редактировать
-          </button>
+        {(headerActions || (canUpdateOrganization && !isEditing)) && (
+          <div className="organization-panel-actions">
+            {headerActions}
+            {canUpdateOrganization && !isEditing && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={onStartEdit}
+              >
+                Редактировать
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -290,8 +297,11 @@ export default function OrganizationsPage({
   canReadOwnOrganization = false,
   canUpdateOrganization = false,
   canDeleteOrganization = false,
+  canInviteToOrganization = false,
 }) {
   const organizationId = useSessionStore((state) => state.organizationId);
+  // { organization } — открытое окно приглашения в организацию.
+  const [inviteTarget, setInviteTarget] = useState(null);
   const [activeSection, setActiveSection] = useState("current");
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(null);
@@ -622,6 +632,24 @@ export default function OrganizationsPage({
     }
   };
 
+  // Приглашаем только в текущую организацию (из контекста сессии):
+  // бэкенд берёт её из токена.
+  const renderInviteActions = (organization) => {
+    const targetId = organization?.id || organizationId;
+    if (!targetId) return null;
+    if (!canInviteToOrganization || targetId !== organizationId) return null;
+    const target = organization || { id: targetId, name: "" };
+    return (
+      <button
+        type="button"
+        className="btn btn-solid"
+        onClick={() => setInviteTarget({ organization: target })}
+      >
+        Пригласить в организацию
+      </button>
+    );
+  };
+
   const renderDetails = (organization, title) => (
     <OrganizationDetails
       organization={organization}
@@ -639,6 +667,7 @@ export default function OrganizationsPage({
       }
       onUpdate={handleUpdate}
       onDelete={handleDelete}
+      headerActions={renderInviteActions(organization)}
     />
   );
 
@@ -765,6 +794,11 @@ export default function OrganizationsPage({
                     В сессии нет organization_id или данные организации
                     недоступны.
                   </p>
+                  {organizationId && renderInviteActions(null) && (
+                    <div className="organization-panel-actions">
+                      {renderInviteActions(null)}
+                    </div>
+                  )}
                 </article>
               )}
             </>
@@ -908,6 +942,13 @@ export default function OrganizationsPage({
           )}
         </div>
       </div>
+
+      <InviteDialog
+        open={Boolean(inviteTarget)}
+        organizationId={inviteTarget?.organization?.id}
+        organizationName={inviteTarget?.organization?.name}
+        onClose={() => setInviteTarget(null)}
+      />
     </section>
   );
 }

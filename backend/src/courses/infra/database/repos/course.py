@@ -3,15 +3,15 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from src.courses.application.dtos import (
+    BasicInfo,
+    CourseBasicInfo,
+)
+from src.courses.domain.entities import Course
+from src.courses.domain.enums import CourseStatus
 from src.shared.application.dtos import Page, Pagination
 from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository, paginate
 
-from ....domain.entities import (
-    BasicInfo,
-    Course,
-    CourseBasicInfo,
-)
-from ....domain.vo import CourseStatus
 from ..mappers import (
     CourseMapper,
 )
@@ -177,8 +177,11 @@ class SqlCourseRepository(SqlAlchemyRepository[Course, CourseOrm]):
             mapper=self.model_mapper.from_model,
         )
 
-    async def read_creator_id(self, course_id: UUID) -> UUID | None:
+    async def read_course_ownership(self, uid: UUID) -> tuple[UUID, UUID] | None:
         """Получает существующую запись по идентификатору или заданным параметрам."""
-        stmt = select(self.model.creator_id).where(self.model.id == course_id)
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
+        stmt = select(self.model.creator_id).where(self.model.id == uid)
+        result = (await self._session.execute(stmt)).scalar_one_or_none()
+
+        if result is None:
+            return None
+        return uid, result

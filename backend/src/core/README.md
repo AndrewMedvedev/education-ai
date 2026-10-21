@@ -2,7 +2,7 @@
 
 ## 1. Название и краткое описание
 
-`core` содержит инфраструктурное ядро приложения: создание FastAPI app, lifespan, настройки, БД, Redis, Rabbit, S3, Qdrant, monitoring, logging и Dramatiq. Это не бизнес-модуль, а shared infrastructure layer для остальных модулей.
+`core` содержит инфраструктурное ядро приложения: создание FastAPI app, lifespan, настройки, БД, Redis, Rabbit, S3, Qdrant, monitoring, logging и Taskiq. Это не бизнес-модуль, а shared infrastructure layer для остальных модулей.
 
 ## 2. Границы ответственности
 
@@ -30,7 +30,7 @@ backend/src/core/
 ├── redis/          # redis client/config
 ├── retrieval/      # retrieval config/rest
 ├── s3/             # S3 config
-├── dramatiq.py     # Dramatiq setup
+├── taskiq.py       # Taskiq: RabbitMQ, результаты Redis, retry, метрики
 ├── fastapi.py      # FastAPI app/middleware/prometheus
 ├── lifespan.py     # startup tasks
 ├── logging.py      # logging setup
@@ -76,7 +76,7 @@ backend/src/core/
 
 ## 10. Зависимости
 
-FastAPI, CORSMiddleware, Prometheus instrumentator, Redis, Rabbit/FastStream, Qdrant, SQLAlchemy, S3, Dramatiq.
+FastAPI, CORSMiddleware, Prometheus instrumentator, Redis, Rabbit/FastStream, Qdrant, SQLAlchemy, S3, Taskiq.
 
 ## 11. Конфигурация
 
@@ -91,7 +91,7 @@ FastAPI, CORSMiddleware, Prometheus instrumentator, Redis, Rabbit/FastStream, Qd
 
 ## 12. Фоновые процессы
 
-Dramatiq настраивается в `dramatiq.py`. Конкретные actors находятся в бизнес-модулях, например `courses/agents/course_generator/workflow.py`.
+Taskiq настраивается в `taskiq.py`. Задачи находятся в бизнес-модулях, например `courses/agents/course_generator/workflow.py`. API отправляет задачи через `await generate_course.kiq(...)`; воркер читает RabbitMQ, результаты сохраняет в Redis на 10 минут. Метрики воркера доступны на порту 9000. Для генерации задан таймаут 5 часов и до 6 повторов при ошибке.
 
 ## 13. Безопасность и права доступа
 
@@ -120,7 +120,7 @@ Core подключается к app до `setup_exception_handlers(app)` в `ma
 
 ## 15. Тестирование
 
-Тесты core не найдены.
+Изолированные тесты HTTP-метрик и Taskiq находятся в `backend/tests/unit/monitoring`. Интеграционные проверки инфраструктуры — в `backend/tests/integration/test_monitoring_*.py`; они запускаются только при явно заданных тестовых адресах. Подробности — в `monitoring/README.md`.
 
 ## 16. Как с этим работать разработчику
 

@@ -17,24 +17,44 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "Обзор",
+      "type": "link",
+      "url": "/d/infra-overview",
+      "keepTime": true
+    }
+  ],
   "liveNow": false,
   "panels": [
     {
       "id": 1,
+      "title": "Состояние",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 2,
       "type": "stat",
-      "title": "Postgres Connection",
+      "title": "Подключение к PostgreSQL",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
         "x": 0,
-        "y": 0
+        "y": 1,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -52,7 +72,21 @@
               }
             ]
           },
-          "mappings": []
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -79,24 +113,197 @@
           "expr": "pg_up",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Подключение к PostgreSQL"
         }
       ],
       "description": "pg_up from postgres-exporter. 1 means exporter can connect to PostgreSQL."
     },
     {
-      "id": 2,
-      "type": "stat",
-      "title": "Active Connections",
+      "id": 3,
+      "title": "Нагрузка",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Транзакции в секунду",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 0
+        "x": 0,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_commit[$__rate_interval]))",
+          "legendFormat": "Подтверждено",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_rollback[$__rate_interval]))",
+          "legendFormat": "Откачено",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Чтение и изменение строк",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 7,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_tup_fetched[$__rate_interval]))",
+          "legendFormat": "Прочитано",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_tup_inserted[$__rate_interval]))",
+          "legendFormat": "Добавлено",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_tup_updated[$__rate_interval]))",
+          "legendFormat": "Обновлено",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(rate(pg_stat_database_tup_deleted[$__rate_interval]))",
+          "legendFormat": "Удалено",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Ёмкость и насыщение",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Активные подключения",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -134,56 +341,56 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(pg_stat_activity_count)",
+          "expr": "sum(pg_stat_activity_count{state=\"active\"})",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Активные подключения"
         }
       ]
     },
     {
-      "id": 3,
-      "type": "stat",
-      "title": "Database Size",
+      "id": 8,
+      "type": "timeseries",
+      "title": "Подключения по состоянию",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 0
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "mappings": []
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
         },
         "overrides": []
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
         },
-        "orientation": "auto",
-        "textMode": "auto",
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto"
+        "tooltip": {
+          "mode": "multi"
+        }
       },
       "targets": [
         {
@@ -191,26 +398,80 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(pg_database_size_bytes)",
-          "refId": "A",
-          "instant": true,
-          "range": false
+          "expr": "sum(pg_stat_activity_count) by (state)",
+          "legendFormat": "{{state}}",
+          "refId": "A"
         }
       ]
     },
     {
-      "id": 4,
-      "type": "stat",
-      "title": "Cache Hit Ratio",
+      "id": 9,
+      "type": "timeseries",
+      "title": "Блокировки по типам",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "spanNulls": false,
+            "pointSize": 5,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(pg_locks_count) by (mode)",
+          "legendFormat": "{{mode}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Доля попаданий в кеш",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
         "x": 12,
-        "y": 0
+        "y": 24,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -248,26 +509,360 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(rate(pg_stat_database_blks_hit[5m])) / clamp_min(sum(rate(pg_stat_database_blks_hit[5m])) + sum(rate(pg_stat_database_blks_read[5m])), 0.000000001)",
+          "expr": "sum(rate(pg_stat_database_blks_hit[$__rate_interval])) / clamp_min(sum(rate(pg_stat_database_blks_hit[$__rate_interval])) + sum(rate(pg_stat_database_blks_read[$__rate_interval])), 0.000000001)",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Доля попаданий в кеш"
         }
       ]
     },
     {
-      "id": 5,
+      "title": "Использование лимита подключений",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(pg_stat_database_numbackends{job=\"postgres\"}) / max(pg_settings_max_connections{job=\"postgres\"})",
+          "refId": "A",
+          "legendFormat": "Использование лимита подключений",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Подключения с простаивающей транзакцией",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(pg_stat_activity_count{job=\"postgres\",state=~\"idle in transaction.*\"})",
+          "refId": "A",
+          "legendFormat": "Подключения с простаивающей транзакцией",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Самая долгая транзакция",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "clamp_min(max by (datname) (pg_stat_activity_max_tx_duration{job=\"postgres\"}),0)",
+          "refId": "A",
+          "legendFormat": "{{datname}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Мёртвые строки по таблицам",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "topk(10, pg_stat_user_tables_n_dead_tup{job=\"postgres\"})",
+          "refId": "A",
+          "legendFormat": "{{datname}}.{{relname}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 14,
+      "gridPos": {
+        "x": 12,
+        "y": 40,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Автоматическая очистка и анализ",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pg_stat_user_tables_autovacuum_count{job=\"postgres\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "Очистка",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(increase(pg_stat_user_tables_autoanalyze_count{job=\"postgres\"}[$__range]))",
+          "refId": "B",
+          "legendFormat": "Анализ",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Настроенный размер shared buffers",
       "type": "stat",
-      "title": "Deadlocks",
+      "description": "Размер настроенного shared_buffers, не объём фактически занятого cache.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "pg_settings_shared_buffers_bytes{job=\"postgres\"}",
+          "refId": "A",
+          "legendFormat": "Настроенный размер shared buffers",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 16,
+      "gridPos": {
+        "x": 12,
+        "y": 48,
+        "w": 12,
+        "h": 5
+      }
+    },
+    {
+      "id": 17,
+      "title": "Ошибки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Взаимные блокировки",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
+        "x": 0,
+        "y": 57,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -312,23 +907,24 @@
           "expr": "sum(increase(pg_stat_database_deadlocks[$__range])) or vector(0)",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Взаимные блокировки"
         }
       ]
     },
     {
-      "id": 6,
+      "id": 19,
       "type": "stat",
-      "title": "Rollbacks",
+      "title": "Откаты транзакций",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 0
+        "x": 12,
+        "y": 57,
+        "w": 12,
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -377,103 +973,28 @@
           "expr": "sum(increase(pg_stat_database_xact_rollback[$__range])) or vector(0)",
           "refId": "A",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Откаты транзакций"
         }
       ]
     },
     {
-      "id": 7,
+      "title": "Ошибки в логах / с",
       "type": "timeseries",
-      "title": "Transactions / sec",
+      "description": "Совпадения ERROR/exception/panic/fatal/critical в логах.",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus_main"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ops",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus_main"
-          },
-          "expr": "sum(rate(pg_stat_database_xact_commit[5m]))",
-          "legendFormat": "commits",
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus_main"
-          },
-          "expr": "sum(rate(pg_stat_database_xact_rollback[5m]))",
-          "legendFormat": "rollbacks",
-          "refId": "B"
-        }
-      ]
-    },
-    {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Connections by State",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus_main"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
+        "type": "loki",
+        "uid": "loki_main"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "normal",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -481,8 +1002,130 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate({service=\"postgres\"} |~ \"(?i)error|exception|panic|fatal|critical\" [$__interval]))",
+          "refId": "A",
+          "legendFormat": "Ошибки в логах / с",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 20,
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 12,
+        "h": 8
+      },
+      "interval": "1m"
+    },
+    {
+      "id": 21,
+      "title": "Размер БД, журнал WAL и контрольные точки",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "Размер базы данных",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 71,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "expr": "sum(pg_database_size_bytes)",
+          "refId": "A",
+          "instant": true,
+          "range": false,
+          "legendFormat": "Размер базы данных"
+        }
+      ]
+    },
+    {
+      "title": "Изменение размера БД за период",
+      "type": "timeseries",
+      "description": "Изменение gauge, может быть отрицательным; не объём записанных данных.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -494,41 +1137,91 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(pg_stat_activity_count) by (state)",
-          "legendFormat": "{{state}}",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum by (datname) (delta(pg_database_size_bytes{job=\"postgres\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "{{datname}}",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 23,
+      "gridPos": {
+        "x": 12,
+        "y": 71,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 9,
+      "title": "Размер WAL",
       "type": "timeseries",
-      "title": "Rows Fetched / Inserted / Updated / Deleted",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "pg_wal_size_bytes{job=\"postgres\"}",
+          "refId": "A",
+          "legendFormat": "Размер WAL",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 24,
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 12
+        "y": 79,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Контрольные точки в секунду",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -536,8 +1229,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -549,68 +1241,51 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(rate(pg_stat_database_tup_fetched[5m]))",
-          "legendFormat": "fetched",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_bgwriter_checkpoints_timed_total{job=\"postgres\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Плановые",
+          "instant": false,
+          "range": true
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(rate(pg_stat_database_tup_inserted[5m]))",
-          "legendFormat": "inserted",
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus_main"
-          },
-          "expr": "sum(rate(pg_stat_database_tup_updated[5m]))",
-          "legendFormat": "updated",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus_main"
-          },
-          "expr": "sum(rate(pg_stat_database_tup_deleted[5m]))",
-          "legendFormat": "deleted",
-          "refId": "D"
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_bgwriter_checkpoints_req_total{job=\"postgres\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "По запросу",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 25,
+      "gridPos": {
+        "x": 12,
+        "y": 79,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 10,
+      "title": "Время записи и синхронизации контрольных точек",
       "type": "timeseries",
-      "title": "Locks",
+      "description": "Секунды checkpoint I/O на секунду наблюдения; не query latency.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus_main"
       },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "s",
+          "min": 0,
           "custom": {
             "drawStyle": "line",
-            "lineWidth": 1,
+            "lineWidth": 2,
             "fillOpacity": 10,
-            "gradientMode": "none",
-            "spanNulls": false,
-            "pointSize": 5,
-            "showPoints": "never",
-            "stacking": {
-              "mode": "none",
-              "group": "A"
-            }
+            "spanNulls": false
           }
         },
         "overrides": []
@@ -618,8 +1293,7 @@
       "options": {
         "legend": {
           "displayMode": "list",
-          "placement": "bottom",
-          "calcs": []
+          "placement": "bottom"
         },
         "tooltip": {
           "mode": "multi"
@@ -631,25 +1305,409 @@
             "type": "prometheus",
             "uid": "prometheus_main"
           },
-          "expr": "sum(pg_locks_count) by (mode)",
-          "legendFormat": "{{mode}}",
-          "refId": "A"
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_bgwriter_checkpoint_write_time_total{job=\"postgres\"}[$__rate_interval])) / 1000",
+          "refId": "A",
+          "legendFormat": "Запись",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(pg_stat_bgwriter_checkpoint_sync_time_total{job=\"postgres\"}[$__rate_interval])) / 1000",
+          "refId": "B",
+          "legendFormat": "Синхронизация",
+          "instant": false,
+          "range": true
         }
-      ]
+      ],
+      "id": 26,
+      "gridPos": {
+        "x": 0,
+        "y": 87,
+        "w": 12,
+        "h": 8
+      }
     },
     {
-      "id": 11,
+      "id": 27,
+      "title": "Ресурсы: CPU, память, сеть и диск",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 95,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "title": "CPU контейнеров",
+      "type": "timeseries",
+      "description": "В ядрах CPU; 1 = одно полностью занятое ядро.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 28,
+      "gridPos": {
+        "x": 0,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "RAM контейнеров",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (container_memory_working_set_bytes{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 29,
+      "gridPos": {
+        "x": 12,
+        "y": 96,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Приём и отправка по сети",
+      "type": "timeseries",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Приём — {{name}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Отправка — {{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 30,
+      "gridPos": {
+        "x": 0,
+        "y": 104,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "OOM за период",
+      "type": "timeseries",
+      "description": "OOM events cAdvisor; отсутствие серии не означает ноль.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (increase(container_oom_events_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__range]))",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 31,
+      "gridPos": {
+        "x": 12,
+        "y": 104,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Время работы контейнеров",
+      "type": "timeseries",
+      "description": "Время с запуска контейнера; не история рестартов и не uptime приложения.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "time() - max by (container_label_com_docker_compose_service,name) (container_start_time_seconds{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"})",
+          "refId": "A",
+          "legendFormat": "{{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 32,
+      "gridPos": {
+        "x": 0,
+        "y": 112,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Операции чтения и записи на диск",
+      "type": "timeseries",
+      "description": "Операции блочного I/O cAdvisor, не размер диска/volume.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_main"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_reads_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__rate_interval]))",
+          "refId": "A",
+          "legendFormat": "Чтение — {{name}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus_main"
+          },
+          "editorMode": "code",
+          "expr": "sum by (container_label_com_docker_compose_service,name) (rate(container_fs_writes_total{job=\"cadvisor\",container_label_com_docker_compose_project=~\"dio-ai-courses(-local)?\",container_label_com_docker_compose_service=~\"postgres\"}[$__rate_interval]))",
+          "refId": "B",
+          "legendFormat": "Запись — {{name}}",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "id": 33,
+      "gridPos": {
+        "x": 12,
+        "y": 112,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 34,
+      "title": "Логи",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 120,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 35,
       "type": "logs",
-      "title": "Postgres Logs",
+      "title": "Логи PostgreSQL",
       "datasource": {
         "type": "loki",
         "uid": "loki_main"
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
         "x": 0,
-        "y": 20
+        "y": 121,
+        "w": 24,
+        "h": 9
       },
       "options": {
         "showTime": true,
@@ -667,7 +1725,7 @@
             "type": "loki",
             "uid": "loki_main"
           },
-          "expr": "{container_name=\"postgres\"}",
+          "expr": "{service=\"postgres\"}",
           "refId": "A"
         }
       ]
@@ -690,6 +1748,6 @@
   "timezone": "",
   "title": "Postgres",
   "uid": "postgres-overview",
-  "version": 3,
+  "version": 6,
   "weekStart": ""
 }

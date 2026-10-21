@@ -185,8 +185,8 @@ async def _create_new_stealth_context(browser: Browser) -> BrowserContext:
     """
     screen_resolution = generate_screen_resolution()
     context = await browser.new_context(
-        viewport=screen_resolution,  # type: ignore  # noqa: PGH003
-        screen=screen_resolution,  # type: ignore  # noqa: PGH003
+        viewport=screen_resolution,  # type: ignore
+        screen=screen_resolution,  # type: ignore
         user_agent=generate_user_agent(),
         accept_downloads=False,
         ignore_https_errors=True,
@@ -218,26 +218,28 @@ async def _get_current_page(browser: Browser) -> Page:
 def _extract_markdown_text(soup: BeautifulSoup) -> str:
     """Извлечение текста со страницы в формате Markdown"""
 
-    for element in soup.find_all({
-        "script",
-        "style",
-        "svg",
-        "path",
-        "meta",
-        "link",
-        "nav",
-        "footer",
-        "header",
-    }):
+    for element in soup.find_all(
+        {
+            "script",
+            "style",
+            "svg",
+            "path",
+            "meta",
+            "link",
+            "nav",
+            "footer",
+            "header",
+        }
+    ):
         element.decompose()
     body = soup.find("body")
     if body is None:
         return ""
     # Основные семантические элементы в порядке важности
     elements = body.find_all({"h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "td", "th"})
-    return "\n".join([
-        html_to_markdown.convert(str(element)).content or "" for element in elements
-    ])
+    return "\n".join(
+        [html_to_markdown.convert(str(element)).content or "" for element in elements]
+    )
 
 
 async def get_page_text(url: str) -> str:

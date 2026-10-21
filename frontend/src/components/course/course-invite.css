@@ -1,0 +1,651 @@
+/* Окно «Пригласить на курс» — в стиле карточек курса: плотное стекло, тёплые токены темы. */
+.course-invite-backdrop {
+    --invite-bg: rgba(255, 255, 255, 0.98);
+    --invite-row: rgba(244, 247, 251, 0.9);
+    --invite-border: rgba(52, 102, 202, 0.2);
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    display: grid;
+    /* окно прижато к верху: при смене вкладок оно не прыгает по вертикали */
+    place-items: start center;
+    padding: min(10vh, 96px) 16px 24px;
+    overflow-y: auto;
+    background: rgba(16, 18, 24, 0.55);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: course-invite-fade 0.16s ease-out;
+}
+
+.page[data-theme="dark"] .course-invite-backdrop {
+    --invite-bg: rgba(9, 31, 59, 0.98);
+    --invite-row: rgba(147, 197, 253, 0.06);
+    --invite-border: rgba(147, 197, 253, 0.2);
+    background: rgba(1, 8, 20, 0.72);
+}
+
+.course-invite-modal {
+    width: min(760px, 100%);
+    max-height: calc(100dvh - min(10vh, 96px) - 24px);
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--glass-border);
+    border-radius: 22px;
+    background: var(--invite-bg);
+    box-shadow:
+        0 24px 64px rgba(0, 0, 0, 0.28),
+        var(--glass-inset);
+    color: var(--text);
+    overflow: hidden;
+    animation: course-invite-pop 0.18s ease-out;
+}
+
+.course-invite-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 28px 32px 16px;
+}
+
+.course-invite-eyebrow {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--eyebrow);
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.course-invite-head h2 {
+    margin: 0;
+    color: var(--heading, var(--text));
+    font-size: 1.85rem;
+    line-height: 1.2;
+}
+
+.course-invite-head p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 1.02rem;
+    overflow-wrap: anywhere;
+}
+
+.course-invite-close,
+.course-invite-remove {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--invite-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.course-invite-remove {
+    width: 34px;
+    height: 34px;
+    font-size: 1.25rem;
+}
+
+.course-invite-close:hover:not(:disabled),
+.course-invite-remove:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(var(--accent-rgb), 0.7);
+}
+
+.course-invite-tabs {
+    display: flex;
+    gap: 6px;
+    margin: 0 32px;
+    padding: 5px;
+    border: 1px solid var(--invite-border);
+    border-radius: 999px;
+    width: max-content;
+}
+
+.course-invite-tabs button {
+    border: 0;
+    border-radius: 999px;
+    padding: 9px 20px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.course-invite-tabs button.is-active {
+    background: rgba(var(--accent-rgb), 0.22);
+    color: var(--text);
+}
+
+.course-invite-body {
+    display: grid;
+    gap: 22px;
+    padding: 22px 32px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.course-invite-field {
+    display: grid;
+    gap: 8px;
+}
+
+.course-invite-field > label,
+.course-invite-roles legend {
+    padding: 0;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.course-invite-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 7px 7px 20px;
+    border: 1px solid var(--invite-border);
+    border-radius: 999px;
+    background: var(--invite-row);
+    transition: border-color 0.15s ease;
+}
+
+.course-invite-input:focus-within {
+    border-color: rgba(var(--accent-rgb), 0.85);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+}
+
+.course-invite-input.is-plain {
+    padding: 13px 20px;
+}
+
+.course-invite-input.has-error {
+    border-color: #c7524a;
+}
+
+.course-invite-input input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 1.08rem;
+}
+
+.course-invite-add {
+    flex: none;
+    border: 1px solid rgba(var(--accent-rgb), 0.7);
+    border-radius: 999px;
+    padding: 10px 18px;
+    background: rgba(var(--accent-rgb), 0.16);
+    color: var(--ink-accent);
+    font-size: 0.98rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.course-invite-add:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.course-invite-hint,
+.course-invite-error {
+    margin: 0;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+.course-invite-hint {
+    color: var(--muted);
+}
+
+.course-invite-error {
+    color: #b8443c;
+}
+
+.page[data-theme="dark"] .course-invite-error {
+    color: #f0978f;
+}
+
+.course-invite-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.course-invite-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--invite-border);
+    border-radius: 16px;
+    background: var(--invite-row);
+}
+
+.course-invite-row.is-error {
+    border-color: rgba(199, 82, 74, 0.55);
+}
+
+.course-invite-row.is-sent {
+    border-color: rgba(76, 150, 104, 0.45);
+}
+
+.course-invite-avatar {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.24);
+    font-size: 1.05rem;
+    color: var(--ink-accent);
+    font-weight: 800;
+}
+
+.course-invite-who {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.course-invite-who strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.05rem;
+}
+
+.course-invite-who small {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.course-invite-row.is-new .course-invite-who small {
+    color: var(--info-text);
+}
+
+.course-invite-row.is-found .course-invite-who small {
+    color: var(--ink-accent);
+}
+
+.course-invite-row.is-error .course-invite-who small {
+    color: #b8443c;
+}
+
+.page[data-theme="dark"] .course-invite-row.is-error .course-invite-who small {
+    color: #f0978f;
+}
+
+.course-invite-badge {
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--invite-border);
+    font-size: 0.86rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.course-invite-badge.is-ok {
+    border-color: rgba(76, 150, 104, 0.5);
+    color: #3f8a5b;
+}
+
+.page[data-theme="dark"] .course-invite-badge.is-ok {
+    color: #8fd1a6;
+}
+
+.course-invite-badge.is-teacher {
+    background: rgba(var(--accent-rgb), 0.22);
+}
+
+.course-invite-badge.is-moderator {
+    background: rgba(var(--accent-soft-rgb), 0.2);
+}
+
+.course-invite-roles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+.course-invite-roles legend {
+    margin-bottom: 8px;
+}
+
+.course-invite-role {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    padding: 18px;
+    border: 1px solid var(--invite-border);
+    border-radius: 18px;
+    background: var(--invite-row);
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.course-invite-role input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.course-invite-role strong {
+    font-size: 1.08rem;
+}
+
+.course-invite-role small {
+    color: var(--muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.course-invite-role:hover {
+    border-color: rgba(var(--accent-rgb), 0.6);
+}
+
+.course-invite-role.is-active {
+    border-color: rgba(var(--accent-rgb), 0.95);
+    background: rgba(var(--accent-rgb), 0.16);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.6);
+}
+
+.course-invite-role:has(input:focus-visible) {
+    outline: 2px solid rgba(var(--accent-rgb), 0.85);
+    outline-offset: 2px;
+}
+
+.course-invite-roles:disabled .course-invite-role {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.course-invite-more {
+    justify-self: center;
+}
+
+.course-invite-foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 18px 32px 26px;
+    border-top: 1px solid var(--invite-border);
+}
+
+.course-invite-summary {
+    margin-right: auto;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.course-invite-foot .btn {
+    padding: 13px 24px;
+    font-size: 1.02rem;
+}
+
+.course-invite-foot .btn:disabled {
+    opacity: 0.55;
+    cursor: default;
+    transform: none;
+}
+
+@keyframes course-invite-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes course-invite-pop {
+    from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+    }
+}
+
+@media (max-width: 640px) {
+    .course-invite-backdrop {
+        place-items: end stretch;
+        padding: 0;
+    }
+
+    .course-invite-modal {
+        width: 100%;
+        max-height: 92dvh;
+        border-radius: 22px 22px 0 0;
+    }
+
+    .course-invite-roles {
+        grid-template-columns: 1fr;
+    }
+
+    .course-invite-head,
+    .course-invite-body,
+    .course-invite-foot {
+        padding-inline: 16px;
+    }
+
+    .course-invite-tabs {
+        margin-inline: 16px;
+    }
+
+    .course-invite-head h2 {
+        font-size: 1.5rem;
+    }
+
+    /* на телефоне счётчик уже виден на кнопке «Пригласить (N)» */
+    .course-invite-summary {
+        display: none;
+    }
+
+    .course-invite-foot .btn {
+        padding: 12px 18px;
+        white-space: nowrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .course-invite-backdrop,
+    .course-invite-modal {
+        animation: none;
+    }
+}
+
+/* ───── страница принятия приглашения ───── */
+.course-invite-accept-card {
+    width: min(680px, 100%);
+    margin: 40px auto 0;
+    display: grid;
+    gap: 18px;
+    padding: 44px 40px;
+    text-align: center;
+}
+
+.course-invite-accept-card h2 {
+    margin: 0;
+    font-size: clamp(1.6rem, 2.6vw, 2.15rem);
+    line-height: 1.2;
+}
+
+.course-invite-accept-card p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.course-invite-accept-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.course-invite-accept-actions .btn {
+    padding: 14px 26px;
+    font-size: 1.05rem;
+}
+
+/* ───── ожидающие приглашения и отзыв ───── */
+.course-invite-section {
+    display: grid;
+    gap: 10px;
+}
+
+.course-invite-subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.course-invite-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.course-invite-revoke {
+    flex: none;
+    border: 1px solid var(--invite-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        color 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.course-invite-revoke:hover:not(:disabled) {
+    color: var(--text);
+    border-color: rgba(199, 82, 74, 0.55);
+}
+
+.course-invite-revoke.is-confirm {
+    border-color: rgba(199, 82, 74, 0.75);
+    background: rgba(199, 82, 74, 0.12);
+    color: #b8443c;
+}
+
+.page[data-theme="dark"] .course-invite-revoke.is-confirm {
+    color: #f0978f;
+}
+
+.course-invite-revoke:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.course-invite-row.is-revoked {
+    opacity: 0.65;
+}
+
+.course-invite-row.is-pending .course-invite-who small {
+    color: var(--muted);
+}
+
+@media (max-width: 640px) {
+    .course-invite-actions .course-invite-badge {
+        display: none;
+    }
+}
+
+/* ───── статус на странице принятия приглашения ───── */
+.invite-accept-icon {
+    justify-self: center;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    background: rgba(var(--accent-rgb), 0.22);
+    color: var(--success-text);
+    font-size: 1.8rem;
+    font-weight: 800;
+}
+
+.invite-accept-icon.is-error {
+    background: rgba(199, 82, 74, 0.14);
+    color: #b8443c;
+}
+
+.page[data-theme="dark"] .invite-accept-icon.is-error {
+    color: #f0978f;
+}
+
+.invite-accept-icon.is-pending {
+    border: 3px solid rgba(var(--accent-rgb), 0.3);
+    border-top-color: rgba(var(--accent-rgb), 0.95);
+    background: transparent;
+    width: 48px;
+    height: 48px;
+    animation: invite-accept-spin 0.9s linear infinite;
+}
+
+.course-invite-accept-card .invite-accept-identity {
+    font-size: 1rem;
+}
+
+.course-invite-accept-card .invite-accept-identity strong {
+    color: var(--text);
+}
+
+@keyframes invite-accept-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .invite-accept-icon.is-pending {
+        animation-duration: 2.4s;
+    }
+}
+
+/* Выбор ролей в приглашении в систему/организацию: карточки как у ролей курса,
+   но число ролей заранее неизвестно — раскладываем по две в ряд. */
+.invite-roles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.invite-roles > p {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+    .invite-roles {
+        grid-template-columns: 1fr;
+    }
+}

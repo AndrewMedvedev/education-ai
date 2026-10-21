@@ -3,12 +3,12 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from src.courses.domain.enums import DocumentNodeType
 from src.shared.infra.database.repos.sqlalchemy import SqlAlchemyRepository
 
 from ....domain.entities import (
     Document,
 )
-from ....domain.vo import DocumentNodeType
 from ..mappers import (
     DocumentMapper,
 )

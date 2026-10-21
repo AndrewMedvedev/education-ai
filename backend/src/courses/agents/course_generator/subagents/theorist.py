@@ -4,7 +4,7 @@ import logging
 
 from pydantic import TypeAdapter
 
-from src.courses.agents.middlewares import SaveImageMiddleware
+from src.courses.agents.middlewares import ToolCallLimitMiddleware
 from src.courses.agents.schemas import Context
 from src.courses.domain.vo import (
     AnyContentBlock,
@@ -23,8 +23,8 @@ from src.llm_service import (
     BaseAgentMiddleware,
     LLMImageService,
     LLMTextService,
-    Runtime,
 )
+from src.llm_service.schemas import Runtime
 
 from ..few_shots import (
     CHEMICAL_BLOCK_FEW_SHOT,
@@ -35,8 +35,8 @@ from ..few_shots import (
     QUIZ_BLOCK_FEW_SHOT,
     TEXT_BLOCK_FEW_SHOT,
 )
-from ..tools import knowledge_search
-from .prompts import CONTENT_BLOCK_PROMPTS
+from .prompts import CONTENT_BLOCK_PROMPTS, SOURCES_URL_ONLY_INSTRUCTION
+from .reasoner import call_researcher_agent
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +48,11 @@ THEORIST_CONFIG = {
         "few_shot": CODE_BLOCK_FEW_SHOT,
     },
     ContentType.TEXT: {
-        "tools": {"knowledge_search": knowledge_search},
         "system_prompt": CONTENT_BLOCK_PROMPTS[ContentType.TEXT],
         "response_format": TextBlock,
         "few_shot": TEXT_BLOCK_FEW_SHOT,
     },
     ContentType.QUIZ: {
-        "tools": {"knowledge_search": knowledge_search},
         "system_prompt": CONTENT_BLOCK_PROMPTS[ContentType.QUIZ],
         "response_format": QuizBlock,
         "few_shot": QUIZ_BLOCK_FEW_SHOT,
@@ -90,12 +88,10 @@ async def generate_image(
     middlewares: list[BaseAgentMiddleware] | None = None,
     runtime: Runtime | None = None,
 ) -> ImageBlock:
-    """Генерирует изображение, чтобы автоматически подготовить часть учебного контента."""
     agent = LLMImageService(
         client=client,
-        runtime=runtime or Runtime(context=context),
+        runtime=runtime or Runtime(context=context, state=client),
         middlewares=[
-            SaveImageMiddleware(),
             *(middlewares or []),
         ],
     )
@@ -111,14 +107,20 @@ async def generate_text(
     middlewares: list[BaseAgentMiddleware] | None = None,
     runtime: Runtime | None = None,
 ) -> AnyContentBlock:
-    """Генерирует text, чтобы автоматически подготовить часть учебного контента."""
     content_config = THEORIST_CONFIG.get(content_type, {})
     agent = LLMTextService(
         client=client,
-        system_prompt=content_config.get("system_prompt", ""),
-        tools=content_config.get("tools"),
-        middlewares=middlewares,
-        runtime=runtime or Runtime(context=context),
+        runtime=runtime or Runtime(context=context, state=client),
+        system_prompt=(
+            f"{content_config['system_prompt']}\n\n{SOURCES_URL_ONLY_INSTRUCTION}"
+            if content_config.get("system_prompt")
+            else SOURCES_URL_ONLY_INSTRUCTION
+        ),
+        tools={"call_researcher_agent": call_researcher_agent},
+        middlewares=[
+            ToolCallLimitMiddleware(tool_limits={"call_researcher_agent": 1}),
+            *(middlewares or []),
+        ],
     )
     response_format: AnyContentBlock = content_config.get("response_format")
     content_block = await agent.invoke(
@@ -148,13 +150,13 @@ async def call_theory_agent(
     logger.info("Calling theory agent for content type `%s`  ...'", content_type.value)
     if content_type == ContentType.IMAGE:
         return await generate_image(
-            client=client,
             context=context,
+            client=client,
             prompt=prompt,
         )
     return await generate_text(
         content_type=content_type,
-        client=client,
         context=context,
+        client=client,
         prompt=prompt,
     )

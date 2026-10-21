@@ -36,7 +36,7 @@ _BLOCK_REGISTRY_DICT: dict[str, type[AnyContentBlockDict]] = {
 }
 
 
-def model_to_typed_dict[DictT](model: BaseModel) -> DictT:
+def model_to_typed_dict[DictT](model: BaseModel) -> DictT:  # pyright: ignore[reportInvalidTypeVarUse]
     return cast(
         DictT,
         model.model_dump(mode="json"),

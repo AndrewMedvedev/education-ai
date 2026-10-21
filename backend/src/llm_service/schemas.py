@@ -1,20 +1,13 @@
-# ruff: file-ignore[unnecessary-placeholder]
-
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeVar
-
-from aiohttp import ClientSession
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    from .middleware import BaseAgentMiddleware
-from asyncio import Semaphore
-from collections.abc import Sequence
+    pass
 
 from openai.types.responses import ToolParam
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from .dataclasses import StructuredTool
 from .strict_schema import to_strict_json_schema
 
 
@@ -85,52 +78,3 @@ class Runtime[B: BaseModel, T](BaseModel):
     context: B
     state: T | None = None
     messages: list[dict[str, Any]] | str = Field(default_factory=list)
-
-
-RequestT = TypeVar("RequestT", bound=BaseModel)
-ResponseT = TypeVar("ResponseT", bound=BaseModel)
-
-
-class LLMServiceProtocol(Protocol[RequestT, ResponseT]):  # pyright: ignore[reportInvalidTypeVarUse]
-    base_url: str
-    response_model: type[ResponseT]
-    _session: ClientSession
-    runtime: Runtime | None
-    middlewares: Sequence[BaseAgentMiddleware] | None
-    timeout: int
-
-    async def _send_request(self, request: RequestT, path: str) -> ResponseT:
-        """Описывает отправку HTTP-запроса к LLM-провайдеру."""
-        ...
-
-    async def _run_loop(self, *args, **kwargs) -> ResponseT:
-        """Описывает основной цикл обращения к модели и обработки ответа."""
-        ...
-
-    async def _process_response(self, response: ResponseT, *args, **kwargs) -> ResponseT:
-        """Описывает финальную обработку ответа перед возвратом результата."""
-        ...
-
-
-class LLMTextServiceProtocol(LLMServiceProtocol):
-    system_prompt: str | None
-    tools: dict[str, StructuredTool] | None
-    reasoning: Literal["low", "medium", "high"] | None
-    temperature: float | None
-    semaphore: Semaphore
-
-    async def _process_tool(self, tool: ToolCallParsed) -> dict:
-        """Описывает выполнение tool-call и преобразование результата для LLM."""
-        ...
-
-    async def _process_response(
-        self,
-        response: LLMTextResponse,
-        messages: list[dict[str, Any]],
-        schema: type[BaseModel] | None = None,
-    ) -> LLMTextResponse:
-        """Обрабатывает ответ модели и продолжает tool-loop при необходимости."""
-        ...
-
-
-class LLMImageServiceProtocol(LLMServiceProtocol): ...

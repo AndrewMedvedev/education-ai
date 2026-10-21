@@ -1,0 +1,52 @@
+/* Источники контент-блока урока (sources с backend). */
+.content-block-with-sources {
+    display: grid;
+    gap: 8px;
+}
+
+.content-block-sources {
+    display: grid;
+    gap: 6px;
+    padding: 10px 14px;
+    border: 1px dashed rgba(var(--accent-rgb), 0.38);
+    border-radius: 14px;
+    background: rgba(var(--accent-rgb), 0.05);
+    color: var(--muted);
+    font-size: 0.86rem;
+}
+
+.content-block-sources-title {
+    color: var(--ink-accent, var(--muted));
+    font-size: 0.74rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.content-block-sources ol {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding-left: 20px;
+}
+
+.content-block-sources li {
+    overflow-wrap: anywhere;
+}
+
+.content-block-sources a {
+    color: var(--eyebrow, var(--text));
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.content-block-sources a:hover,
+.content-block-sources a:focus-visible {
+    color: var(--heading, var(--text));
+}
+
+.page[data-theme="dark"] .content-block-sources {
+    border-color: rgba(147, 197, 253, 0.24);
+    background: rgba(147, 197, 253, 0.05);
+}
