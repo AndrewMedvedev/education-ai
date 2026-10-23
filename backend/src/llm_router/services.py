@@ -195,7 +195,7 @@ class LLMTextRouter(LLMRouter):
         # ]
         return await self._invoke(
             model="deepseek-v4-pro",
-            **schema.model_dump(exclude_none=True, by_alias=True),
+            schema=schema,
         )
 
 
