@@ -163,4 +163,3 @@ docker-compose.override.yml
 terraform.rc
 
 hf_cache
-.env.example

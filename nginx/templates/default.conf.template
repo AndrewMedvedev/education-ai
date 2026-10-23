@@ -59,6 +59,10 @@ server {
     # ------------------------------------------------------------
     # Everything else
     # ------------------------------------------------------------
+    location /media/ {
+        proxy_pass http://minio/${S3_BUCKET}/;
+    }
+
     location / {
         return 404;
     }

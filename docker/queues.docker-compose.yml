@@ -2,6 +2,8 @@ services:
   rabbitmq:
     image: rabbitmq:4.3-management-alpine
     container_name: rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
     ports:
       - "${RABBIT_PORT}:5672"   # AMQP protocol
       - "${RABBIT_MANAGEMENT_PORT}:15672" # Management UI
@@ -15,6 +17,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   taskiq:
     build:
@@ -37,7 +40,26 @@ services:
       - --wait-tasks-timeout
       - "600"
     env_file:
-      - ../.env.prod
+      - ../.env
+    environment:
+      SRV_IAM_CLIENT_SECRET: ${SRV_IAM_CLIENT_SECRET:-${SRV_IAM_SECRET:-}}
+      APP_PORT: 8000
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: 6333
+      QDRANT_GRPC_PORT: 6334
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBIT_HOST: rabbitmq
+      RABBIT_PORT: 5672
+      S3_ENDPOINT_URL: http://s3:9000
+      MAIL_SMTP_HOST: maildev
+      MAIL_SMTP_PORT: 1025
+      CHROMIUM_WS_ENDPOINT: ws://browserless:3000
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-${ADMIN_EMAIL:-admin@example.com}}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-${ADMIN_PASSWORD:?Set ADMIN_PASSWORD or SUPER_ADMIN_PASSWORD}}
+
     expose:
       - "9000"
     depends_on:
@@ -48,6 +70,8 @@ services:
       postgres:
         condition: service_healthy
       qdrant:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     stop_grace_period: 10m
 

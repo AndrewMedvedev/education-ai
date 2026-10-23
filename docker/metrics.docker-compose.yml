@@ -43,11 +43,11 @@ services:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GRAFANA_LLM_DB_URL: "${GRAFANA_LLM_DB_URL:-postgres:${POSTGRES_PORT:-5432}}"
+      GRAFANA_LLM_DB_URL: "${GRAFANA_LLM_DB_URL:-postgres:5432}"
       GRAFANA_LLM_DB_NAME: ${GRAFANA_LLM_DB_NAME:-${POSTGRES_DB:-postgres}}
       GRAFANA_LLM_DB_USER: ${GRAFANA_LLM_DB_USER:-grafana_llm_reader}
       GRAFANA_LLM_DB_PASSWORD: ${GRAFANA_LLM_DB_PASSWORD:-}
-      GRAFANA_LLM_DB_SSL_MODE: ${GRAFANA_LLM_DB_SSL_MODE:-require}
+      GRAFANA_LLM_DB_SSL_MODE: ${GRAFANA_LLM_DB_SSL_MODE:-disable}
 
     ports:
       - "${GRAFANA_PORT}:3000"
@@ -79,19 +79,7 @@ services:
     command:
       - "-config.file=/etc/loki/config.yml"
 
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3100/ready"
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # The image has no wget; readiness is available at /ready.
 
   alloy:
     image: grafana/alloy:latest

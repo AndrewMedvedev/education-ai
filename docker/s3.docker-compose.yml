@@ -60,7 +60,7 @@ services:
     ports:
       - "${CDN_PORT}:80"
     env_file:
-      - ../backend/.env
+      - ../.env
     environment:
       # белый список переменных для envsubst — иначе он попытается
       # подставить и nginx-переменные ($host, $scheme и т.д.) и всё сломает

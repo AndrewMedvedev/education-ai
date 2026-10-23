@@ -1,4 +1,4 @@
-# syntax = docker/dockerfile:1.9-labs    # ← обязательно для --mount=type=cache,link
+# syntax=docker/dockerfile:1
 
 # ────────────────────────────────────────────────
 # Стадия 1 — сборка зависимостей (builder)

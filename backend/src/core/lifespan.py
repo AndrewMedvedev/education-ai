@@ -28,7 +28,9 @@ async def _run_bootstrap_commands() -> None:
 
     for cmd in _BOOTSTRAP_COMMANDS:
         full_cmd = (sys.executable, "-m", *cmd)
-        await run_cli_command(*full_cmd)
+        returncode, _, _ = await run_cli_command(*full_cmd)
+        if returncode != 0:
+            raise RuntimeError(f"Bootstrap command failed: {' '.join(cmd)}")
 
 
 @asynccontextmanager

@@ -222,13 +222,16 @@ function rewriteStorageUrl(url) {
 
   try {
     const rewritten = new URL(url);
-    const publicUrl = publicHost.includes("://")
+    const publicUrl = publicHost.startsWith("/")
+      ? new URL(publicHost, window.location.origin)
+      : publicHost.includes("://")
       ? new URL(publicHost)
       : new URL(`${rewritten.protocol}//${publicHost}`);
     const publicPath = publicUrl.pathname.replace(/\/+$/, "");
 
     rewritten.protocol = publicUrl.protocol;
     rewritten.host = publicUrl.host;
+    rewritten.port = publicUrl.port;
 
     if (
       publicPath &&
