@@ -50,6 +50,10 @@ class RegistrationService:
         )
 
         await self._user_repo.create(user)
+        invitation.mark_as_used()
+        await self._invitation_repo.update(
+            invitation.id, is_used=invitation.is_used, used_at=invitation.used_at
+        )
         if membership is not None:
             await self._membership_repo.create(membership)
 

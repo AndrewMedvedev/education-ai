@@ -492,9 +492,8 @@ export async function acceptInvitation({
   full_name,
   username,
 }) {
-  const query = new URLSearchParams({ token });
   return requestJson(
-    `/invitations/accept?${query.toString()}`,
+    `/invitations/accept/${encodeURIComponent(token)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -502,6 +501,10 @@ export async function acceptInvitation({
     },
     { auth: false },
   );
+}
+
+export function previewInvitation(token) {
+  return requestJson(`/invitations/preview/${encodeURIComponent(token)}`, {}, { auth: false });
 }
 
 // Приглашение в текущую организацию (бэкенд берёт её из токена); роли — массив UUID.

@@ -1,6 +1,6 @@
 // Принятие приглашения по ссылке из письма: /invitations/:type/accept/:token,
-// где type — course или organization. Без входа сохраняем адрес возврата и ведём
-// на логин; после входа приглашение принимается автоматически.
+// где type — course или organization. Для нового пользователя сначала создаём
+// пароль; существующий пользователь входит и принимает приглашение.
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import SectionTop from "../components/SectionTop";
@@ -16,6 +16,7 @@ import {
   isTokenExpired,
 } from "../utils/api";
 import { describeAcceptError, INVITATION_TYPES } from "../utils/invitations";
+import InvitationEntry from "./InvitationEntry";
 
 const ACCEPT = {
   course: acceptCourseInvitation,
@@ -36,6 +37,13 @@ function StatusIcon({ tone }) {
 }
 
 export default function InvitationAcceptPage() {
+  const { type, token } = useParams();
+  return type === "organization" ? (
+    <InvitationEntry key={token} token={token}><ExistingInvitationAcceptPage /></InvitationEntry>
+  ) : <ExistingInvitationAcceptPage />;
+}
+
+function ExistingInvitationAcceptPage() {
   const { type = "", token = "" } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
