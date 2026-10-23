@@ -29,11 +29,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9121/metrics | grep -q '^redis_up'"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+    # This image has no shell; Prometheus monitors the /metrics endpoint.
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest

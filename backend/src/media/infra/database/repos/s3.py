@@ -25,7 +25,13 @@ class S3Client:
 
     @asynccontextmanager
     async def get_client(self) -> AsyncIterator[AioBaseClient]:
-        async with self.session.create_client(**self._config.model_dump()) as client:
+        async with self.session.create_client(
+            service_name=self._config.service_name,
+            endpoint_url=self._config.endpoint_url,
+            aws_access_key_id=self._config.access_key,
+            aws_secret_access_key=self._config.secret_key,
+            region_name="us-east-1",
+        ) as client:
             yield client
 
     async def upload(self, file: BinaryIO, storage_key: str, content_type: str) -> None:

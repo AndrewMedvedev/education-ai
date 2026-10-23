@@ -8,13 +8,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USERNAME}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      PGPORT: ${POSTGRES_PORT}
+      PGPORT: 5432
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
     ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - "${POSTGRES_PORT:-5432}:5432"
 
     healthcheck:
       test:
@@ -36,8 +36,8 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "${QDRANT_PORT}:${QDRANT_PORT}"
-      - "${QDRANT_GRPC_PORT}:${QDRANT_GRPC_PORT}"
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
     environment:
@@ -64,8 +64,8 @@ services:
         condition: service_healthy
 
     ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-      - "${REDIS_INSIGHT_PORT}:${REDIS_INSIGHT_PORT}"
+      - "${REDIS_PORT:-6379}:6379"
+      - "${REDIS_INSIGHT_PORT:-8002}:8001"
 
     volumes:
       - redis_data:/data
