@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useSessionStore } from "../stores/sessionStore";
 import { isTokenExpired } from "../utils/api";
+import InvitationEntry from "./InvitationEntry";
 
 function getRedirectPath(search) {
   const params = new URLSearchParams(search);
@@ -45,6 +46,15 @@ function getOrganizationName(membership) {
 }
 
 export default function AuthPage({ mode = "login" }) {
+  const location = useLocation();
+  const redirect = getRedirectPath(location.search);
+  const invitation = redirect.match(/^\/invitations\/organization\/accept\/([^/?#]+)$/);
+  return invitation ? (
+    <InvitationEntry key={invitation[1]} token={invitation[1]}><ExistingAuthPage mode={mode} /></InvitationEntry>
+  ) : <ExistingAuthPage mode={mode} />;
+}
+
+function ExistingAuthPage({ mode = "login" }) {
   const isRegister = mode === "register";
   const navigate = useNavigate();
   const location = useLocation();

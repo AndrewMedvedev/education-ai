@@ -1767,8 +1767,8 @@ function AppContent() {
                 path="/invitations/:type/accept/:token"
                 element={<InvitationAcceptPage />}
               />
-              {/* Адреса из писем бэкенда. /auth/invite/accept — ссылка из письма
-                  о приглашении в организацию для уже зарегистрированных. */}
+              {/* /auth/invite/accept — регистрация нового пользователя;
+                  /organizations/invitations/accept — приглашение существующего. */}
               <Route
                 path="/courses/invitations/accept/:token"
                 element={<InvitationLinkRedirect type="course" />}
