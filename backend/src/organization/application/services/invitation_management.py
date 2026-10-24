@@ -70,7 +70,7 @@ class InvitationManagementService:
     ) -> Page[InvitationSummary]:
         items = []
         for source, repo in self.repos.items():
-            invitations = await repo.list_by_organization(organization_id)
+            invitations = await repo.get_by_organization(organization_id)
             items.extend(
                 self.summarize(invitation, source) for invitation in invitations
             )
