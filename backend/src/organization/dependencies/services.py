@@ -2,7 +2,15 @@ from typing import Annotated
 
 from fastapi import Depends
 
+from src.iam.dependencies.repos import (
+    InvitationRepositoryDep,
+    MembershipRepositoryDep,
+    UserRepositoryDep,
+)
 from src.organization.application.repos import IAMRepository, MembershipRepository
+from src.organization.application.services.invitation_management import (
+    InvitationManagementService,
+)
 from src.organization.application.services.invitations import InvitationService
 from src.organization.application.services.organizations import OrganizationService
 from src.organization.infra.external_apis import IAMClient, MembershipClient
@@ -46,5 +54,24 @@ def get_invitation_service(
     )
 
 
-OrganizationServiceDep = Annotated[OrganizationService, Depends(get_organization_service)]
+OrganizationServiceDep = Annotated[
+    OrganizationService, Depends(get_organization_service)
+]
 InvitationServiceDep = Annotated[InvitationService, Depends(get_invitation_service)]
+
+
+def get_invitation_management(
+    organization_repo: InvitationRepoDep,
+    iam_repo: InvitationRepositoryDep,
+    users: UserRepositoryDep,
+    memberships: MembershipRepositoryDep,
+    transaction: TransactionDep,
+) -> InvitationManagementService:
+    return InvitationManagementService(
+        organization_repo, iam_repo, users, memberships, transaction
+    )
+
+
+InvitationManagementDep = Annotated[
+    InvitationManagementService, Depends(get_invitation_management)
+]

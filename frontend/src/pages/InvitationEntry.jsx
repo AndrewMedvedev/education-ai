@@ -17,6 +17,10 @@ export default function InvitationEntry({ token, children }) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const loginPath = `/login?${new URLSearchParams({
+    redirect: `/invitations/organization/accept/${encodeURIComponent(token)}`,
+    invitationLogin: "1",
+  })}`;
 
   useEffect(() => {
     let active = true;
@@ -47,10 +51,13 @@ export default function InvitationEntry({ token, children }) {
       const tokens = await acceptInvitation({ token, password });
       const session = useSessionStore.getState();
       session.clearSession();
+      usePermissionStore.getState().resetPermissions();
       session.setTokens(tokens);
-      const identity = await session.loadIdentity();
-      if (identity) usePermissionStore.getState().setPermissionsFromIdentity(identity);
-      session.loadCurrentUser();
+      // Registration already succeeded: profile loading must not invite a second submission.
+      session.loadIdentity().then((identity) => {
+        if (identity) usePermissionStore.getState().setPermissionsFromIdentity(identity);
+      }).catch(() => {});
+      session.loadCurrentUser().catch(() => {});
       notify("Аккаунт создан. Приглашение принято!");
       navigate("/profile", { replace: true });
     } catch (failure) {
@@ -87,11 +94,12 @@ export default function InvitationEntry({ token, children }) {
                 ? "Ссылка недействительна: приглашение использовано, отозвано или срок его действия истёк. Попросите администратора отправить новое приглашение."
                 : "Не удалось проверить приглашение. Проверьте соединение и повторите попытку."}</p>
               {!invalid && <button className="btn btn-solid" onClick={() => setAttempt((value) => value + 1)}>Повторить</button>}
-              <Link className="btn btn-outline" to="/login">Перейти ко входу</Link>
+              <Link className="btn btn-outline" to={loginPath}>Перейти ко входу</Link>
             </div>
           ) : !preview ? <p role="status">Проверяем приглашение…</p> : (
             <form className="auth-form" onSubmit={submit}>
               <p className="auth-notice">Ваш аккаунт: <strong>{preview.email}</strong><br />Email подтверждён ссылкой из письма.</p>
+              {preview.organization_name && <p className="auth-notice">Организация: <strong>{preview.organization_name}</strong></p>}
               <label>
                 <span>Новый пароль</span>
                 <input name="password" type={showPassword ? "text" : "password"} autoComplete="new-password" required
@@ -112,7 +120,7 @@ export default function InvitationEntry({ token, children }) {
                 {submitting ? "Создаём аккаунт…" : "Создать аккаунт и принять приглашение"}
               </button>
               <small>После регистрации вы автоматически войдёте в аккаунт.</small>
-              <p className="auth-switch">Уже зарегистрированы? <Link to="/login">Войти в аккаунт</Link></p>
+              <p className="auth-switch">Уже зарегистрированы? <Link to={loginPath}>Войти в аккаунт</Link></p>
             </form>
           )}
         </div>

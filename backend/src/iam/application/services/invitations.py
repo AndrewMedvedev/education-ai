@@ -4,8 +4,9 @@ from uuid import UUID
 from src.iam.domain.types import RoleId
 from src.iam.domain.vo import Email
 from src.shared.application.transaction import Transaction
-from src.shared.domain.exceptions import NotFoundError
+from src.shared.domain.exceptions import AlreadyExistsError, NotFoundError
 from src.shared.domain.repos import get_or_raise_404
+from src.shared.utils.time import current_datetime
 
 from ...domain.entities import Invitation
 from ..dtos.invitations import InvitationCreate
@@ -45,7 +46,9 @@ class InvitationService:
             default_role = await self.role_repo.get_by_code("default_role")
 
             if default_role is None:
-                raise NotFoundError("Default role with code 'default_role' was not found.")
+                raise NotFoundError(
+                    "Default role with code 'default_role' was not found."
+                )
 
             requested_roles = {RoleId(default_role.id)}
         else:
@@ -96,12 +99,24 @@ class InvitationService:
 
         return invitation
 
-    async def revoke_invitation(self, invitation_id: UUID) -> None:
+    async def revoke_invitation(
+        self, invitation_id: UUID, organization_id: UUID
+    ) -> None:
         """
         Отзыв ошибочно отправленного приглашения.
         """
-        invitation = await get_or_raise_404(self.invitation_repo.read, invitation_id, Invitation)
-
-        await self.invitation_repo.delete(invitation_id)
+        invitation = await get_or_raise_404(
+            self.invitation_repo.read, invitation_id, Invitation
+        )
+        if invitation.organization_id != organization_id:
+            raise NotFoundError("Invitation not found.")
+        if invitation.deleted_at:
+            return
+        invitation = await self.invitation_repo.get_by_token(invitation.token)
+        if invitation is None:
+            raise NotFoundError("Invitation not found.")
+        if invitation.is_used:
+            raise AlreadyExistsError("Accepted invitations cannot be revoked.")
+        await self.invitation_repo.update(invitation_id, deleted_at=current_datetime())
         await self.transaction(invitation)
         logger.info("Invitation deleted successfully")

@@ -19,22 +19,6 @@ const ROLE_TEXT = {
   },
 };
 
-// Роли для приглашения в организацию. GET /roles на бэке пока заглушка, поэтому
-// список свой. id условные: настоящие UUID ролей генерирует база при создании,
-// и права по этим id у приглашённого не появятся, пока бэк не отдаст роли.
-export const ORGANIZATION_ROLES = [
-  {
-    id: "00000000-0000-4000-8000-000000000001",
-    code: "default_role",
-    name: "Default_Role",
-  },
-  {
-    id: "00000000-0000-4000-8000-000000000002",
-    code: "admin",
-    name: "System administrator",
-  },
-];
-
 export function describeRole(role) {
   const known = ROLE_TEXT[String(role?.code || "").toLowerCase()];
   return {

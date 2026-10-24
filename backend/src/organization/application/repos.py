@@ -21,6 +21,8 @@ class OrganizationRepository(Repository[Organization]):
 
 
 class InvitationRepository(Repository[Invitation]):
+    async def list_by_organization(self, organization_id: UUID) -> tuple[Invitation, ...]: ...
+
     async def get_by_token(self, token: str) -> Invitation | None: ...
 
     async def get_active_by_email(

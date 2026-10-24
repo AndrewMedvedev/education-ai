@@ -407,3 +407,7 @@
         grid-template-columns: 1fr;
     }
 }
+.organization-invitation-email {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}

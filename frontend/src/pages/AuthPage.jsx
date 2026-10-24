@@ -49,7 +49,8 @@ export default function AuthPage({ mode = "login" }) {
   const location = useLocation();
   const redirect = getRedirectPath(location.search);
   const invitation = redirect.match(/^\/invitations\/organization\/accept\/([^/?#]+)$/);
-  return invitation ? (
+  const explicitLogin = new URLSearchParams(location.search).get("invitationLogin") === "1";
+  return invitation && !explicitLogin ? (
     <InvitationEntry key={invitation[1]} token={invitation[1]}><ExistingAuthPage mode={mode} /></InvitationEntry>
   ) : <ExistingAuthPage mode={mode} />;
 }
