@@ -13,7 +13,7 @@ class SqlInvitationRepository(SqlAlchemyRepository[Invitation, InvitationOrm]):
     model = InvitationOrm
     model_mapper = InvitationMapper  # pyright: ignore[reportAssignmentType]
 
-    async def list_by_organization(
+    async def get_by_organization(
         self, organization_id: UUID
     ) -> tuple[Invitation, ...]:
         result = await self._session.execute(
