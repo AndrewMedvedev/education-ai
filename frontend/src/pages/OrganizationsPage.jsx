@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import SectionTop from "../components/SectionTop";
 import InviteDialog from "../components/invite/InviteDialog";
+import OrganizationInvitations from "../components/invite/OrganizationInvitations";
 import { useSessionStore } from "../stores/sessionStore";
 import {
   createOrganization,
@@ -302,6 +303,7 @@ export default function OrganizationsPage({
   const organizationId = useSessionStore((state) => state.organizationId);
   // { organization } — открытое окно приглашения в организацию.
   const [inviteTarget, setInviteTarget] = useState(null);
+  const [invitationRevision, setInvitationRevision] = useState(0);
   const [activeSection, setActiveSection] = useState("current");
   const [currentOrganization, setCurrentOrganization] = useState(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(null);
@@ -940,6 +942,9 @@ export default function OrganizationsPage({
               )}
             </article>
           )}
+          {canInviteToOrganization && organizationId && (activeSection === "current" || (activeSection === "details" && selectedOrganization?.id === organizationId)) && (
+            <OrganizationInvitations key={organizationId} revision={invitationRevision} />
+          )}
         </div>
       </div>
 
@@ -948,6 +953,7 @@ export default function OrganizationsPage({
         organizationId={inviteTarget?.organization?.id}
         organizationName={inviteTarget?.organization?.name}
         onClose={() => setInviteTarget(null)}
+        onSent={() => setInvitationRevision((value) => value + 1)}
       />
     </section>
   );

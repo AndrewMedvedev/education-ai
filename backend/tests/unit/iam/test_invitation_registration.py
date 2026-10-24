@@ -30,17 +30,25 @@ def make_invitation():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("kind,exists,expected", [("iam", False, True), ("iam", True, False), ("organization", True, False)])
+@pytest.mark.parametrize(
+    "kind,exists,expected",
+    [("iam", False, True), ("iam", True, False), ("organization", True, False)],
+)
 async def test_preview_selects_registration_or_login(kind, exists, expected):
     invitation = make_invitation()
-    iam, org, users = AsyncMock(), AsyncMock(), AsyncMock()
+    iam, org, users, organizations = AsyncMock(), AsyncMock(), AsyncMock(), AsyncMock()
+    organizations.read.return_value = SimpleNamespace(name="Invited organization")
     iam.get_by_token.return_value = invitation if kind == "iam" else None
     org.get_by_token.return_value = invitation if kind == "organization" else None
     users.get_by_email.return_value = object() if exists else None
     response = Response()
-    result = await preview_invitation(invitation.token, response, iam, org, users)
+    result = await preview_invitation(
+        invitation.token, response, iam, org, users, organizations
+    )
     assert result.email == "invitee@example.com"
     assert result.registration_required is expected
+    assert result.organization_id == invitation.organization_id
+    assert result.organization_name == "Invited organization"
     assert response.headers["Cache-Control"] == "no-store"
 
 
@@ -56,36 +64,48 @@ async def test_preview_rejects_invalid_links(state):
     iam.get_by_token.return_value = None if state == "missing" else invitation
     org.get_by_token.return_value = None
     with pytest.raises(NotFoundError):
-        await preview_invitation("token", Response(), iam, org, users)
+        await preview_invitation("token", Response(), iam, org, users, AsyncMock())
     users.get_by_email.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_registration_uses_invited_email_and_persists_consumption(monkeypatch):
     invitation = make_invitation()
-    transaction, users, memberships, roles, invitations = [AsyncMock() for _ in range(5)]
+    transaction, users, memberships, roles, invitations = [
+        AsyncMock() for _ in range(5)
+    ]
     users.get_by_email.return_value = None
     invitations.get_by_token.return_value = invitation
     roles.get_by_ids.return_value = []
     service = RegistrationService(transaction, users, memberships, roles, invitations)
     module = "src.iam.application.services.registration"
     monkeypatch.setattr(f"{module}.validate_password_strength_async", AsyncMock())
-    monkeypatch.setattr(f"{module}.hash_password_async", AsyncMock(return_value="hashed"))
+    monkeypatch.setattr(
+        f"{module}.hash_password_async", AsyncMock(return_value="hashed")
+    )
     monkeypatch.setattr(f"{module}.create_tokens_for_user", lambda **kwargs: kwargs)
-    result = await service.accept_invitation(invitation.token, CreateUserDTO(password="strong-password"))
+    result = await service.accept_invitation(
+        invitation.token, CreateUserDTO(password="strong-password")
+    )
     assert result["user"].email == invitation.email
     assert result["membership"].organization_id == invitation.organization_id
-    invitations.update.assert_awaited_once_with(invitation.id, is_used=True, used_at=invitation.used_at)
+    invitations.update.assert_awaited_once_with(
+        invitation.id, is_used=True, used_at=invitation.used_at
+    )
     transaction.assert_awaited_once()
     # A consumed token cannot create another account.
     with pytest.raises(NotFoundError):
-        await service.accept_invitation(invitation.token, CreateUserDTO(password="another-password"))
+        await service.accept_invitation(
+            invitation.token, CreateUserDTO(password="another-password")
+        )
     assert users.create.await_count == 1
 
 
 @pytest.mark.asyncio
 async def test_existing_account_is_not_overwritten():
-    transaction, users, memberships, roles, invitations = [AsyncMock() for _ in range(5)]
+    transaction, users, memberships, roles, invitations = [
+        AsyncMock() for _ in range(5)
+    ]
     invitations.get_by_token.return_value = make_invitation()
     users.get_by_email.return_value = SimpleNamespace(email="invitee@example.com")
     service = RegistrationService(transaction, users, memberships, roles, invitations)
@@ -106,7 +126,9 @@ def test_registration_http_contract_accepts_password_without_email():
     app.include_router(router, prefix="/api/v1")
     app.dependency_overrides[get_registration_service] = lambda: service
     with TestClient(app) as client:
-        response = client.post("/api/v1/invitations/accept/test-token", json={"password": "test-password"})
+        response = client.post(
+            "/api/v1/invitations/accept/test-token", json={"password": "test-password"}
+        )
     assert response.status_code == 201
     assert response.json()["access_token"] == "test-access"
     call = service.accept_invitation.await_args.kwargs

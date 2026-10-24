@@ -3,9 +3,9 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { notify } from "../../stores/toastStore";
-import { inviteToOrganization } from "../../utils/api";
+import { fetchInvitationRoles, inviteToOrganization } from "../../utils/api";
 import { getErrorMessage } from "../../utils/errors";
-import { describeRole, ORGANIZATION_ROLES } from "../../utils/invitations";
+import { describeRole } from "../../utils/invitations";
 import EmailRowsField from "./EmailRowsField";
 import { useEmailRows } from "./useEmailRows";
 import "../course/course-invite.css";
@@ -16,9 +16,6 @@ const CONFIG = {
   hint: "Если у человека ещё нет аккаунта, вместе с приглашением он получит письмо для регистрации.",
   rolesLabel: "Роли в организации",
 };
-
-// Роли берём из своего списка: GET /roles на бэке пока не реализован.
-const ROLE_OPTIONS = ORGANIZATION_ROLES.map(describeRole);
 
 function sendErrorMessage(error) {
   if (error?.status === 403) return "Недостаточно прав, чтобы отправлять приглашения.";
@@ -31,6 +28,7 @@ function sendErrorMessage(error) {
 export default function InviteDialog({
   open,
   onClose,
+  onSent,
   organizationId,
   organizationName = "",
 }) {
@@ -43,6 +41,29 @@ export default function InviteDialog({
   const [roleIds, setRoleIds] = useState([]);
   const [errors, setErrors] = useState({});
   const [isSending, setIsSending] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesError, setRolesError] = useState("");
+  const [rolesAttempt, setRolesAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    setRoles([]);
+    setRoleIds([]);
+    setRolesError("");
+    setRolesLoading(true);
+    fetchInvitationRoles().then((items) => {
+      if (!active) return;
+      setRoles(items.map(describeRole));
+      if (!items.length) setRolesError("Нет доступных ролей для приглашения.");
+    }).catch((error) => {
+      if (active) setRolesError(error.status === 403
+        ? "Нет доступа к списку ролей. Обратитесь к администратору."
+        : "Не удалось загрузить роли. Повторите попытку.");
+    }).finally(() => { if (active) setRolesLoading(false); });
+    return () => { active = false; };
+  }, [open, rolesAttempt]);
 
   // Каждое открытие — чистая форма.
   useEffect(() => {
@@ -73,7 +94,7 @@ export default function InviteDialog({
   if (!open) return null;
 
   const send = async () => {
-    if (isSending) return;
+    if (isSending || rolesLoading || rolesError) return;
     const nextErrors = {};
     if (!roleIds.length) {
       nextErrors.roles = "Выберите хотя бы одну роль.";
@@ -96,6 +117,7 @@ export default function InviteDialog({
     }
     const { sent, total } = result;
     if (!sent.length) return;
+    onSent?.();
 
     notify(
       sent.length === 1
@@ -152,7 +174,9 @@ export default function InviteDialog({
 
           <fieldset className="course-invite-roles invite-roles" disabled={isSending}>
             <legend>{config.rolesLabel}</legend>
-            {ROLE_OPTIONS.map((role) => {
+            {rolesLoading && <p role="status">Загружаем роли…</p>}
+            {rolesError && <p role="alert">{rolesError} <button type="button" className="btn btn-outline" onClick={() => setRolesAttempt((value) => value + 1)}>Повторить</button></p>}
+            {roles.map((role) => {
               const checked = roleIds.includes(role.id);
               return (
                 <label
@@ -207,7 +231,7 @@ export default function InviteDialog({
             // Фокус остаётся в поле: иначе blur добавит строку и кнопка «уедет» из-под курсора.
             onMouseDown={(event) => event.preventDefault()}
             onClick={send}
-            disabled={isSending || (!rows.length && !draft.trim())}
+            disabled={isSending || rolesLoading || Boolean(rolesError) || (!rows.length && !draft.trim())}
           >
             {isSending
               ? "Отправляем…"

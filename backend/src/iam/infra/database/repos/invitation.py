@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from sqlalchemy import select
 
 from src.iam.domain.entities import Invitation
@@ -11,11 +13,21 @@ class SqlInvitationRepository(SqlAlchemyRepository[Invitation, InvitationOrm]):
     model = InvitationOrm
     model_mapper = InvitationMapper  # pyright: ignore[reportAssignmentType]
 
+    async def get_by_organization(
+        self, organization_id: UUID
+    ) -> tuple[Invitation, ...]:
+        result = await self._session.execute(
+            select(self.model).where(self.model.organization_id == organization_id)
+        )
+        return tuple(self.model_mapper.from_model(model) for model in result.scalars())
+
     async def get_by_token(self, token: str) -> Invitation | None:
         stmt = select(self.model).where(
             (self.model.token == token) & (self.model.deleted_at.is_(None)),
         )
-        result = await self._session.execute(stmt)
+        result = await self._session.execute(
+            stmt.with_for_update().execution_options(populate_existing=True)
+        )
         model = result.scalar_one_or_none()
         return self.model_mapper.from_model(model) if model else None
 
