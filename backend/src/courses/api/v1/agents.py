@@ -27,7 +27,7 @@ from src.courses.dependencies.agents import (
     PracticeAgentDep,
     TesterAgentDep,
 )
-from src.courses.dependencies.services import CheckCourseAccessDep
+from src.courses.dependencies.services import CheckCourseAccessDep, CheckModuleAccessDep
 from src.courses.domain.permissions.courses import CREATE, READ, UPDATE
 from src.courses.domain.vo import FileUploadAssignment
 from src.courses.utils.docs_processing import read_upload_with_limit
@@ -264,7 +264,7 @@ async def create_practice(
     lesson_id: UUID,
     agent: PracticeAgentDep,
     identity: CurrentIdentity,
-    check_access: CheckCourseAccessDep,
+    check_access: CheckModuleAccessDep,
 ) -> dict[str, Any]:
     await check_access(
         identity=identity,
