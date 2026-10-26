@@ -1,11 +1,12 @@
-import logging
 from typing import Annotated
+
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
 
 from src.courses.dependencies.base import MemberRepoDep
-from src.courses.dependencies.services import MemberServiceDep
+from src.courses.dependencies.services import CheckCourseAccessDep, MemberServiceDep
 from src.courses.domain.entities import Course, Member
 from src.courses.domain.permissions.courses import UPDATE
 from src.iam.dependencies import require_permissions
@@ -56,5 +57,8 @@ async def get_course_students(
     course_id: UUID,
     repo: MemberRepoDep,
     pagination: Annotated[Pagination, Query()],
+    identity: CurrentIdentity,
+    check_access: CheckCourseAccessDep,
 ) -> Page[Member]:
+    await check_access(identity=identity, permission=UPDATE, uid=course_id)
     return await repo.find_by_course(course_id, pagination)

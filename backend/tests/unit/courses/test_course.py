@@ -1,5 +1,3 @@
-# ruff: noqa: PLR6301
-
 from unittest.mock import AsyncMock
 from uuid import uuid4
 

@@ -78,7 +78,7 @@ async def get_status(
 
 
 @router.get(
-    "/{course_id}",
+    "/{course_id:uuid}",
     summary="Получить информацию о курсе",
     description="Возвращает основную информацию о курсе, его модулях и уроках.",
     status_code=status.HTTP_200_OK,

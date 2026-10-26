@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from dataclasses import asdict
 from uuid import UUID
@@ -27,7 +27,10 @@ from src.courses.dependencies.agents import (
     PracticeAgentDep,
     TesterAgentDep,
 )
-from src.courses.dependencies.services import CheckCourseAccessDep, CheckModuleAccessDep
+from src.courses.dependencies.services import (
+    CheckCourseAccessDep,
+    CheckModuleAccessDep,
+)
 from src.courses.domain.permissions.courses import CREATE, READ, UPDATE
 from src.courses.domain.vo import FileUploadAssignment
 from src.courses.utils.docs_processing import read_upload_with_limit
@@ -210,20 +213,20 @@ async def chat_with_mentor(
     summary="Сгенерировать тест для урока",
     description="Генерирует тест по указанному уроку с учётом контекста модуля и текущего пользователя.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def create_test(
     module_id: UUID,
     lesson_id: UUID,
     agent: TesterAgentDep,
     identity: CurrentIdentity,
-    check_access: CheckCourseAccessDep,
+    check_access: CheckModuleAccessDep,
 ) -> dict[str, Any]:
     await check_access(
         identity=identity,
         permission=READ,
         uid=module_id,
     )
+
     return await agent.call_agent_creator(
         user_id=identity.id,
         module_id=module_id,
@@ -236,7 +239,6 @@ async def create_test(
     summary="Проверить ответы на тест",
     description="Проверяет ответы пользователя на сгенерированный тест и возвращает результат проверки.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def check_test(
     practice: AnyKnowledgeTest,
@@ -271,6 +273,7 @@ async def create_practice(
         permission=READ,
         uid=module_id,
     )
+
     return await agent.call_agent_creator(
         user_id=identity.id,
         module_id=module_id,
@@ -283,14 +286,13 @@ async def create_practice(
     summary="Проверить практическое задание",
     description="Принимает файл с выполненным заданием, проверяет его и возвращает результат.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def check_practice(
     practice_id: UUID,
     agent: PracticeAgentDep,
     _identity: CurrentIdentity,
-    file: UploadFile = File(...),
-    practice: str = Form(),
+    file: Annotated[UploadFile, File()],
+    practice: Annotated[str, Form()],
 ) -> PracticeResult:
     practice_obj = TypeAdapter(FileUploadAssignment).validate_json(practice)
     content = await read_upload_with_limit(file)

@@ -1,7 +1,7 @@
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 
 from src.courses.application.dtos import EditLessonSchema, LessonSchema
 from src.courses.dependencies.services import (
@@ -10,8 +10,8 @@ from src.courses.dependencies.services import (
     LessonServiceDep,
 )
 from src.courses.domain.entities import AnyContentBlock, Lesson
-from src.courses.domain.permissions.courses import DELETE, READ, UPDATE
-from src.iam.dependencies import CurrentIdentity
+from src.courses.domain.permissions.courses import CREATE, DELETE, READ, UPDATE
+from src.iam.dependencies import CurrentIdentity, require_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +23,17 @@ router = APIRouter(prefix="/lessons", tags=["Lessons"])
     summary="Создать урок",
     description="Создаёт урок. При передаче идентификатора модуля сразу связывает урок с этим модулем.",
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_permissions(CREATE.code))],
 )
 async def create(
     service: LessonServiceDep,
     schema: LessonSchema,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
     module_id: UUID | None = None,
 ) -> Lesson:
+    if module_id is not None:
+        await check_access(identity=identity, permission=UPDATE, uid=module_id)
     return await service.create(module_id=module_id, schema=schema)
 
 
@@ -45,11 +50,7 @@ async def assign(
     module_id: UUID,
     lesson_id: UUID,
 ) -> None:
-    await check_access(
-        identity=identity,
-        permission=UPDATE,
-        uid=module_id,
-    )
+    await check_access(identity=identity, permission=UPDATE, uid=module_id)
     await service.assign_module(module_id=module_id, lesson_id=lesson_id)
 
 

@@ -1,5 +1,6 @@
 # pyright: reportArgumentType=false
 from typing import Annotated
+
 from uuid import UUID
 
 from fastapi import Depends
@@ -9,8 +10,8 @@ from src.courses.infra.external_apis import IAMClient, invite_user_in_organizati
 from src.shared.dependencies.database import DBSession, TransactionDep
 from src.shared.domain.exceptions import NotFoundError
 
-from ..application.repos import ProgressRepository
 from ..application.check_access import CheckAccess
+from ..application.repos import ProgressRepository
 from ..application.services.course import CourseService
 from ..application.services.document import DocumentService
 from ..application.services.invitations import InvitationService
@@ -21,15 +22,15 @@ from ..application.services.progress import LearningProgressService
 from ..domain.entities import CourseProgress, LessonProgress, ModuleProgress
 from ..infra.services import course_client
 from .base import (
-    CourseRepoDep,
     CourseProgressRepoDep,
+    CourseRepoDep,
     DocumentRepoDep,
     InvitationRepoDep,
-    LessonRepoDep,
     LessonProgressRepoDep,
-    ModuleRepoDep,
-    ModuleProgressRepoDep,
+    LessonRepoDep,
     MemberRepoDep,
+    ModuleProgressRepoDep,
+    ModuleRepoDep,
 )
 
 

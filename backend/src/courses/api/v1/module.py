@@ -28,8 +28,12 @@ router = APIRouter(prefix="/modules", tags=["Modules"])
 async def create(
     service: ModuleServiceDep,
     schema: ModuleSchema,
+    identity: CurrentIdentity,
+    check_access: CheckCourseAccessDep,
     course_id: UUID | None = None,
 ) -> Module:
+    if course_id is not None:
+        await check_access(identity=identity, permission=UPDATE, uid=course_id)
     return await service.create(course_id=course_id, schema=schema)
 
 
@@ -46,11 +50,8 @@ async def assign(
     module_id: UUID,
     course_id: UUID,
 ) -> None:
-    await check_access(
-        identity=identity,
-        permission=UPDATE,
-        uid=course_id,
-    )
+    await check_access(identity=identity, permission=UPDATE, uid=course_id)
+
     await service.assign_course(module_id=module_id, course_id=course_id)
 
 

@@ -18,7 +18,13 @@ from ...dependencies.base import (
     LessonProgressRepoDep,
     ModuleProgressRepoDep,
 )
-from ...dependencies.services import CheckCourseAccessDep, LearningProgressServiceDep, get_progress
+from ...dependencies.services import (
+    CheckCourseAccessDep,
+    CheckLessonAccessDep,
+    CheckModuleAccessDep,
+    LearningProgressServiceDep,
+    get_progress,
+)
 from ...domain.entities import CourseProgress, LessonProgress, ModuleProgress
 from ...domain.events import LessonProgressUpdated
 from ...domain.permissions.courses import READ, UPDATE
@@ -44,7 +50,9 @@ async def create_course_progress(
     course_id: UUID,
     identity: CurrentIdentity,
     service: LearningProgressServiceDep,
+    check_access: CheckCourseAccessDep,
 ) -> CourseProgress:
+    await check_access(identity=identity, permission=READ, uid=course_id)
     return await service.create_course_progress(identity.id, course_id)
 
 
@@ -66,7 +74,6 @@ async def read_course_progress(
     "/courses/{course_id}",
     summary="Обновить прогресс курса",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def update_course_progress(
     course_id: UUID,
@@ -74,7 +81,9 @@ async def update_course_progress(
     identity: CurrentIdentity,
     repo: CourseProgressRepoDep,
     service: LearningProgressServiceDep,
+    check_access: CheckCourseAccessDep,
 ) -> CourseProgress:
+    await check_access(identity=identity, permission=READ, uid=course_id)
     progress = await get_progress(identity.id, course_id, repo)
     return await service.update_course_progress(progress, total_lessons)
 
@@ -83,7 +92,6 @@ async def update_course_progress(
     "/courses/{course_id}/students",
     summary="Получить прогресс учеников курса",
     description="Возвращает сохранённые записи прогресса всех учеников курса. Доступно автору и преподавателям этого курса.",
-    dependencies=[Depends(require_permissions(UPDATE.code))],
 )
 async def get_course_students_progress(
     course_id: UUID,
@@ -103,14 +111,15 @@ async def get_course_students_progress(
     summary="Создать прогресс модуля",
     description="Создаёт запись прогресса текущего ученика по модулю. Прогресс курса создаётся автоматически, если его ещё нет.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def create_module_progress(
     module_id: UUID,
     course_id: UUID,
     identity: CurrentIdentity,
     service: LearningProgressServiceDep,
+    check_access: CheckCourseAccessDep,
 ) -> ModuleProgress:
+    await check_access(identity=identity, permission=READ, uid=course_id)
     return await service.create_module_progress(identity.id, course_id, module_id)
 
 
@@ -124,7 +133,9 @@ async def read_module_progress(
     module_id: UUID,
     identity: CurrentIdentity,
     repo: ModuleProgressRepoDep,
+    check_access: CheckModuleAccessDep,
 ) -> ModuleProgress:
+    await check_access(identity=identity, permission=READ, uid=module_id)
     return await get_progress(identity.id, module_id, repo)
 
 
@@ -133,14 +144,15 @@ async def read_module_progress(
     summary="Создать прогресс урока",
     description="Создаёт запись прогресса текущего ученика по уроку. Прогресс модуля и курса создаётся автоматически, если его ещё нет.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def create_lesson_progress(
     lesson_id: UUID,
     module_id: UUID,
     identity: CurrentIdentity,
     service: LearningProgressServiceDep,
+    check_access: CheckModuleAccessDep,
 ) -> LessonProgress:
+    await check_access(identity=identity, permission=READ, uid=module_id)
     return await service.create_lesson_progress(identity.id, module_id, lesson_id)
 
 
@@ -148,13 +160,14 @@ async def create_lesson_progress(
     "/lessons/{lesson_id}",
     summary="Получить прогресс урока",
     description="Возвращает сохранённую запись прогресса текущего ученика по указанному уроку.",
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def read_lesson_progress(
     lesson_id: UUID,
     identity: CurrentIdentity,
     repo: LessonProgressRepoDep,
+    check_access: CheckLessonAccessDep,
 ) -> LessonProgress:
+    await check_access(identity=identity, permission=READ, uid=lesson_id)
     return await get_progress(identity.id, lesson_id, repo)
 
 
@@ -162,14 +175,15 @@ async def read_lesson_progress(
     "/lessons/{lesson_id}",
     summary="Отметить теорию урока пройденной",
     description="Сохраняет время завершения теории. Практика и тест обновляются только после серверной проверки через событие.",
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def mark_lesson_theory_completed(
     lesson_id: UUID,
     identity: CurrentIdentity,
     repo: LessonProgressRepoDep,
     service: LearningProgressServiceDep,
+    check_access: CheckLessonAccessDep,
 ) -> LessonProgress:
+    await check_access(identity=identity, permission=READ, uid=lesson_id)
     progress = await get_progress(identity.id, lesson_id, repo)
     return await service.update(
         progress,

@@ -3,7 +3,7 @@ from typing import Annotated
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from src.courses.application.dtos import LessonTheorySessionEditSchema, LessonTheorySessionFilters
 from src.courses.dependencies.base import DBSession, TheorySessionRepoDep
@@ -11,7 +11,6 @@ from src.courses.dependencies.services import CheckLessonAccessDep
 from src.courses.domain.entities import LessonTheorySession
 from src.courses.domain.permissions.courses import READ as READ_COURSE
 from src.courses.domain.permissions.theory_session import READ
-from src.iam.dependencies import require_permissions
 from src.iam.dependencies.identity import CurrentIdentity
 
 logger = logging.getLogger(__name__)
@@ -49,15 +48,19 @@ async def create(
     status_code=status.HTTP_200_OK,
 )
 async def update(
-    _identity: CurrentIdentity,
+    identity: CurrentIdentity,
+    check_access: CheckLessonAccessDep,
     repo: TheorySessionRepoDep,
     session: DBSession,
     theory_session_id: UUID,
     schema: LessonTheorySessionEditSchema,
 ) -> LessonTheorySession:
-    exsists = await repo.exists(uid=theory_session_id)
-    if not exsists:
+    theory_session = await repo.read(theory_session_id)
+    if theory_session is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metrics not found")
+    await check_access(identity=identity, permission=READ_COURSE, uid=theory_session.lesson_id)
+    if theory_session.user_id != identity.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     result = await repo.update(uid=theory_session_id, **schema.model_dump(exclude_none=True))
     await session.commit()
     return result  # pyright: ignore[reportReturnType]
@@ -68,7 +71,6 @@ async def update(
     summary="Получить сессии изучения теории пользователя",
     description="Возвращает историю сессий изучения указанного урока выбранным пользователем с учётом фильтров по дате.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(READ.code))],
 )
 async def get(
     user_id: UUID,
