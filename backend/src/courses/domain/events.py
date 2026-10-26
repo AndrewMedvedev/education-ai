@@ -1,6 +1,7 @@
+from typing import ClassVar
+
 from dataclasses import dataclass
 from datetime import datetime
-from typing import ClassVar
 from uuid import UUID
 
 from pydantic import BaseModel

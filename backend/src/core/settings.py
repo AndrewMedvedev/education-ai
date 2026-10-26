@@ -47,7 +47,7 @@ class LangSmithConfig(BaseSettings):
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="APP_")
 
-    name: str = Field(description="Название приложения.", examples=[""])
+    name: str = Field(default="ТИУ", description="Название приложения.", examples=[""])
     port: int = 8000
     version: str = Field(description="Актуальная версия приложения.", examples=["12.5.1"])
 
