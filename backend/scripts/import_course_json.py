@@ -9,15 +9,23 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import sys
 from pathlib import Path
 from uuid import UUID
 
-from sqlalchemy import select
+# When launched as ``python scripts/import_course_json.py``, Python places
+# ``/app/scripts`` (not ``/app``) on sys.path. Add the backend root so imports
+# from the application's ``src`` package work both locally and in Docker.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
-from src.core.database import session_factory
-from src.courses.domain.enums import CourseStatus, DifficultyLevel
-from src.courses.infra.database.models import CourseOrm, LessonOrm, ModuleOrm
-from src.features.add_course import create_content_block
+from sqlalchemy import select  # noqa: E402
+
+from src.core.database import session_factory  # noqa: E402
+from src.courses.domain.enums import CourseStatus, DifficultyLevel  # noqa: E402
+from src.courses.infra.database.models import CourseOrm, LessonOrm, ModuleOrm  # noqa: E402
+from src.features.add_course import create_content_block  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
