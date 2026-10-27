@@ -1,4 +1,4 @@
-import { apiFetch, readStoredSession } from "../utils/api";
+import { apiFetch, isTokenExpired, readStoredSession } from "../utils/api";
 
 const API_BASE = "/api/v1";
 
@@ -109,9 +109,13 @@ export async function getTheorySessions(
 }
 
 export function updateSessionKeepalive(sessionId, metrics) {
-  const accessToken = readStoredSession().accessToken;
+  const session = readStoredSession();
+  const accessToken = session.accessToken;
 
-  if (!accessToken || !sessionId) {
+  // На pagehide нельзя безопасно дождаться refresh-токена. Не отправляем заведомо
+  // неавторизованный keepalive: обычный updateSession сохранит метрики при
+  // переходе внутри приложения, а новая теория создаст отдельную сессию.
+  if (!accessToken || !sessionId || isTokenExpired(session.expiresAt)) {
     return false;
   }
 

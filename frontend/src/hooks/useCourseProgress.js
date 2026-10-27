@@ -22,10 +22,33 @@ const EMPTY_STATE = {
   lessonProgressById: {},
   lessonIds: [],
   structure: null,
+  hasLessonProgressErrors: false,
 };
 
-function wait(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function wait(ms, signal) {
+  return new Promise((resolve) => {
+    if (signal?.aborted) {
+      resolve(false);
+      return;
+    }
+    const timeoutId = setTimeout(() => {
+      signal?.removeEventListener("abort", handleAbort);
+      resolve(true);
+    }, ms);
+    function handleAbort() {
+      clearTimeout(timeoutId);
+      resolve(false);
+    }
+    signal?.addEventListener("abort", handleAbort, { once: true });
+  });
+}
+
+function getProgressErrorMessage(error) {
+  return (
+    error?.userMessage ||
+    error?.message ||
+    "Не удалось обновить прогресс курса."
+  );
 }
 
 function collectLessonIds(course) {
@@ -45,6 +68,7 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
   const lessonProgressRef = useRef({});
   const theoryRequestsRef = useRef(new Set());
   const refreshTokensRef = useRef({});
+  const refreshControllersRef = useRef({});
 
   const isActive = useCallback(
     (targetCourseId) => activeCourseIdRef.current === targetCourseId,
@@ -68,7 +92,6 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
   const syncPercent = useCallback(
     async (targetCourseId) => {
       const total = lessonIdsRef.current.length;
-      if (!total) return;
       try {
         const courseProgress = await syncCourseProgressPercent(
           targetCourseId,
@@ -77,8 +100,13 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         if (isActive(targetCourseId) && courseProgress) {
           setState((current) => ({ ...current, courseProgress }));
         }
-      } catch {
-        // Процент — вторичная информация: статусы уроков уже отрисованы.
+      } catch (error) {
+        if (isActive(targetCourseId)) {
+          setState((current) => ({
+            ...current,
+            error: getProgressErrorMessage(error),
+          }));
+        }
       }
     },
     [isActive],
@@ -89,7 +117,11 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
     lessonIdsRef.current = [];
     lessonProgressRef.current = {};
     theoryRequestsRef.current = new Set();
+    Object.values(refreshControllersRef.current).forEach((controller) =>
+      controller.abort(),
+    );
     refreshTokensRef.current = {};
+    refreshControllersRef.current = {};
 
     if (!enabled || !courseId) {
       setState(EMPTY_STATE);
@@ -106,8 +138,12 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
           ensureCourseProgress(courseId),
         ]);
         const lessonIds = collectLessonIds(structure);
+        let progressLoadError = null;
         const lessonProgressById = await getLessonsProgress(lessonIds, {
           signal: controller.signal,
+          onError: (loadError) => {
+            progressLoadError ||= loadError;
+          },
         });
         if (controller.signal.aborted || !isActive(courseId)) return;
 
@@ -118,11 +154,14 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         };
         setState({
           isLoading: false,
-          error: "",
+          error: progressLoadError
+            ? getProgressErrorMessage(progressLoadError)
+            : "",
           courseProgress,
           lessonProgressById: lessonProgressRef.current,
           lessonIds,
           structure,
+          hasLessonProgressErrors: Boolean(progressLoadError),
         });
         // Практика/тест могли закрыться событием, пока страница была закрыта, —
         // пересчитываем сохранённый процент курса.
@@ -144,6 +183,14 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
 
     return () => {
       controller.abort();
+      if (activeCourseIdRef.current === courseId) {
+        activeCourseIdRef.current = null;
+      }
+      Object.values(refreshControllersRef.current).forEach(
+        (refreshController) => refreshController.abort(),
+      );
+      refreshControllersRef.current = {};
+      refreshTokensRef.current = {};
     };
   }, [courseId, enabled, isActive, syncPercent]);
 
@@ -164,7 +211,13 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
           setLessonProgress(lessonId, progress);
         }
         return progress;
-      } catch {
+      } catch (error) {
+        if (isActive(targetCourseId)) {
+          setState((current) => ({
+            ...current,
+            error: getProgressErrorMessage(error),
+          }));
+        }
         return null;
       }
     },
@@ -180,16 +233,26 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
       theoryRequestsRef.current.add(lessonId);
 
       try {
-        await trackLesson(moduleId, lessonId);
+        const trackedProgress = await trackLesson(moduleId, lessonId);
+        if (!trackedProgress || !isActive(targetCourseId)) {
+          theoryRequestsRef.current.delete(lessonId);
+          return;
+        }
         const progress = await markLessonTheoryCompleted(lessonId);
         if (!isActive(targetCourseId) || !progress) return;
         setLessonProgress(lessonId, progress);
         if (getLessonProgressStatus(progress) === PROGRESS_STATUS.COMPLETED) {
           syncPercent(targetCourseId);
         }
-      } catch {
+      } catch (error) {
         // Не получилось — дадим ещё одну попытку при следующей прокрутке до конца.
         theoryRequestsRef.current.delete(lessonId);
+        if (isActive(targetCourseId)) {
+          setState((current) => ({
+            ...current,
+            error: getProgressErrorMessage(error),
+          }));
+        }
       }
     },
     [isActive, setLessonProgress, syncPercent, trackLesson],
@@ -202,25 +265,51 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
       if (!targetCourseId || !lessonId) return;
       const token = Symbol(lessonId);
       refreshTokensRef.current[lessonId] = token;
+      refreshControllersRef.current[lessonId]?.abort();
+      const controller = new AbortController();
+      refreshControllersRef.current[lessonId] = controller;
+      let expectedFieldFound = !field;
+      let lastError = null;
 
       for (const delay of REFRESH_DELAYS_MS) {
-        await wait(delay);
+        const shouldContinue = await wait(delay, controller.signal);
         if (
+          !shouldContinue ||
           !isActive(targetCourseId) ||
           refreshTokensRef.current[lessonId] !== token
         ) {
           return;
         }
         try {
-          const progress = await getLessonProgress(lessonId);
-          if (!isActive(targetCourseId)) return;
+          const progress = await getLessonProgress(lessonId, {
+            signal: controller.signal,
+          });
+          lastError = null;
+          if (!isActive(targetCourseId) || controller.signal.aborted) return;
           if (progress) setLessonProgress(lessonId, progress);
-          if (!field || progress?.[field]) break;
-        } catch {
-          // Пробуем ещё раз со следующей задержкой.
+          if (!field || progress?.[field]) {
+            expectedFieldFound = true;
+            break;
+          }
+        } catch (error) {
+          lastError = error;
         }
       }
-      syncPercent(targetCourseId);
+
+      if (refreshControllersRef.current[lessonId] === controller) {
+        delete refreshControllersRef.current[lessonId];
+      }
+      if (!expectedFieldFound && isActive(targetCourseId)) {
+        setState((current) => ({
+          ...current,
+          error: lastError
+            ? getProgressErrorMessage(lastError)
+            : "Backend ещё не подтвердил обновление прогресса урока.",
+        }));
+      }
+      if (expectedFieldFound && isActive(targetCourseId)) {
+        syncPercent(targetCourseId);
+      }
     },
     [isActive, setLessonProgress, syncPercent],
   );
@@ -237,13 +326,31 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         getLessonProgressStatus(state.lessonProgressById[lessonId]) !==
         PROGRESS_STATUS.NOT_STARTED,
     ).length;
-    const percent = state.courseProgress
-      ? state.courseProgress.percent
-      : total
-        ? (completed * 100) / total
-        : 0;
-    return { total, completed, started, percent: Math.round(percent) };
-  }, [state.courseProgress, state.lessonIds, state.lessonProgressById]);
+    const calculatedPercent = total ? (completed * 100) / total : 0;
+    const serverPercent = state.courseProgress?.percent;
+    // Пока PATCH-пересчёт ещё не завершился, не показываем противоречие между
+    // завершёнными LessonProgress и устаревшим сохранённым процентом.
+    const percent = state.hasLessonProgressErrors
+      ? Math.max(
+          Number.isFinite(serverPercent) ? serverPercent : 0,
+          calculatedPercent,
+        )
+      : Number.isFinite(serverPercent) &&
+          Math.round(serverPercent) === Math.round(calculatedPercent)
+        ? serverPercent
+        : calculatedPercent;
+    return {
+      total,
+      completed,
+      started,
+      percent: Math.min(100, Math.max(0, Math.round(percent))),
+    };
+  }, [
+    state.courseProgress,
+    state.hasLessonProgressErrors,
+    state.lessonIds,
+    state.lessonProgressById,
+  ]);
 
   return {
     isEnabled: Boolean(enabled && courseId),

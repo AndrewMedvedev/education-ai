@@ -18,7 +18,7 @@ export default function HomePage({
             <p className="kicker">ВАША ЦЕЛЬ — ВАШ ПЕРСОНАЛЬНЫЙ КУРС</p>
             <h1>Освойте нужный навык быстрее с курсом, созданным ИИ для вас</h1>
             <p className="lead">
-              Опишите, чему хотите научиться, — AI Course Lab за несколько минут
+              Опишите, чему хотите научиться, — TYUIU Course Lab за несколько минут
               соберёт понятную программу с теорией, практикой, ИИ-помощником и
               контролем прогресса.
             </p>
@@ -71,7 +71,7 @@ export default function HomePage({
           <p className="kicker">НЕ ИЩИТЕ ПОДХОДЯЩИЙ КУРС — СОЗДАЙТЕ СВОЙ</p>
           <h2>От учебной цели до готового маршрута за несколько минут</h2>
           <p>
-            Обычные курсы рассчитаны на всех сразу. AI Course Lab учитывает ваш
+            Обычные курсы рассчитаны на всех сразу. TYUIU Course Lab учитывает ваш
             уровень, задачу и доступное время, а затем перестраивает обучение по
             мере вашего прогресса.
           </p>
@@ -93,7 +93,7 @@ export default function HomePage({
       </section>
 
       <section className="container section" id="about">
-        <SectionTop label="01" title="Что вы получаете в AI Course Lab" />
+        <SectionTop label="01" title="Что вы получаете в TYUIU Course Lab" />
         <div className="point-list">
           {points.map((item) => (
             <article key={item} className="glass-card">

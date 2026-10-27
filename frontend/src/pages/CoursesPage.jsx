@@ -28,11 +28,11 @@ export default function CoursesPage({
     <section className="container section courses-tab" id="courses-tab">
       <SectionTop
         label="Готовые курсы"
-        title="Рейтинг курсов, созданных в AI Course Lab"
+        title="Рейтинг курсов, созданных в TYUIU Course Lab"
       />
       <p className="courses-catalog-intro">
         Выбирайте готовые программы по разным темам, смотрите оценки сообщества
-        и начинайте обучение сразу. Каждый курс собран с помощью AI Course Lab и
+        и начинайте обучение сразу. Каждый курс собран с помощью TYUIU Course Lab и
         включает теорию, практику и последовательный учебный маршрут.
       </p>
       {!canReadCourse && (

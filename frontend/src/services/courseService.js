@@ -150,13 +150,30 @@ export async function getLessonContentBlocks(lessonId) {
   return contentBlocks;
 }
 
-export async function isUserEnrolled(courseId) {
+export async function isUserEnrolled(courseId, initialPage = null) {
   if (!courseId) {
     return false;
   }
 
-  const courses = await getMyCourses({ page: 1, size: ENROLLMENT_PAGE_SIZE });
-  return courses.items.some((course) => course.id === courseId);
+  let courses =
+    initialPage ||
+    (await getMyCourses({ page: 1, size: ENROLLMENT_PAGE_SIZE }));
+  if (courses.items.some((course) => course.id === courseId)) {
+    return true;
+  }
+
+  const totalPages = Number(courses.pages || courses.total_pages || 1);
+  for (
+    let page = Number(courses.page || 1) + 1;
+    page <= totalPages;
+    page += 1
+  ) {
+    courses = await getMyCourses({ page, size: ENROLLMENT_PAGE_SIZE });
+    if (courses.items.some((course) => course.id === courseId)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export async function enrollUserToCourse(courseId) {

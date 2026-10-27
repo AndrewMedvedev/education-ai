@@ -41,7 +41,7 @@ export function printLessonSummary({ course, block, lesson }) {
       <h2>Конспект урока</h2>
     </header>
     <pre>${escapeHtml(lessonContent)}</pre>
-    <footer>Создано в AI Course Lab</footer>
+    <footer>Создано в TYUIU Course Lab</footer>
     <script>window.addEventListener("load", () => window.print());</script>
   </body>
 </html>`);

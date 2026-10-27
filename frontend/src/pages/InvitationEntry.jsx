@@ -79,7 +79,13 @@ export default function InvitationEntry({ token, children }) {
     <section className="container section auth-view">
       <div className="auth-layout">
         <div className="auth-intro">
-          <span className="section-top-label">AI Course Lab · Приглашение</span>
+          <span
+            className="section-top-label"
+            style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}
+          >
+            <img src="/logo.svg" alt="TYUIU" style={{ height: "36px", width: "auto" }} />
+            TYUIU Course Lab · Приглашение
+          </span>
           <h1>{loadError ? "Проверьте приглашение" : "Добро пожаловать в команду"}</h1>
           <p>Создайте пароль, чтобы принять приглашение и начать обучение. Вводить email не нужно — он уже указан в приглашении.</p>
         </div>

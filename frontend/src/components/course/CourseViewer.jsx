@@ -13,6 +13,7 @@ import {
   getLessonById,
   getLessonContentBlocks,
   getModuleById,
+  isUserEnrolled,
 } from "../../services/courseService";
 import ContentBlocks from "./ContentBlocks";
 import CourseInviteDialog from "./CourseInviteDialog";
@@ -37,9 +38,10 @@ import LessonMetricsDashboard from "./LessonMetricsDashboard";
 import "./course-viewer.css";
 
 function findBlockByLesson(course, lessonId) {
+  if (!lessonId) return null;
   return (
     course?.blocks?.find((block) =>
-      block.lessons.some((lesson) => lesson.id === lessonId),
+      (block.lessons || []).some((lesson) => lesson.id === lessonId),
     ) ?? null
   );
 }
@@ -136,6 +138,15 @@ function CourseProgressBar({ summary }) {
       </div>
     </div>
   );
+}
+
+const ASSESSMENT_PASSING_SCORE = 61;
+
+function isAssessmentPassed(result) {
+  const score = Number(result?.score);
+  if (Number.isFinite(score)) return score >= ASSESSMENT_PASSING_SCORE;
+  const explicit = result?.is_passed ?? result?.isPassed ?? result?.passed;
+  return explicit === true;
 }
 
 function LessonPartMark({ done }) {
@@ -278,19 +289,17 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     (state) => state.setLessonActiveTab,
   );
 
-  const shouldTrackTheorySession =
-    mode === "view" &&
-    canReadCourseContent &&
-    (isEnrolled || isOwnCourse) &&
-    activeTab === "theory";
-
-  // Прогресс ведём только для записанного на курс ученика.
+  // Прогресс ведём только для записанного ученика, но не при авторском просмотре.
   const isProgressTracked =
     mode === "view" &&
     canReadCourseContent &&
     isEnrolled &&
+    !isOwnCourse &&
     isUuid(course?.id || "");
+  const shouldTrackTheorySession = isProgressTracked && activeTab === "theory";
   const {
+    isLoading: isProgressLoading,
+    error: progressError,
     lessonProgressById,
     structure: progressStructure,
     summary: progressSummary,
@@ -319,7 +328,12 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     contentRef: theoryContentRef,
     // При смене адреса курс перезагружается и теория монтируется заново —
     // учитываем это, иначе трекер держит ссылку на уже снятый DOM-узел.
-    isContentReady: !isLoadingCourse && !isLoadingLesson && !error,
+    isContentReady:
+      !isLoadingCourse &&
+      !isLoadingLesson &&
+      !error &&
+      Boolean(selectedLesson?.id) &&
+      contentLessonId === selectedLesson?.id,
     // Теория засчитывается автоматически, когда ученик долистал её до конца.
     onReachEnd: isProgressTracked
       ? (reachedLessonId) =>
@@ -350,13 +364,20 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
   }, [isProgressTracked, selectedBlock?.id, selectedLesson?.id, trackLesson]);
 
   const handleAssessmentChecked = (field) => (result) => {
+    const targetModuleId = selectedBlock?.id;
+    const targetLessonId = selectedLesson?.id;
     if (
-      isProgressTracked &&
-      selectedLesson?.id &&
-      result?.is_passed !== false
+      !isProgressTracked ||
+      !targetModuleId ||
+      !targetLessonId ||
+      !isAssessmentPassed(result)
     ) {
-      refreshLesson(selectedLesson.id, field);
+      return;
     }
+
+    void trackLesson(targetModuleId, targetLessonId).then((progress) => {
+      if (progress) refreshLesson(targetLessonId, field);
+    });
   };
 
   useEffect(() => {
@@ -394,16 +415,27 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
           basicCourse = await getCourseBasicInfo(effectiveCourseId);
         }
 
-        if (!isMetricsMode && canReadCourseContent) {
-          await loadMyCourses({ page: 1, size: 100 }).catch(() => null);
+        const basicCourseCreatorId =
+          basicCourse?.creator_id ||
+          basicCourse?.creatorId ||
+          basicCourse?.author_id ||
+          basicCourse?.authorId ||
+          basicCourse?.user_id ||
+          basicCourse?.userId;
+        const isBasicCourseOwn = Boolean(
+          currentUserId &&
+          basicCourseCreatorId &&
+          currentUserId === basicCourseCreatorId,
+        );
+        let enrollmentPage = null;
+        if (!isMetricsMode && canReadCourseContent && !isBasicCourseOwn) {
+          enrollmentPage = await loadMyCourses({ page: 1, size: 100 });
         }
 
-        const enrolled = canReadCourseContent
-          ? useStudentStore.getState().isCourseEnrolled(basicCourse.id) ||
-            (basicCourse.students || []).some(
-              (student) => student?.course_id === basicCourse.id,
-            )
-          : false;
+        const enrolled =
+          canReadCourseContent && !isBasicCourseOwn && enrollmentPage
+            ? await isUserEnrolled(basicCourse.id, enrollmentPage)
+            : false;
 
         if (!isMounted) {
           return;
@@ -441,11 +473,17 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     isMetricsMode,
     lessonId,
     loadMyCourses,
+    currentUserId,
     localCourse,
   ]);
 
   useEffect(() => {
-    if (isMetricsMode || !canReadCourseContent || !selectedLesson?.id) {
+    if (
+      isMetricsMode ||
+      !canReadCourseContent ||
+      (!isEnrolled && !canViewWithoutEnrollment) ||
+      !selectedLesson?.id
+    ) {
       setContentBlocks([]);
       setContentLessonId(null);
       return;
@@ -481,7 +519,13 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     return () => {
       isMounted = false;
     };
-  }, [canReadCourseContent, isMetricsMode, selectedLesson?.id]);
+  }, [
+    canReadCourseContent,
+    canViewWithoutEnrollment,
+    isEnrolled,
+    isMetricsMode,
+    selectedLesson?.id,
+  ]);
 
   const openCourseOverview = () => {
     if (!canNavigateCourseContent) {
@@ -808,8 +852,20 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
                 ? "Нажмите кнопку, чтобы открыть структуру курса для чтения."
                 : "Нажмите кнопку, чтобы открыть структуру курса и начать обучение."}
             </p>
-            {isProgressTracked && progressSummary.total > 0 && (
-              <CourseProgressBar summary={progressSummary} />
+            {isProgressTracked && (
+              <>
+                <CourseProgressBar summary={progressSummary} />
+                {isProgressLoading && (
+                  <p className="course-viewer-muted" role="status">
+                    Загружаем прогресс...
+                  </p>
+                )}
+                {progressError && (
+                  <p className="lesson-ai-error" role="alert">
+                    {progressError}
+                  </p>
+                )}
+              </>
             )}
           </div>
           <div className="generated-course-actions">
@@ -869,6 +925,11 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
       {error && (
         <article className="glass-card course-viewer-error" role="alert">
           {error}
+        </article>
+      )}
+      {isProgressTracked && progressError && (
+        <article className="glass-card course-viewer-error" role="alert">
+          {progressError}
         </article>
       )}
       <LessonChatWorkspace

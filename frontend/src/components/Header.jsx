@@ -58,9 +58,20 @@ export default function Header({
 
   return (
     <header className="container header">
-      <Link to="/" className="logo logo-button">
-        <span className="logo-main">AI Course Lab</span>
-        <span className="logo-sub">обучение, созданное под вас</span>
+      <Link
+        to="/"
+        className="logo logo-button"
+        style={{ flexDirection: "row", alignItems: "center", gap: "12px" }}
+      >
+        <img
+          src="/logo.svg"
+          alt="TYUIU"
+          style={{ height: "36px", width: "auto" }}
+        />
+        <span style={{ display: "inline-flex", flexDirection: "column" }}>
+          <span className="logo-main">TYUIU Course Lab</span>
+          <span className="logo-sub">обучение, созданное под вас</span>
+        </span>
       </Link>
 
       <nav className="nav">

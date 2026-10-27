@@ -10,7 +10,7 @@ export default function Footer({
       <div className="container footer">
         <div className="footer-brand">
           <Link to="/" className="logo">
-            <span className="logo-main">AI Course Lab</span>
+            <span className="logo-main">TYUIU Course Lab</span>
             <span className="logo-sub">обучение, созданное под вас</span>
           </Link>
           <p>
@@ -37,7 +37,7 @@ export default function Footer({
         </div>
       </div>
       <div className="container footer-bottom">
-        <span>© 2026 AI Course Lab</span>
+        <span>© 2026 TYUIU Course Lab</span>
         <span>Курсы нового поколения</span>
       </div>
     </footer>

@@ -98,18 +98,22 @@ export function getModuleProgressSummary(block, lessonProgressById = {}) {
   return { total: lessons.length, completed, started, status };
 }
 
-export async function getCourseProgress(courseId) {
+export async function getCourseProgress(courseId, options = {}) {
   try {
-    return normalizeCourseProgress(await fetchCourseProgress(courseId));
+    return normalizeCourseProgress(
+      await fetchCourseProgress(courseId, options),
+    );
   } catch (error) {
     if (isStatus(error, 404)) return null;
     throw error;
   }
 }
 
-export async function getLessonProgress(lessonId) {
+export async function getLessonProgress(lessonId, options = {}) {
   try {
-    return normalizeLessonProgress(await fetchLessonProgress(lessonId));
+    return normalizeLessonProgress(
+      await fetchLessonProgress(lessonId, options),
+    );
   } catch (error) {
     if (isStatus(error, 404)) return null;
     throw error;
@@ -176,7 +180,7 @@ export async function syncCourseProgressPercent(courseId, totalLessons) {
 
 // Отдельной ручки «весь прогресс курса» на backend нет, поэтому прогресс уроков
 // для дерева запрашиваем по одному с ограничением параллельности.
-export async function getLessonsProgress(lessonIds, { signal } = {}) {
+export async function getLessonsProgress(lessonIds, { signal, onError } = {}) {
   const ids = [...new Set((lessonIds || []).filter(Boolean))];
   const result = {};
   let cursor = 0;
@@ -187,9 +191,12 @@ export async function getLessonsProgress(lessonIds, { signal } = {}) {
       const lessonId = ids[cursor];
       cursor += 1;
       try {
-        result[lessonId] = await getLessonProgress(lessonId);
-      } catch {
+        result[lessonId] = await getLessonProgress(lessonId, { signal });
+      } catch (error) {
+        // Только 404 нормализуется getLessonProgress в отсутствие записи.
+        // Остальные ошибки не должны выглядеть как «урок не начат».
         result[lessonId] = null;
+        onError?.(error, lessonId);
       }
     }
   }

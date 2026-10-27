@@ -161,7 +161,13 @@ function ExistingAuthPage({ mode = "login" }) {
     >
       <div className="auth-layout">
         <div className="auth-intro">
-          <span className="section-top-label">AI Course Lab</span>
+          <span
+            className="section-top-label"
+            style={{ display: "inline-flex", alignItems: "center", gap: "10px" }}
+          >
+            <img src="/logo.svg" alt="TYUIU" style={{ height: "36px", width: "auto" }} />
+            TYUIU Course Lab
+          </span>
           <h1
             className={
               isRegister || loginStep === "organization"

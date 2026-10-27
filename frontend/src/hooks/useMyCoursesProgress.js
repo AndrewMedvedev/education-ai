@@ -14,10 +14,23 @@ function collectLessonIds(course) {
   );
 }
 
+function getProgressErrorMessage(error) {
+  return (
+    error?.userMessage ||
+    error?.message ||
+    "Не удалось загрузить прогресс курса."
+  );
+}
+
+function clampPercent(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 0;
+}
+
 async function loadCourseSummary(courseId, signal) {
   const [structure, courseProgress] = await Promise.all([
     getCourseLearningStructure(courseId),
-    getCourseProgress(courseId),
+    getCourseProgress(courseId, { signal }),
   ]);
   const lessonIds = collectLessonIds(structure);
   const modulesCount = (structure?.blocks || []).length;
@@ -35,7 +48,13 @@ async function loadCourseSummary(courseId, signal) {
     };
   }
 
-  const progressById = await getLessonsProgress(lessonIds, { signal });
+  let progressLoadError = null;
+  const progressById = await getLessonsProgress(lessonIds, {
+    signal,
+    onError: (error) => {
+      progressLoadError ||= error;
+    },
+  });
   const records = lessonIds.map((lessonId) => progressById[lessonId]);
   const completedLessons = records.filter(
     (record) => getLessonProgressStatus(record) === PROGRESS_STATUS.COMPLETED,
@@ -43,6 +62,16 @@ async function loadCourseSummary(courseId, signal) {
   const startedLessons = records.filter(
     (record) => getLessonProgressStatus(record) !== PROGRESS_STATUS.NOT_STARTED,
   ).length;
+
+  const calculatedPercent = lessonIds.length
+    ? (completedLessons * 100) / lessonIds.length
+    : 0;
+  const serverPercent = clampPercent(courseProgress.percent);
+  const percent = progressLoadError
+    ? Math.max(serverPercent, calculatedPercent)
+    : Math.round(serverPercent) === Math.round(calculatedPercent)
+      ? serverPercent
+      : calculatedPercent;
 
   return {
     modulesCount,
@@ -52,11 +81,8 @@ async function loadCourseSummary(courseId, signal) {
     completedPractices: records.filter((record) => record?.practiceCompletedAt)
       .length,
     completedTests: records.filter((record) => record?.testCompletedAt).length,
-    // Процент — тот, что сохранил backend; если его не пересчитывали, считаем сами.
-    percent: Math.round(
-      courseProgress.percent ||
-        (lessonIds.length ? (completedLessons * 100) / lessonIds.length : 0),
-    ),
+    percent: Math.round(clampPercent(percent)),
+    error: progressLoadError ? getProgressErrorMessage(progressLoadError) : "",
   };
 }
 
@@ -71,36 +97,63 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
     [courses],
   );
   const courseIdsKey = courseIds.join(",");
-  const [state, setState] = useState({ isLoading: false, byCourseId: {} });
+  const [state, setState] = useState({
+    isLoading: false,
+    isLoaded: false,
+    byCourseId: {},
+    errorsByCourseId: {},
+  });
 
   useEffect(() => {
     if (!enabled || courseIds.length === 0) {
-      setState({ isLoading: false, byCourseId: {} });
+      setState({
+        isLoading: false,
+        isLoaded: enabled,
+        byCourseId: {},
+        errorsByCourseId: {},
+      });
       return undefined;
     }
 
     const controller = new AbortController();
-    setState((current) => ({ ...current, isLoading: true }));
+    setState({
+      isLoading: true,
+      isLoaded: false,
+      byCourseId: {},
+      errorsByCourseId: {},
+    });
 
     async function load() {
       const byCourseId = {};
+      const errorsByCourseId = {};
       // Курсы — по одному: внутри каждого и так идут параллельные запросы уроков.
       for (const courseId of courseIds) {
         if (controller.signal.aborted) return;
         try {
-          byCourseId[courseId] = await loadCourseSummary(
-            courseId,
-            controller.signal,
-          );
-        } catch {
-          byCourseId[courseId] = null;
+          const summary = await loadCourseSummary(courseId, controller.signal);
+          byCourseId[courseId] = summary;
+          if (summary.error) {
+            errorsByCourseId[courseId] = summary.error;
+          }
+        } catch (error) {
+          errorsByCourseId[courseId] = getProgressErrorMessage(error);
         }
         if (!controller.signal.aborted) {
-          setState({ isLoading: true, byCourseId: { ...byCourseId } });
+          setState({
+            isLoading: true,
+            isLoaded: false,
+            byCourseId: { ...byCourseId },
+            errorsByCourseId: { ...errorsByCourseId },
+          });
         }
       }
       if (!controller.signal.aborted) {
-        setState({ isLoading: false, byCourseId });
+        setState({
+          isLoading: false,
+          isLoaded: true,
+          byCourseId,
+          errorsByCourseId,
+        });
       }
     }
 
@@ -130,7 +183,9 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
 
   return {
     isLoading: state.isLoading,
+    isLoaded: state.isLoaded,
     byCourseId: state.byCourseId,
+    errorsByCourseId: state.errorsByCourseId,
     totals,
     hasData: totals.coursesCount > 0,
   };

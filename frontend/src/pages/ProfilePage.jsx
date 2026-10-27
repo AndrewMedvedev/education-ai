@@ -161,14 +161,7 @@ export default function ProfilePage({
   activeProfileTab,
   setActiveProfileTab,
   profileActiveCourse,
-  profileActiveCourseProgress,
-  profileActiveCourseTotal,
-  profileActiveCourseCompleted,
   profileUpcomingTopics,
-  completedLessonsCount,
-  completedPracticesCount,
-  overallProgressPercent,
-  totalContentCount,
   coursesData,
   openCourse,
   openBlock,
@@ -228,8 +221,14 @@ export default function ProfilePage({
   const myCoursesError = useStudentStore((state) => state.myCoursesError);
   const loadMyCourses = useStudentStore((state) => state.loadMyCourses);
   // Реальный прогресс ученика с backend по курсам, на которые он записан.
-  const myCoursesProgress = useMyCoursesProgress(myCourses, {
-    enabled: activeProfileTab === "overview",
+  const isLearnerProgressTab =
+    activeProfileTab === "overview" || activeProfileTab === "active-course";
+  const progressCourses =
+    activeProfileTab === "active-course" && profileActiveCourse
+      ? [...myCourses, profileActiveCourse]
+      : myCourses;
+  const myCoursesProgress = useMyCoursesProgress(progressCourses, {
+    enabled: isLearnerProgressTab,
   });
   // Списки курсов приходят без модулей — число модулей дочитываем по каждому курсу.
   const myCoursesModules = useCoursesModulesCount(myCourses, {
@@ -238,14 +237,18 @@ export default function ProfilePage({
   const authoredCoursesModules = useCoursesModulesCount(authoredCourses, {
     enabled: activeProfileTab === "teacher",
   });
-  const progressTotals = myCoursesProgress.hasData
+  const progressTotals = myCoursesProgress.isLoaded
     ? myCoursesProgress.totals
     : null;
-  const shownCompletedLessons =
-    progressTotals?.completedLessons ?? completedLessonsCount;
-  const shownCompletedPractices =
-    progressTotals?.completedPractices ?? completedPracticesCount;
-  const shownOverallPercent = progressTotals?.percent ?? overallProgressPercent;
+  const shownCompletedLessons = progressTotals?.completedLessons ?? 0;
+  const shownCompletedPractices = progressTotals?.completedPractices ?? 0;
+  const shownOverallPercent = progressTotals?.percent ?? 0;
+  const activeCourseProgress = profileActiveCourse?.id
+    ? myCoursesProgress.byCourseId[profileActiveCourse.id]
+    : null;
+  const activeCourseProgressError = profileActiveCourse?.id
+    ? myCoursesProgress.errorsByCourseId[profileActiveCourse.id]
+    : "";
 
   const canUpdateOwnCourses =
     canUpdateCourse || hasPermission(COURSE_PERMISSIONS.UPDATE);
@@ -283,7 +286,7 @@ export default function ProfilePage({
   }, [activeProfileTab, canManageCourses, setActiveProfileTab]);
 
   useEffect(() => {
-    if (activeProfileTab !== "overview") {
+    if (!isLearnerProgressTab) {
       return undefined;
     }
 
@@ -298,7 +301,7 @@ export default function ProfilePage({
     });
 
     return () => controller.abort();
-  }, [activeProfileTab, loadMyCourses, myCoursesPage, myCoursesMeta.size]);
+  }, [isLearnerProgressTab, loadMyCourses, myCoursesPage, myCoursesMeta.size]);
 
   useEffect(() => {
     if (!canManageCourses || activeProfileTab !== "teacher") {
@@ -527,7 +530,7 @@ export default function ProfilePage({
         </aside>
 
         <div className="profile-content">
-          {activeProfileTab === "active-course" && (
+          {activeProfileTab === "active-course" && profileActiveCourse && (
             <article className="glass-card profile-track-card">
               <div className="profile-track-head">
                 <div>
@@ -545,15 +548,25 @@ export default function ProfilePage({
               <div className="profile-track-progress">
                 <div>
                   <p>Общий прогресс</p>
-                  <strong>{profileActiveCourseProgress}%</strong>
+                  <strong>{activeCourseProgress?.percent ?? 0}%</strong>
                 </div>
                 <div className="block-progress-bar">
-                  <div style={{ width: `${profileActiveCourseProgress}%` }} />
+                  <div
+                    style={{ width: `${activeCourseProgress?.percent ?? 0}%` }}
+                  />
                 </div>
                 <small>
-                  Пройдено: {profileActiveCourseCompleted}/
-                  {profileActiveCourseTotal}
+                  Пройдено: {activeCourseProgress?.completedLessons ?? 0}/
+                  {activeCourseProgress?.totalLessons ?? 0}
                 </small>
+                {myCoursesProgress.isLoading && !activeCourseProgress && (
+                  <small role="status">Загружаем прогресс...</small>
+                )}
+                {activeCourseProgressError && (
+                  <small className="auth-field-error" role="alert">
+                    {activeCourseProgressError}
+                  </small>
+                )}
               </div>
             </article>
           )}
@@ -762,6 +775,8 @@ export default function ProfilePage({
                       {myCourses.map((course) => {
                         const courseProgress =
                           myCoursesProgress.byCourseId[course.id];
+                        const courseProgressError =
+                          myCoursesProgress.errorsByCourseId[course.id];
                         const modulesCount =
                           courseProgress?.modulesCount ??
                           myCoursesModules[course.id] ??
@@ -814,13 +829,19 @@ export default function ProfilePage({
                                 )}
                                 {!courseProgress &&
                                   myCoursesProgress.isLoading &&
-                                  !(
-                                    course.id in myCoursesProgress.byCourseId
-                                  ) && (
+                                  !courseProgressError && (
                                     <span className="profile-course-progress is-loading">
                                       Загружаем прогресс...
                                     </span>
                                   )}
+                                {courseProgressError && (
+                                  <span
+                                    className="profile-course-progress auth-field-error"
+                                    role="alert"
+                                  >
+                                    {courseProgressError}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </li>
@@ -898,21 +919,28 @@ export default function ProfilePage({
                   <ul>
                     <li>Завершено уроков: {shownCompletedLessons}</li>
                     <li>Выполнено практик: {shownCompletedPractices}</li>
-                    {progressTotals && (
-                      <li>Сдано тестов: {progressTotals.completedTests}</li>
-                    )}
+                    <li>Сдано тестов: {progressTotals?.completedTests ?? 0}</li>
                     <li>Общий прогресс: {shownOverallPercent}%</li>
+                    {myCoursesProgress.isLoading && (
+                      <li>Прогресс загружается...</li>
+                    )}
+                    {Object.keys(myCoursesProgress.errorsByCourseId).length >
+                      0 && (
+                      <li className="auth-field-error">
+                        Прогресс некоторых курсов загрузить не удалось.
+                      </li>
+                    )}
                   </ul>
                 </article>
               </div>
             </>
           )}
 
-          {activeProfileTab === "active-course" && (
+          {activeProfileTab === "active-course" && profileActiveCourse && (
             <article className="glass-card profile-detail-card">
               <h3>Блоки активного курса</h3>
               <ul className="profile-action-list">
-                {profileActiveCourse.blocks.map((block) => (
+                {(profileActiveCourse.blocks || []).map((block) => (
                   <li key={block.id}>
                     <button
                       type="button"
