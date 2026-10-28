@@ -1,7 +1,7 @@
 """Idempotent direct-DB import for a platform course JSON file.
 
 Run inside the backend container so the script uses the application's database
-configuration and ORM. Existing course IDs are skipped unless --replace is set.
+configuration and ORM. Existing entities are updated by their stable IDs.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from sqlalchemy import select  # noqa: E402
 from src.core.database import session_factory  # noqa: E402
 from src.courses.domain.enums import CourseStatus, DifficultyLevel  # noqa: E402
 from src.courses.infra.database.models import CourseOrm, LessonOrm, ModuleOrm  # noqa: E402
-from src.features.add_course import create_content_block  # noqa: E402
+from src.courses.infra.database.types import block_from_dict  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -53,61 +53,72 @@ async def import_course(course_file: Path, creator_id: UUID, replace: bool) -> U
 
     async with session_factory() as session:
         existing = await session.scalar(
-            select(CourseOrm).where(CourseOrm.id == course_id)
+            select(CourseOrm).where(CourseOrm.id == course_id).with_for_update()
         )
-        if existing and not replace:
-            print(f"SKIPPED: course already exists: {course_id}")
-            return course_id
-        if existing:
+        updated = existing is not None and not replace
+        if existing and replace:
             await session.delete(existing)
             await session.flush()
+            existing = None
 
-        course = CourseOrm(
-            id=course_id,
-            title=course_data["title"],
-            description=course_data["description"],
-            difficulty=DifficultyLevel(course_data["difficulty"]),
-            status=CourseStatus(course_data.get("status", "draft")),
-            tags=course_data.get("tags", []),
-            learning_objectives=course_data.get("learning_objectives", []),
-            creator_id=creator_id,
-            image_url=course_data.get("image_url"),
-            popularity=0,
-        )
-        session.add(course)
+        if existing is None:
+            existing = CourseOrm(id=course_id, creator_id=creator_id, popularity=0)
+            session.add(existing)
+        existing.title = course_data["title"]
+        existing.description = course_data["description"]
+        existing.difficulty = DifficultyLevel(course_data["difficulty"])
+        existing.status = CourseStatus(course_data.get("status", "draft"))
+        existing.tags = course_data.get("tags", [])
+        existing.learning_objectives = course_data.get("learning_objectives", [])
+        existing.image_url = course_data.get("image_url")
+        await session.flush()
 
+        module_ids = set()
+        lesson_ids = set()
         for module_data in course_data.get("modules", []):
-            module = ModuleOrm(
-                id=UUID(module_data["id"]),
-                course_id=course_id,
-                title=module_data["title"],
-                description=module_data["description"],
-                order=module_data["order"],
-                learning_objectives=module_data.get("learning_objectives", []),
-            )
-            session.add(module)
+            module_id = UUID(module_data["id"])
+            if module_id in module_ids:
+                raise ValueError(f"Duplicate module ID: {module_id}")
+            module_ids.add(module_id)
+            module = await session.get(ModuleOrm, module_id)
+            if module is None:
+                module = ModuleOrm(id=module_id, course_id=course_id)
+                session.add(module)
+            elif module.course_id != course_id:
+                raise ValueError(f"Module {module_id} belongs to another course")
+            module.title = module_data["title"]
+            module.description = module_data["description"]
+            module.order = module_data["order"]
+            module.learning_objectives = module_data.get("learning_objectives", [])
+            await session.flush()
+
             for lesson_data in module_data.get("lessons", []):
+                lesson_id = UUID(lesson_data["id"])
+                if lesson_id in lesson_ids:
+                    raise ValueError(f"Duplicate lesson ID: {lesson_id}")
+                lesson_ids.add(lesson_id)
+                lesson = await session.get(LessonOrm, lesson_id)
+                if lesson is None:
+                    lesson = LessonOrm(id=lesson_id, module_id=module_id)
+                    session.add(lesson)
+                elif lesson.module_id != module_id:
+                    raise ValueError(f"Lesson {lesson_id} belongs to another module")
                 blocks = [
-                    create_content_block(block)
+                    block_from_dict(block)
                     for block in lesson_data.get("content_blocks", [])
                 ]
-                session.add(
-                    LessonOrm(
-                        id=UUID(lesson_data["id"]),
-                        module_id=module.id,
-                        title=lesson_data["title"],
-                        description=lesson_data["description"],
-                        order=lesson_data["order"],
-                        learning_objectives=lesson_data.get("learning_objectives", []),
-                        estimated_time_minutes=lesson_data.get(
-                            "estimated_time_minutes"
-                        ),
-                        content_blocks=blocks,
-                    )
+                lesson.title = lesson_data["title"]
+                lesson.description = lesson_data["description"]
+                lesson.order = lesson_data["order"]
+                lesson.learning_objectives = lesson_data.get("learning_objectives", [])
+                lesson.estimated_time_minutes = lesson_data.get(
+                    "estimated_time_minutes"
                 )
+                lesson.content_blocks = blocks
 
         await session.commit()
-    print(f"IMPORTED: {course_data['title']} ({course_id})")
+    action = "UPDATED" if updated else "IMPORTED"
+    print(f"{action}: {course_data['title']} ({course_id})")
     return course_id
 
 
