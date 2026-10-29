@@ -20,11 +20,20 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from sqlalchemy import select  # noqa: E402
+from sqlalchemy import select, update  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from src.core.database import session_factory  # noqa: E402
 from src.courses.domain.enums import CourseStatus, DifficultyLevel  # noqa: E402
-from src.courses.infra.database.models import CourseOrm, LessonOrm, ModuleOrm  # noqa: E402
+from src.courses.infra.database.models import (  # noqa: E402
+    CourseOrm,
+    CourseProgressOrm,
+    LessonOrm,
+    LessonProgressOrm,
+    ModuleOrm,
+    ModuleProgressOrm,
+    PracticeOrm,
+)
 from src.courses.infra.database.types import block_from_dict  # noqa: E402
 
 
@@ -44,6 +53,68 @@ def parse_args() -> argparse.Namespace:
         help="Replace a course with the same course.id",
     )
     return parser.parse_args()
+
+
+async def move_lesson(
+    session: AsyncSession, lesson: LessonOrm, target_module_id: UUID, course_id: UUID
+) -> None:
+    old_module_id = lesson.module_id
+    old_module = await session.get(ModuleOrm, old_module_id) if old_module_id else None
+    if old_module is None or old_module.course_id != course_id:
+        raise ValueError(
+            f"Lesson {lesson.id} belongs to another course or has no module"
+        )
+
+    progress_rows = (
+        await session.execute(
+            select(LessonProgressOrm, ModuleProgressOrm.course_progress_id)
+            .join(
+                ModuleProgressOrm,
+                LessonProgressOrm.module_progress_id == ModuleProgressOrm.id,
+            )
+            .join(
+                CourseProgressOrm,
+                ModuleProgressOrm.course_progress_id == CourseProgressOrm.id,
+            )
+            .where(
+                LessonProgressOrm.lesson_id == lesson.id,
+                CourseProgressOrm.course_id == course_id,
+            )
+        )
+    ).all()
+    for lesson_progress, course_progress_id in progress_rows:
+        target = await session.scalar(
+            select(ModuleProgressOrm).where(
+                ModuleProgressOrm.course_progress_id == course_progress_id,
+                ModuleProgressOrm.module_id == target_module_id,
+            )
+        )
+        if target is None:
+            target = ModuleProgressOrm(
+                course_progress_id=course_progress_id, module_id=target_module_id
+            )
+            session.add(target)
+            await session.flush()
+        duplicate = await session.scalar(
+            select(LessonProgressOrm.id).where(
+                LessonProgressOrm.module_progress_id == target.id,
+                LessonProgressOrm.lesson_id == lesson.id,
+                LessonProgressOrm.id != lesson_progress.id,
+            )
+        )
+        if duplicate is not None:
+            raise ValueError(
+                f"Duplicate progress for lesson {lesson.id}; resolve it before import"
+            )
+        lesson_progress.module_progress_id = target.id
+    await session.execute(
+        update(PracticeOrm)
+        .where(
+            PracticeOrm.lesson_id == lesson.id, PracticeOrm.module_id == old_module_id
+        )
+        .values(module_id=target_module_id)
+    )
+    lesson.module_id = target_module_id
 
 
 async def import_course(course_file: Path, creator_id: UUID, replace: bool) -> UUID:
@@ -102,7 +173,7 @@ async def import_course(course_file: Path, creator_id: UUID, replace: bool) -> U
                     lesson = LessonOrm(id=lesson_id, module_id=module_id)
                     session.add(lesson)
                 elif lesson.module_id != module_id:
-                    raise ValueError(f"Lesson {lesson_id} belongs to another module")
+                    await move_lesson(session, lesson, module_id, course_id)
                 blocks = [
                     block_from_dict(block)
                     for block in lesson_data.get("content_blocks", [])

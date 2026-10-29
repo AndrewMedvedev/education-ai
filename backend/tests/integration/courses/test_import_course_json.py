@@ -1,6 +1,7 @@
 import json
 import os
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import pytest
@@ -14,9 +15,13 @@ from src.courses.infra.database.models import (
     CourseOrm,
     CourseProgressOrm,
     LessonOrm,
+    LessonProgressOrm,
     LessonTheorySessionOrm,
     ModuleOrm,
+    ModuleProgressOrm,
+    PracticeOrm,
 )
+from src.courses.domain.enums import PracticeStatus
 
 
 @pytest_asyncio.fixture
@@ -182,3 +187,80 @@ async def test_reordering_modules_and_lessons(import_session, tmp_path):
     import_session.expire_all()
     assert (await import_session.get(ModuleOrm, UUID(first["id"]))).order == 2
     assert (await import_session.get(LessonOrm, UUID(second_lesson["id"]))).order == 1
+
+
+@pytest.mark.asyncio
+async def test_move_lesson_preserves_progress_and_practice(import_session, tmp_path):
+    payload = make_payload()
+    course = payload["course"]
+    source = course["modules"][0]
+    lesson = source["lessons"][0]
+    target = dict(source, id=str(uuid4()), title="Target", order=2, lessons=[])
+    course["modules"].append(target)
+    path = tmp_path / "course.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    await importer.import_course(path, uuid4(), False)
+
+    user_id, course_id, lesson_id = uuid4(), UUID(course["id"]), UUID(lesson["id"])
+    course_progress = CourseProgressOrm(
+        user_id=user_id, course_id=course_id, progress_percent=50
+    )
+    import_session.add(course_progress)
+    await import_session.flush()
+    module_progress = ModuleProgressOrm(
+        course_progress_id=course_progress.id, module_id=UUID(source["id"])
+    )
+    import_session.add(module_progress)
+    await import_session.flush()
+    completed = datetime(2026, 1, 1, tzinfo=UTC)
+    lesson_progress = LessonProgressOrm(
+        module_progress_id=module_progress.id,
+        lesson_id=lesson_id,
+        theory_completed_at=completed,
+    )
+    practice = PracticeOrm(
+        user_id=user_id,
+        module_id=UUID(source["id"]),
+        lesson_id=lesson_id,
+        status=PracticeStatus.COMPLETED,
+        practice=[],
+    )
+    import_session.add_all([lesson_progress, practice])
+    await import_session.commit()
+    progress_id, practice_id = lesson_progress.id, practice.id
+    source["lessons"] = []
+    target["lessons"] = [lesson]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    await importer.import_course(path, uuid4(), False)
+    await importer.import_course(path, uuid4(), False)
+    import_session.expire_all()
+
+    moved = await import_session.get(LessonOrm, lesson_id)
+    progress = await import_session.get(LessonProgressOrm, progress_id)
+    destination = await import_session.get(
+        ModuleProgressOrm, progress.module_progress_id
+    )
+    moved_practice = await import_session.get(PracticeOrm, practice_id)
+    assert moved.module_id == UUID(target["id"])
+    assert destination.module_id == moved.module_id
+    assert progress.theory_completed_at == completed
+    assert moved_practice.module_id == moved.module_id
+    assert (
+        await import_session.scalar(select(func.count()).select_from(LessonProgressOrm))
+        == 1
+    )
+
+
+@pytest.mark.asyncio
+async def test_move_from_other_course_is_rejected(import_session, tmp_path):
+    original, other = make_payload(), make_payload()
+    path = tmp_path / "course.json"
+    path.write_text(json.dumps(original), encoding="utf-8")
+    await importer.import_course(path, uuid4(), False)
+    other["course"]["modules"][0]["lessons"] = original["course"]["modules"][0][
+        "lessons"
+    ]
+    path.write_text(json.dumps(other), encoding="utf-8")
+    with pytest.raises(ValueError, match="another course"):
+        await importer.import_course(path, uuid4(), False)
+    assert await import_session.get(CourseOrm, UUID(other["course"]["id"])) is None
