@@ -65,7 +65,7 @@ WHERE c.id = 'dce0a44e-383d-4955-8f9a-90fba5e4a6f0'
 GROUP BY c.id, c.title, c.status;"
 ```
 
-Ожидаемые значения: `published`, 4 модуля, 8 уроков.
+Для текущего JSON ожидаемые значения: `published`, 2 модуля, 10 уроков.
 
 ## Обновление курса
 

@@ -20,7 +20,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from sqlalchemy import select, update  # noqa: E402
+from sqlalchemy import delete, select, update  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from src.core.database import session_factory  # noqa: E402
@@ -128,8 +128,14 @@ async def import_course(course_file: Path, creator_id: UUID, replace: bool) -> U
         )
         updated = existing is not None and not replace
         if existing and replace:
-            await session.delete(existing)
-            await session.flush()
+            # Database cascades remove members and the course tree. ORM deletion
+            # instead tries to set members.course_id to NULL, which is forbidden.
+            session.expunge(existing)
+            await session.execute(
+                delete(CourseOrm)
+                .where(CourseOrm.id == course_id)
+                .execution_options(synchronize_session=False)
+            )
             existing = None
 
         if existing is None:

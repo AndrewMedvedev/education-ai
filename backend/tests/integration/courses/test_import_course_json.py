@@ -17,6 +17,7 @@ from src.courses.infra.database.models import (
     LessonOrm,
     LessonProgressOrm,
     LessonTheorySessionOrm,
+    MemberOrm,
     ModuleOrm,
     ModuleProgressOrm,
     PracticeOrm,
@@ -264,3 +265,47 @@ async def test_move_from_other_course_is_rejected(import_session, tmp_path):
     with pytest.raises(ValueError, match="another course"):
         await importer.import_course(path, uuid4(), False)
     assert await import_session.get(CourseOrm, UUID(other["course"]["id"])) is None
+
+
+@pytest.mark.asyncio
+async def test_replace_course_with_members_and_roll_back_on_invalid_data(
+    import_session, tmp_path
+):
+    payload = make_payload()
+    path = tmp_path / "course.json"
+    creator = uuid4()
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    await importer.import_course(path, creator, False)
+    course_data = payload["course"]
+    course_id = UUID(course_data["id"])
+    lesson_id = UUID(course_data["modules"][0]["lessons"][0]["id"])
+    member = MemberOrm(course_id=course_id, user_id=uuid4(), role="student")
+    theory = LessonTheorySessionOrm(lesson_id=lesson_id, user_id=uuid4())
+    import_session.add_all([member, theory])
+    await import_session.commit()
+    member_id, theory_id = member.id, theory.id
+
+    course_data["title"] = "Updated"
+    course_data["modules"][0]["lessons"][0]["content_blocks"] = [
+        {"content_type": "invalid"}
+    ]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError):
+        await importer.import_course(path, creator, True)
+    import_session.expire_all()
+    assert (await import_session.get(CourseOrm, course_id)).title == "Course"
+    assert await import_session.get(MemberOrm, member_id) is not None
+    assert await import_session.get(LessonTheorySessionOrm, theory_id) is not None
+
+    course_data["modules"][0]["lessons"][0]["content_blocks"] = [
+        {"content_type": "text", "md_content": "Updated"}
+    ]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    await importer.import_course(path, creator, True)
+    import_session.expire_all()
+    assert (await import_session.get(CourseOrm, course_id)).title == "Updated"
+    assert (await import_session.get(LessonOrm, lesson_id)).content_blocks[
+        0
+    ].md_content == "Updated"
+    assert await import_session.get(MemberOrm, member_id) is None
+    assert await import_session.get(LessonTheorySessionOrm, theory_id) is None
