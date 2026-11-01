@@ -117,9 +117,12 @@ class PracticerAgent:
         module_id: UUID,
         lesson_id: UUID,
     ) -> dict[str, Any]:
-        lesson = await self.lesson_repo.read(lesson_id)
-        if lesson is None:
-            raise NotFoundError(message="Урок не найден")
+        lesson = await self.validate_lesson(module_id, lesson_id)
+        await self.practice_repo.lock_file_upload(user_id, module_id, lesson_id)
+        existing = await self.practice_repo.read_latest_file_upload(user_id, module_id, lesson_id)
+        if existing is not None:
+            await self.transaction()
+            return self.practice_response(existing)
 
         example = await async_load_assignment_example()
 

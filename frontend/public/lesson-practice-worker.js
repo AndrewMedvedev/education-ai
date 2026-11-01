@@ -154,18 +154,23 @@ async function execute(request, key, operation) {
     const response = await fetch(
       new Request(request, { headers, signal: new AbortController().signal }),
     );
-    const data = await response.clone().json();
     if (!response.ok) {
+      const data = await response.clone().json().catch(() => null);
+      const message =
+        (typeof data?.detail === "string" && data.detail) ||
+        (typeof data?.error?.message === "string" && data.error.message) ||
+        `Не удалось выполнить запрос задания (HTTP ${response.status}).`;
       await record(key, (current) => ({
         ...current,
         status: "error",
-        error:
-          typeof data.detail === "string"
-            ? data.detail
-            : "Не удалось выполнить запрос задания.",
+        error: message,
       }));
-      return response;
+      return new Response(JSON.stringify({ detail: message }), {
+        status: response.status,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+    const data = await response.clone().json();
     await record(key, (current) => ({
       ...current,
       status: "ready",
