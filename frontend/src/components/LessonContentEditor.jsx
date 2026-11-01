@@ -1,3 +1,6 @@
+import ReloadStorageWarning from "../utils/ReloadStorageWarning";
+import { getReloadScope } from "../utils/reloadScope";
+import { useAgentInputDraft } from "../hooks/useAgentInputDraft";
 import { Fragment, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -78,7 +81,31 @@ function getUploadedImageId(uploadResult) {
   );
 }
 
-export default function LessonContentEditor({
+// API blocks may have no id. Random UI ids cannot identify a draft after reload.
+// Fingerprint the original block; changed/replaced content must not inherit its chat.
+function normalizeEditorBlocks(lesson) {
+  const source = lesson.contentBlocks || lesson.content_blocks;
+  return normalizeContentBlocks(source, lesson.markdown || lesson.content || "").map((block, index) => {
+    if (source?.[index]?.id) return block;
+    const text = JSON.stringify(stripUiFields(block));
+    let first = 2166136261;
+    let second = 5381;
+    for (let i = 0; i < text.length; i += 1) {
+      first = Math.imul(first ^ text.charCodeAt(i), 16777619);
+      second = Math.imul(second, 33) ^ text.charCodeAt(i);
+    }
+    return { ...block, id: `reload-block-${index}-${first >>> 0}-${second >>> 0}` };
+  });
+}
+
+export default function LessonContentEditor(props) {
+  const scope = useSessionStore(() => getReloadScope());
+  const session = useSessionStore((state) => state.sessionContext);
+  if (!scope) return null;
+  return <ScopedLessonContentEditor {...props} key={JSON.stringify([scope, session, props.courseId, props.lesson?.id])} />;
+}
+
+function ScopedLessonContentEditor({
   courseId,
   lesson,
   onChange,
@@ -88,16 +115,10 @@ export default function LessonContentEditor({
   // ИИ-редактор блока в плавающем окне (перетаскивается и растягивается).
   floatingAiEditor = false,
 }) {
-  const [blocks, setBlocks] = useState(() =>
-    normalizeContentBlocks(
-      lesson.contentBlocks || lesson.content_blocks,
-      lesson.markdown || lesson.content || "",
-    ),
-  );
+  const [blocks, setBlocks] = useState(() => normalizeEditorBlocks(lesson));
   const [activeBlockId, setActiveBlockId] = useState("");
   const [insertIndex, setInsertIndex] = useState(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
-  const [aiInput, setAiInput] = useState("");
   const [aiReferenceImages, setAiReferenceImages] = useState([]);
   const [aiReferenceError, setAiReferenceError] = useState("");
   const [proposal, setProposal] = useState(null);
@@ -110,6 +131,10 @@ export default function LessonContentEditor({
     courseId,
     `${lesson.id}:${activeBlockId}`,
   );
+  const [aiInput, setAiInput, draftIsCurrent] = useAgentInputDraft(aiConversationKey);
+  const blockRevisionRef = useRef(0);
+  const blockRevision = blockRevisionRef.current;
+  const contextIsCurrent = () => draftIsCurrent() && blockRevisionRef.current === blockRevision;
   const aiConversation = useAgentStore(
     (state) => state.conversations[aiConversationKey],
   );
@@ -132,15 +157,11 @@ export default function LessonContentEditor({
   const imageUploadPreviewRef = useRef(null);
 
   useEffect(() => {
-    const nextBlocks = normalizeContentBlocks(
-      lesson.contentBlocks || lesson.content_blocks,
-      lesson.markdown || lesson.content || "",
-    );
+    const nextBlocks = normalizeEditorBlocks(lesson);
     setBlocks(nextBlocks);
     setActiveBlockId("");
     setInsertIndex(null);
     setIsAiOpen(false);
-    setAiInput("");
     setAiReferenceImages((current) => {
       current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
       return [];
@@ -158,7 +179,13 @@ export default function LessonContentEditor({
   }, [lesson.id]);
 
   useEffect(
-    () => () => cancelAgentRequest(aiConversationKey),
+    () => {
+      const scope = getReloadScope();
+      const session = useSessionStore.getState().sessionContext;
+      return () => {
+        if (scope === getReloadScope() && session === useSessionStore.getState().sessionContext) cancelAgentRequest(aiConversationKey);
+      };
+    },
     [aiConversationKey, cancelAgentRequest],
   );
 
@@ -419,7 +446,7 @@ export default function LessonContentEditor({
     const prompt = aiInput.trim();
     const activeBlock = blocks.find((block) => block.id === activeBlockId);
     const isImageBlock = activeBlock?.content_type === "image";
-    if (!prompt || isAiSending) {
+    if (!contextIsCurrent() || !prompt || isAiSending) {
       return;
     }
     if (!activeBlock || activeBlock.content_type === "video") {
@@ -441,6 +468,7 @@ export default function LessonContentEditor({
             ),
           )
         : null;
+      if (!contextIsCurrent()) return;
       const referenceImageBase64 = isImageBlock
         ? await Promise.all(
             aiReferenceImages.map((image) => readFileAsBase64(image.file)),
@@ -449,6 +477,7 @@ export default function LessonContentEditor({
       const images = [currentImageBase64, ...referenceImageBase64].filter(
         Boolean,
       );
+      if (!contextIsCurrent()) return;
       const response = await sendAgentMessage({
         key: aiConversationKey,
         agent: "editor",
@@ -472,7 +501,7 @@ export default function LessonContentEditor({
               : "Правка готова. Проверьте предложенный вариант и примените его, если он подходит."
             : "",
       });
-      if (!response) return;
+      if (!response || !contextIsCurrent()) return;
       if (
         !response.parsedContent ||
         typeof response.parsedContent !== "object" ||
@@ -510,6 +539,7 @@ export default function LessonContentEditor({
         content: blockToMarkdown(proposedBlock),
       });
     } catch (error) {
+      if (!contextIsCurrent()) return;
       if (!error?.status) {
         setProposalError(error?.message || "Не удалось отправить запрос ИИ.");
       }
@@ -576,7 +606,7 @@ export default function LessonContentEditor({
   };
 
   const applyProposal = () => {
-    if (!proposal) {
+    if (!contextIsCurrent() || !proposal) {
       return;
     }
     const target = blocks.find((block) => block.id === proposal.blockId);
@@ -602,10 +632,11 @@ export default function LessonContentEditor({
   };
 
   const selectBlock = (blockId) => {
+    if (!contextIsCurrent()) return;
+    blockRevisionRef.current += 1;
     setActiveBlockId(blockId);
     setInsertIndex(null);
     setIsAiOpen(false);
-    setAiInput("");
     setAiReferenceImages((current) => {
       current.forEach((image) => URL.revokeObjectURL(image.previewUrl));
       return [];
@@ -1110,6 +1141,7 @@ export default function LessonContentEditor({
 
   return (
     <div className="lesson-content-editor">
+      <ReloadStorageWarning names={["ai-course-agent-chats-v1"]} />
       <div className="lesson-content-editor-head">
         <div>
           <span>{contentLabel}</span>

@@ -1,3 +1,5 @@
+import ReloadStorageWarning from "../utils/ReloadStorageWarning";
+import { DRAFT_KEY, LEGACY_DRAFT_KEY } from "./constants";
 import { useNavigate } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import Icon, { Spinner } from "./icons";
@@ -78,6 +80,7 @@ export default function TopBar({ isMobile, onPreview }) {
   return (
     <header className="dnd-topbar">
       <div className="dnd-topbar-left">
+        <ReloadStorageWarning names={[DRAFT_KEY, LEGACY_DRAFT_KEY]} />
         <button
           type="button"
           className="dnd-icon-btn"

@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { usePermissionStore } from "../stores/permissionStore";
 import { useSessionStore } from "../stores/sessionStore";
-import { isTokenExpired } from "../utils/api";
+import { useAppPermissions } from "../hooks/useAppPermissions";
 
 function buildRedirect(location) {
   return `${location.pathname}${location.search}`;
@@ -29,22 +29,26 @@ export default function ProtectedRoute({
   fallback = <AccessDenied />,
 }) {
   const location = useLocation();
-  const accessToken = useSessionStore((state) => state.accessToken);
-  const refreshToken = useSessionStore((state) => state.refreshToken);
-  const expiresAt = useSessionStore((state) => state.expiresAt);
+  const { isAuthenticated, arePermissionsLoaded } = useAppPermissions();
+  const hasHydrated = useSessionStore((state) => state.hasHydrated);
+  const identity = useSessionStore((state) => state.identity);
+  const identityError = useSessionStore((state) => state.identityError);
   const membershipId = useSessionStore((state) => state.membershipId);
   const organizationId = useSessionStore((state) => state.organizationId);
-  const arePermissionsLoaded = usePermissionStore((state) => state.isLoaded);
+  const permissionsError = usePermissionStore((state) => state.error);
+  const isLoading = usePermissionStore((state) => state.isLoading);
+  const loadPermissions = usePermissionStore((state) => state.loadPermissions);
   const hasAnyPermission = usePermissionStore(
     (state) => state.hasAnyPermission,
   );
   const hasAllPermissions = usePermissionStore(
     (state) => state.hasAllPermissions,
   );
-  const isAuthenticated = Boolean(
-    accessToken && expiresAt && (!isTokenExpired(expiresAt) || refreshToken),
-  );
   const requiredPermissions = permissions || (permission ? [permission] : []);
+
+  if (!hasHydrated) {
+    return <p className="course-details-text">Восстанавливаем сессию...</p>;
+  }
 
   if (!isAuthenticated) {
     return (
@@ -55,7 +59,7 @@ export default function ProtectedRoute({
     );
   }
 
-  if (!membershipId && !organizationId) {
+  if (!membershipId && !organizationId && identity) {
     return (
       <Navigate
         to={`/login?redirect=${encodeURIComponent(buildRedirect(location))}`}
@@ -64,11 +68,25 @@ export default function ProtectedRoute({
     );
   }
 
-  if (requiredPermissions.length > 0 && !arePermissionsLoaded) {
+  if (
+    (!membershipId && !organizationId && !identity) ||
+    (requiredPermissions.length > 0 && !arePermissionsLoaded)
+  ) {
     return (
       <section className="container section">
         <article className="glass-card">
-          <p className="course-details-text">Проверяем права доступа...</p>
+          <p className="course-details-text" role="status">
+            {permissionsError || identityError || "Проверяем права доступа..."}
+          </p>
+          {(permissionsError || identityError) && (
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => loadPermissions()}
+            >
+              {isLoading ? "Проверяем..." : "Повторить"}
+            </button>
+          )}
         </article>
       </section>
     );

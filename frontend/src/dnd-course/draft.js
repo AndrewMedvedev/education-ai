@@ -1,4 +1,5 @@
-import { getLocalStorage } from "../utils/storage";
+import { getReloadStorage, scopedReloadStorage, reportReloadStorage } from "../utils/reloadScope";
+const getLocalStorage = () => scopedReloadStorage;
 import {
   DRAFT_KEY,
   EMPTY_COURSE_FORM,
@@ -59,7 +60,7 @@ function restoreMaterial(material, index) {
       material.status === "uploading" && !material.markdown
         ? INTERRUPTED_UPLOAD_MESSAGE
         : material.error || "",
-    interrupted: material.status === "uploading" && !material.markdown,
+    interrupted: Boolean(material.interrupted || (material.status === "uploading" && !material.markdown)),
     lessonId: material.lessonId || null,
     attachToLessonId: null,
   };
@@ -137,7 +138,8 @@ export function migrateLegacyDraft(legacy) {
   );
 
   let activeNodeId = null;
-  if (legacy.activeLessonId) activeNodeId = nodeId.lesson(legacy.activeLessonId);
+  if (legacy.activeLessonId)
+    activeNodeId = nodeId.lesson(legacy.activeLessonId);
   else if (legacy.editingStructure?.type === "module")
     activeNodeId = nodeId.module(legacy.editingStructure.id);
   else if (legacy.editingStructure?.id)
@@ -170,8 +172,8 @@ export function loadDraft() {
     if (current && typeof current === "object") {
       return { draft: sanitizeDraft(current), migrated: false };
     }
-  } catch {
-    // Повреждённый черновик игнорируем и пробуем старый формат.
+  } catch (error) {
+    reportReloadStorage({ name: DRAFT_KEY, method: "getItem", error });
   }
 
   try {
@@ -182,8 +184,8 @@ export function loadDraft() {
       if (saveDraft(draft)) storage.removeItem(LEGACY_DRAFT_KEY);
       return { draft, migrated: true };
     }
-  } catch {
-    // Старый черновик нечитаем — начинаем с чистого листа.
+  } catch (error) {
+    reportReloadStorage({ name: LEGACY_DRAFT_KEY, method: "getItem", error });
   }
 
   return { draft: { ...EMPTY_DRAFT }, migrated: false };
@@ -192,19 +194,23 @@ export function loadDraft() {
 export function pickDraft(state) {
   const draft = {};
   for (const key of PERSISTED_KEYS) draft[key] = state[key];
-  draft.materials = (state.materials || []).map(
-    ({ attachToLessonId, ...material }) => material,
-  );
+  draft.materials = (state.materials || []).map((material, index) => ({
+    ...restoreMaterial(material, index),
+    status: material.status,
+  }));
   return draft;
 }
 
-export function saveDraft(state) {
-  const storage = getLocalStorage();
+export function saveDraft(state, scope) {
+  const storage = scope ? getReloadStorage(scope) : getLocalStorage();
   if (!storage) return false;
   try {
-    storage.setItem(DRAFT_KEY, JSON.stringify({ version: 2, ...pickDraft(state) }));
-    return true;
-  } catch {
+    return storage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({ version: 2, ...pickDraft(state) }),
+    );
+  } catch (error) {
+    reportReloadStorage({ scope, name: DRAFT_KEY, method: "setItem", error });
     return false;
   }
 }

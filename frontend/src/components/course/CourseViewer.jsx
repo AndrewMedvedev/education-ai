@@ -160,8 +160,9 @@ function LessonPartMark({ done }) {
 }
 
 export default function CourseViewer({ localCourse = null, mode = "view" }) {
-  const { courseId, blockId, lessonId } = useParams();
+  const { courseId, blockId, lessonId, practiceId } = useParams();
   const navigate = useNavigate();
+  const sessionContext = useSessionStore((state) => state.sessionContext);
   const accessToken = useSessionStore((state) => state.accessToken);
   const refreshToken = useSessionStore((state) => state.refreshToken);
   const expiresAt = useSessionStore((state) => state.expiresAt);
@@ -185,8 +186,13 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
   );
   const [course, setCourse] = useState(null);
   const loadedCourseIdRef = useRef(null);
-  const [selectedModuleId, setSelectedModuleId] = useState(blockId ?? null);
-  const [selectedLessonId, setSelectedLessonId] = useState(lessonId ?? null);
+  const [metricsModuleId, setSelectedModuleId] = useState(blockId ?? null);
+  const [metricsLessonId, setSelectedLessonId] = useState(lessonId ?? null);
+  // В learner view выбор задаёт URL, а не завершившийся запрос или старый state.
+  const selectedModuleId =
+    mode === "metrics" ? metricsModuleId : (blockId ?? null);
+  const selectedLessonId =
+    mode === "metrics" ? metricsLessonId : (lessonId ?? null);
   const [isLearningStarted, setIsLearningStarted] = useState(
     Boolean(blockId || lessonId),
   );
@@ -292,6 +298,9 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
   // Прогресс ведём только для записанного ученика, но не при авторском просмотре.
   const isProgressTracked =
     mode === "view" &&
+    isAuthenticated &&
+    course?.id === effectiveCourseId &&
+    loadedCourseIdRef.current?.context === sessionContext &&
     canReadCourseContent &&
     isEnrolled &&
     !isOwnCourse &&
@@ -382,13 +391,19 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
 
   useEffect(() => {
     let isMounted = true;
+    const isCurrent = () =>
+      isMounted && useSessionStore.getState().sessionContext === sessionContext;
 
     async function loadCourse() {
       // При переходе по урокам того же курса не показываем полноэкранную загрузку:
       // иначе дерево и теория пересоздаются, а дерево прыгает в начало.
-      const isSameCourse = loadedCourseIdRef.current === effectiveCourseId;
+      const isSameCourse =
+        loadedCourseIdRef.current?.courseId === effectiveCourseId &&
+        loadedCourseIdRef.current?.context === sessionContext;
       if (!isSameCourse) {
         setIsLoadingCourse(true);
+        setCourse(null);
+        setIsEnrolled(false);
       }
       setError(null);
 
@@ -411,8 +426,34 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
               : await getCourseBasicInfo(effectiveCourseId);
 
         if (!isMetricsMode && isDeepLink && lessonId && isUuid(lessonId)) {
-          await getLessonById(lessonId).catch(() => null);
-          basicCourse = await getCourseBasicInfo(effectiveCourseId);
+          const lesson = await getLessonById(lessonId).catch(() => null);
+          if (lesson) {
+            basicCourse = {
+              ...basicCourse,
+              blocks: basicCourse.blocks.map((block) => ({
+                ...block,
+                lessons: (block.lessons || []).map((item) =>
+                  item.id === lessonId ? { ...item, ...lesson } : item,
+                ),
+              })),
+            };
+          }
+        }
+
+        if (!isCurrent()) return;
+        if (practiceId) {
+          throw new Error(
+            "Отдельная практика из этой ссылки недоступна. Откройте практику во вкладке соответствующего урока.",
+          );
+        }
+        if (
+          blockId &&
+          !basicCourse.blocks.some((block) => block.id === blockId)
+        ) {
+          throw new Error("Модуль из адреса не найден в этом курсе");
+        }
+        if (lessonId && !findBlockByLesson(basicCourse, lessonId)) {
+          throw new Error("Урок из адреса не найден в этом курсе");
         }
 
         const basicCourseCreatorId =
@@ -432,16 +473,20 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
           enrollmentPage = await loadMyCourses({ page: 1, size: 100 });
         }
 
+        if (!isCurrent()) return;
         const enrolled =
           canReadCourseContent && !isBasicCourseOwn && enrollmentPage
             ? await isUserEnrolled(basicCourse.id, enrollmentPage)
             : false;
 
-        if (!isMounted) {
+        if (!isCurrent()) {
           return;
         }
 
-        loadedCourseIdRef.current = effectiveCourseId;
+        loadedCourseIdRef.current = {
+          courseId: effectiveCourseId,
+          context: sessionContext,
+        };
         setCourse(basicCourse);
         setIsEnrolled(enrolled);
         setSelectedModuleId(blockId ?? null);
@@ -451,11 +496,11 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
             (Boolean(blockId || lessonId) && canReadCourseContent),
         );
       } catch (loadError) {
-        if (isMounted) {
+        if (isCurrent()) {
           setError(loadError.message || "Не удалось загрузить курс");
         }
       } finally {
-        if (isMounted) {
+        if (isCurrent()) {
           setIsLoadingCourse(false);
         }
       }
@@ -467,11 +512,13 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
       isMounted = false;
     };
   }, [
+    sessionContext,
     blockId,
     canReadCourseContent,
     effectiveCourseId,
     isMetricsMode,
     lessonId,
+    practiceId,
     loadMyCourses,
     currentUserId,
     localCourse,
@@ -490,6 +537,8 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
     }
 
     let isMounted = true;
+    const isCurrent = () =>
+      isMounted && useSessionStore.getState().sessionContext === sessionContext;
 
     async function loadLessonContent() {
       setIsLoadingLesson(true);
@@ -499,16 +548,16 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
       try {
         const lessonBlocks = await getLessonContentBlocks(selectedLesson.id);
 
-        if (isMounted) {
+        if (isCurrent()) {
           setContentBlocks(lessonBlocks);
           setContentLessonId(selectedLesson.id);
         }
       } catch (loadError) {
-        if (isMounted) {
+        if (isCurrent()) {
           setError(loadError.message || "Не удалось загрузить теорию урока");
         }
       } finally {
-        if (isMounted) {
+        if (isCurrent()) {
           setIsLoadingLesson(false);
         }
       }
@@ -520,6 +569,7 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
       isMounted = false;
     };
   }, [
+    sessionContext,
     canReadCourseContent,
     canViewWithoutEnrollment,
     isEnrolled,
@@ -552,6 +602,11 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
 
   const openBlock = async (blockId) => {
     if (!canNavigateCourseContent) {
+      return;
+    }
+
+    if (!isMetricsMode) {
+      navigate(`/course/${course.id}/block/${blockId}`);
       return;
     }
 
@@ -590,6 +645,11 @@ export default function CourseViewer({ localCourse = null, mode = "view" }) {
 
   const openLesson = async (nextLessonId) => {
     if (!canNavigateCourseContent) {
+      return;
+    }
+
+    if (!isMetricsMode) {
+      navigate(`/course/${course.id}/lesson/${nextLessonId}`);
       return;
     }
 

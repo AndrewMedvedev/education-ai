@@ -241,6 +241,19 @@ class PracticeRepository(Repository[Practice]):
     async def read(self, user_id: UUID, module_id: UUID, lesson_id: UUID) -> Practice | None:
         """Получает практику по составному ключу пользователя, модуля и урока."""
 
+    async def read_latest_file_upload(
+        self,
+        user_id: UUID,
+        module_id: UUID,
+        lesson_id: UUID,
+    ) -> Practice | None:
+        """Returns the latest file-upload practice, excluding knowledge tests."""
+        ...
+
+    async def lock_file_upload(self, user_id: UUID, module_id: UUID, lesson_id: UUID) -> None:
+        """Serializes generation until the current transaction commits or rolls back."""
+        ...
+
     async def read_by_module(self, user_id: UUID, module_id: UUID) -> list[dict[str, Any]]:
         """Получает практики пользователя внутри модуля без служебных полей."""
         ...

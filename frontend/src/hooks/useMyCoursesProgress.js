@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCourseLearningStructure } from "../services/courseService";
+import { useSessionStore } from "../stores/sessionStore";
 import {
   PROGRESS_STATUS,
   getCourseProgress,
   getLessonProgressStatus,
   getLessonsProgress,
 } from "../services/progressService";
-import { isUuid } from "../utils/api";
+import { hasSessionCredentials, isUuid } from "../utils/api";
 
 function collectLessonIds(course) {
   return (course?.blocks || []).flatMap((block) =>
@@ -27,11 +28,12 @@ function clampPercent(value) {
   return Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : 0;
 }
 
-async function loadCourseSummary(courseId, signal) {
+async function loadCourseSummary(courseId, signal, isCurrent) {
   const [structure, courseProgress] = await Promise.all([
     getCourseLearningStructure(courseId),
     getCourseProgress(courseId, { signal }),
   ]);
+  if (!isCurrent()) return null;
   const lessonIds = collectLessonIds(structure);
   const modulesCount = (structure?.blocks || []).length;
 
@@ -91,31 +93,53 @@ async function loadCourseSummary(courseId, signal) {
  * Ничего не создаёт на backend: только читает существующие записи прогресса.
  */
 export function useMyCoursesProgress(courses, { enabled = true } = {}) {
+  const context = useSessionStore((session) => session.sessionContext);
+  const authenticated = useSessionStore(hasSessionCredentials);
   const courseIds = useMemo(
     () =>
       [...new Set((courses || []).map((course) => course?.id))].filter(isUuid),
     [courses],
   );
   const courseIdsKey = courseIds.join(",");
-  const [state, setState] = useState({
+  const scope = useMemo(
+    () => ({ context, enabled: enabled && authenticated, courseIdsKey }),
+    [context, enabled, authenticated, courseIdsKey],
+  );
+  const emptyState = {
+    isLoading: scope.enabled && courseIds.length > 0,
+    isLoaded: scope.enabled && courseIds.length === 0,
+    byCourseId: {},
+    errorsByCourseId: {},
+  };
+  const [storedState, setStoredState] = useState({
     isLoading: false,
     isLoaded: false,
     byCourseId: {},
     errorsByCourseId: {},
   });
 
+  const state = storedState.scope === scope ? storedState : emptyState;
+
   useEffect(() => {
-    if (!enabled || courseIds.length === 0) {
-      setState({
+    const controller = new AbortController();
+    const isCurrent = () =>
+      !controller.signal.aborted &&
+      useSessionStore.getState().sessionContext === context &&
+      hasSessionCredentials(useSessionStore.getState());
+    const setState = (next) => {
+      if (isCurrent()) setStoredState({ ...next, scope });
+    };
+    if (!scope.enabled || courseIds.length === 0) {
+      setStoredState({
+        scope,
         isLoading: false,
-        isLoaded: enabled,
+        isLoaded: scope.enabled,
         byCourseId: {},
         errorsByCourseId: {},
       });
       return undefined;
     }
 
-    const controller = new AbortController();
     setState({
       isLoading: true,
       isLoaded: false,
@@ -128,9 +152,14 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
       const errorsByCourseId = {};
       // Курсы — по одному: внутри каждого и так идут параллельные запросы уроков.
       for (const courseId of courseIds) {
-        if (controller.signal.aborted) return;
+        if (!isCurrent()) return;
         try {
-          const summary = await loadCourseSummary(courseId, controller.signal);
+          const summary = await loadCourseSummary(
+            courseId,
+            controller.signal,
+            isCurrent,
+          );
+          if (!isCurrent()) return;
           byCourseId[courseId] = summary;
           if (summary.error) {
             errorsByCourseId[courseId] = summary.error;
@@ -138,7 +167,7 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
         } catch (error) {
           errorsByCourseId[courseId] = getProgressErrorMessage(error);
         }
-        if (!controller.signal.aborted) {
+        if (isCurrent()) {
           setState({
             isLoading: true,
             isLoaded: false,
@@ -147,7 +176,7 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
           });
         }
       }
-      if (!controller.signal.aborted) {
+      if (isCurrent()) {
         setState({
           isLoading: false,
           isLoaded: true,
@@ -161,7 +190,7 @@ export function useMyCoursesProgress(courses, { enabled = true } = {}) {
     return () => controller.abort();
     // courseIdsKey стабилен для одинакового набора курсов.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseIdsKey, enabled]);
+  }, [courseIdsKey, scope, context]);
 
   const totals = useMemo(() => {
     const summaries = Object.values(state.byCourseId).filter(Boolean);

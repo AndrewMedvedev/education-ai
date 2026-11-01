@@ -1,12 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  checkLessonPractice,
-  checkLessonTest,
-  generateLessonPractice,
-  generateLessonTest,
-} from "../utils/api";
+
+import { useLessonPracticeRequest } from "../hooks/useLessonPracticeRequest";
 
 const PASSING_SCORE = 61;
 
@@ -23,24 +19,44 @@ function createAnswersPayload(questions, answers, testType) {
   );
 }
 
-function getErrorMessage(error, fallback) {
-  if (error?.status === 403)
-    return "Недостаточно прав для выполнения действия.";
-  if (error?.status === 404) return "Урок или модуль не найден.";
-  if (error?.status === 422) {
-    console.error("Ошибка валидации ответа ИИ-агента", error);
-    return "Проверьте корректность заполнения и попробуйте ещё раз.";
-  }
-  if (error?.status === 413) return "Файл слишком большой.";
-  if (Number(error?.status) >= 500) return fallback;
-  return error?.userMessage || error?.message || fallback;
-}
-
-function ResultCard({ result, passingScore = PASSING_SCORE }) {
+function ResultCard({
+  result,
+  passingScore = PASSING_SCORE,
+  onViewed,
+  onDone,
+  isFinishing,
+}) {
+  const card = useRef(null);
+  useEffect(() => {
+    if (!result || !onViewed || !card.current) return;
+    let acknowledged = false;
+    const acknowledge = () => {
+      const bounds = card.current?.getBoundingClientRect();
+      if (
+        !acknowledged &&
+        document.visibilityState === "visible" &&
+        bounds &&
+        bounds.bottom > 0 &&
+        bounds.top < window.innerHeight
+      ) {
+        acknowledged = true;
+        onViewed();
+      }
+    };
+    const observer = new IntersectionObserver(acknowledge);
+    observer.observe(card.current);
+    document.addEventListener("visibilitychange", acknowledge);
+    acknowledge();
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", acknowledge);
+    };
+  }, [result, onViewed]);
   if (!result) return null;
   const passed = Number(result.score) >= passingScore;
   return (
     <article
+      ref={card}
       className={`lesson-agent-result ${passed ? "is-passed" : "is-failed"}`}
     >
       <div>
@@ -53,6 +69,20 @@ function ResultCard({ result, passingScore = PASSING_SCORE }) {
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {result.ai_feedback}
           </ReactMarkdown>
+        </div>
+      )}
+      {onDone && (
+        <div className="lesson-agent-actions">
+          <button
+            type="button"
+            className="btn btn-solid"
+            onClick={onDone}
+            disabled={isFinishing}
+          >
+            {isFinishing
+              ? "Завершаем просмотр..."
+              : "Завершить просмотр результата"}
+          </button>
         </div>
       )}
     </article>
@@ -82,40 +112,21 @@ function normalizeAssignmentText(value) {
 }
 
 export function LessonTestAgent({ moduleId, lessonId, onChecked }) {
-  const [test, setTest] = useState(null);
-  const [practiceId, setPracticeId] = useState(null);
-  const [answers, setAnswers] = useState({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
-
-  const startTest = async () => {
-    if (!moduleId || !lessonId || isLoading) return;
-    setIsLoading(true);
-    setError("");
-    setResult(null);
-    setAnswers({});
-    setPracticeId(null);
-    setTest(null);
-
-    try {
-      const response = await generateLessonTest(moduleId, lessonId);
-      setTest(response.practice);
-      setPracticeId(response.practiceId);
-      if (!response.practiceId) {
-        setError(
-          "Backend не вернул идентификатор практики для проверки теста.",
-        );
-      }
-    } catch (error) {
-      setError(
-        getErrorMessage(error, "Не удалось подготовить проверочные вопросы."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const {
+    assignment: test,
+    practiceId,
+    answers,
+    setAnswers,
+    isLoading,
+    isChecking,
+    isRestoring,
+    error,
+    result,
+    generate: startTest,
+    check,
+    markViewed,
+    finish,
+  } = useLessonPracticeRequest(moduleId, lessonId, "test");
 
   const questions = Array.isArray(test?.questions) ? test.questions : [];
   const isSubmitted = Boolean(result);
@@ -129,27 +140,13 @@ export function LessonTestAgent({ moduleId, lessonId, onChecked }) {
 
   const submitTest = async () => {
     if (!test || !practiceId || !canSubmit || isChecking || isSubmitted) return;
-    setIsChecking(true);
-    setError("");
     const payload = {
       practice: test,
       answers: createAnswersPayload(questions, answers, test?.test_type),
     };
 
-    try {
-      const response = await checkLessonTest(practiceId, payload);
-      setResult(response);
-      onChecked?.(response);
-    } catch (error) {
-      setError(
-        getErrorMessage(
-          error,
-          "Не удалось проверить тест. Попробуйте ещё раз.",
-        ),
-      );
-    } finally {
-      setIsChecking(false);
-    }
+    const response = await check(payload);
+    if (response) onChecked?.(response);
   };
 
   if (!test) {
@@ -159,7 +156,11 @@ export function LessonTestAgent({ moduleId, lessonId, onChecked }) {
           <p className="course-category">Проверочные вопросы</p>
           <h2>Проверка знаний</h2>
           <span>
-            Когда будете готовы, запустите генерацию тестовых вопросов.
+            {isLoading
+              ? "Запрос уже отправлен. Можно обновлять страницу — вопросы появятся здесь автоматически."
+              : isRestoring
+                ? "Восстанавливаем сохранённое состояние теста…"
+                : "Когда будете готовы, запустите генерацию тестовых вопросов."}
           </span>
         </div>
         {error && (
@@ -172,9 +173,13 @@ export function LessonTestAgent({ moduleId, lessonId, onChecked }) {
             type="button"
             className="btn btn-solid"
             onClick={startTest}
-            disabled={isLoading || !moduleId || !lessonId}
+            disabled={isLoading || isRestoring || !moduleId || !lessonId}
           >
-            {isLoading ? "Готовим вопросы..." : "Пройти тест"}
+            {isRestoring
+              ? "Восстанавливаем тест..."
+              : isLoading
+                ? "Готовим вопросы..."
+                : "Пройти тест"}
           </button>
         </div>
       </section>
@@ -276,47 +281,37 @@ export function LessonTestAgent({ moduleId, lessonId, onChecked }) {
         </button>
       </div>
 
-      <ResultCard result={result} />
+      <ResultCard
+        result={result}
+        onViewed={markViewed}
+        onDone={finish}
+        isFinishing={isRestoring}
+      />
     </section>
   );
 }
 
 export function LessonPracticeAgent({ moduleId, lessonId, onChecked }) {
-  const [assignment, setAssignment] = useState(null);
-  const [practiceId, setPracticeId] = useState(null);
+  const {
+    assignment,
+    practiceId,
+    result,
+    error,
+    isLoading,
+    isChecking,
+    isRestoring,
+    generate,
+    check,
+    markViewed,
+    finish,
+  } = useLessonPracticeRequest(moduleId, lessonId);
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
 
   const startPractice = async () => {
-    if (!moduleId || !lessonId || isLoading) return;
-    setIsLoading(true);
-    setError("");
-    setResult(null);
     setFile(null);
     setFileError("");
-    setPracticeId(null);
-    setAssignment(null);
-
-    try {
-      const response = await generateLessonPractice(moduleId, lessonId);
-      setAssignment(response.practice);
-      setPracticeId(response.practiceId);
-      if (!response.practiceId) {
-        setError(
-          "Backend не вернул идентификатор практики для проверки задания.",
-        );
-      }
-    } catch (error) {
-      setError(
-        getErrorMessage(error, "Не удалось подготовить практическое задание."),
-      );
-    } finally {
-      setIsLoading(false);
-    }
+    await generate();
   };
 
   const allowedExtensions = useMemo(
@@ -355,19 +350,8 @@ export function LessonPracticeAgent({ moduleId, lessonId, onChecked }) {
 
   const submitPractice = async () => {
     if (!file || !practiceId || fileError || isChecking || result) return;
-    setIsChecking(true);
-    setError("");
-    try {
-      const response = await checkLessonPractice(practiceId, assignment, file);
-      setResult(response);
-      onChecked?.(response);
-    } catch (error) {
-      setError(
-        getErrorMessage(error, "Не удалось проверить практическое задание."),
-      );
-    } finally {
-      setIsChecking(false);
-    }
+    const response = await check(file);
+    if (response) onChecked?.(response);
   };
 
   if (!assignment) {
@@ -377,7 +361,11 @@ export function LessonPracticeAgent({ moduleId, lessonId, onChecked }) {
           <p className="course-category">Практика</p>
           <h2>Практическое задание</h2>
           <span>
-            Когда будете готовы, запустите подготовку практического задания.
+            {isLoading
+              ? "Запрос уже отправлен. Можно обновлять страницу — результат появится здесь автоматически."
+              : isRestoring
+                ? "Восстанавливаем сохранённое состояние практики…"
+                : "Когда будете готовы, запустите подготовку практического задания."}
           </span>
         </div>
         {error && (
@@ -390,11 +378,13 @@ export function LessonPracticeAgent({ moduleId, lessonId, onChecked }) {
             type="button"
             className="btn btn-solid"
             onClick={startPractice}
-            disabled={isLoading || !moduleId || !lessonId}
+            disabled={isLoading || isRestoring || !moduleId || !lessonId}
           >
-            {isLoading
-              ? "Готовим задание..."
-              : "Выполнить практическое задание"}
+            {isRestoring
+              ? "Восстанавливаем практику..."
+              : isLoading
+                ? "Готовим задание..."
+                : "Выполнить практическое задание"}
           </button>
         </div>
       </section>
@@ -495,6 +485,13 @@ export function LessonPracticeAgent({ moduleId, lessonId, onChecked }) {
       <ResultCard
         result={result}
         passingScore={assignment?.passing_score ?? PASSING_SCORE}
+        onViewed={markViewed}
+        onDone={async () => {
+          await finish();
+          setFile(null);
+          setFileError("");
+        }}
+        isFinishing={isRestoring}
       />
     </section>
   );

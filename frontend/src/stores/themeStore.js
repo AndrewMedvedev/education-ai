@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createSafeJSONStorage } from "../utils/storage";
 
 const THEME_STORAGE_KEY = "app-theme-storage";
 const THEME_STORAGE_VERSION = 1;
@@ -37,6 +38,7 @@ export const useThemeStore = create(
     {
       name: THEME_STORAGE_KEY,
       version: THEME_STORAGE_VERSION,
+      storage: createSafeJSONStorage(),
       partialize: (state) => ({
         theme: SUPPORTED_THEMES.has(state.theme) ? state.theme : "light",
       }),
@@ -49,8 +51,15 @@ export const useThemeStore = create(
           ? persistedState
           : { theme: "light" };
       },
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      // migrate is skipped for matching versions; never merge actions/flags.
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        theme: SUPPORTED_THEMES.has(persistedState?.theme)
+          ? persistedState.theme
+          : currentState.theme,
+      }),
+      onRehydrateStorage: (initialState) => (state) => {
+        (state || initialState).setHasHydrated(true);
       },
     },
   ),

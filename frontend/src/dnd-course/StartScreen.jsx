@@ -1,3 +1,5 @@
+import ReloadStorageWarning from "../utils/ReloadStorageWarning";
+import { DRAFT_KEY, LEGACY_DRAFT_KEY } from "./constants";
 import { useId } from "react";
 import { DIFFICULTY_OPTIONS } from "./constants";
 import Icon, { Spinner } from "./icons";
@@ -27,6 +29,7 @@ export default function StartScreen() {
   return (
     <section className="dnd-start" aria-labelledby={`${id}-title`}>
       <div className="dnd-start-intro">
+        <ReloadStorageWarning names={[DRAFT_KEY, LEGACY_DRAFT_KEY]} />
         <span className="dnd-eyebrow">Drag &amp; Drop курс</span>
         <h1 id={`${id}-title`}>Создайте основу курса</h1>
         {notice ? (

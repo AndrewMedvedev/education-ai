@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { fetchIdentity } from "../utils/api";
+import { getSessionContext, hasSessionCredentials } from "../utils/api";
+import { useSessionStore } from "./sessionStore";
 
 export const COURSE_PERMISSIONS = {
   READ: "course:read",
@@ -101,59 +102,110 @@ function extractPermissionsFromIdentity(identity) {
     .filter(Boolean);
 }
 
+let permissionsRequest = null;
+
 export const usePermissionStore = create((set, get) => ({
   permissions: [],
+  context: getSessionContext(),
   isLoading: false,
   isLoaded: false,
   error: null,
 
   setPermissions: (permissions = []) =>
     set({
+      context: getSessionContext(),
       permissions: permissions.map(normalizePermissionCode).filter(Boolean),
       isLoading: false,
       isLoaded: true,
       error: null,
     }),
 
-  setPermissionsFromIdentity: (identity) =>
+  setPermissionsFromIdentity: (identity) => {
+    // App's legacy startup effect may deliver null or an old session's result.
+    if (!identity || identity !== useSessionStore.getState().identity) return;
     set({
+      context: getSessionContext(),
       permissions: extractPermissionsFromIdentity(identity),
       isLoading: false,
       isLoaded: true,
       error: null,
-    }),
+    });
+  },
 
-  resetPermissions: () =>
-    set({ permissions: [], isLoading: false, isLoaded: true, error: null }),
+  resetPermissions: () => {
+    permissionsRequest = null;
+    set({
+      context: getSessionContext(),
+      permissions: [],
+      isLoading: false,
+      isLoaded: false,
+      error: null,
+    });
+  },
 
   loadPermissions: async () => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const identity = await fetchIdentity();
-      const permissions = extractPermissionsFromIdentity(identity);
-
-      set({ permissions, isLoading: false, isLoaded: true, error: null });
-      return permissions;
-    } catch (error) {
-      set({
-        permissions: [],
-        isLoading: false,
-        isLoaded: true,
-        error: error?.message || "Не удалось настроить доступный функционал",
+    const context = getSessionContext();
+    if (!hasSessionCredentials(useSessionStore.getState())) return [];
+    if (permissionsRequest?.context === context)
+      return permissionsRequest.promise;
+    const flight = { context, promise: null };
+    set({ context, isLoading: true, error: null });
+    flight.promise = useSessionStore
+      .getState()
+      .loadIdentity()
+      .then((identity) => {
+        if (context !== getSessionContext()) return [];
+        if (identity) {
+          get().setPermissionsFromIdentity(identity);
+        } else {
+          set({
+            isLoading: false,
+            isLoaded: false,
+            error:
+              useSessionStore.getState().identityError ||
+              "Не удалось проверить права доступа. Повторите запрос.",
+          });
+        }
+        return get().permissions;
+      })
+      .finally(() => {
+        if (permissionsRequest === flight) permissionsRequest = null;
       });
-      return [];
-    }
+    permissionsRequest = flight;
+    return flight.promise;
   },
 
   hasPermission: (permission) =>
+    get().context === getSessionContext() &&
+    get().isLoaded &&
     get().permissions.includes(normalizePermissionCode(permission)),
   hasAnyPermission: (requiredPermissions = []) =>
+    get().context === getSessionContext() &&
+    get().isLoaded &&
     requiredPermissions.some((permission) =>
       get().permissions.includes(normalizePermissionCode(permission)),
     ),
   hasAllPermissions: (requiredPermissions = []) =>
+    get().context === getSessionContext() &&
+    get().isLoaded &&
     requiredPermissions.every((permission) =>
       get().permissions.includes(normalizePermissionCode(permission)),
     ),
 }));
+
+useSessionStore.subscribe((state, previous) => {
+  const store = usePermissionStore.getState();
+  if (store.context !== getSessionContext()) store.resetPermissions();
+  if (state.identity && state.identity !== previous.identity) {
+    usePermissionStore.getState().setPermissionsFromIdentity(state.identity);
+  } else if (
+    state.identityError &&
+    state.identityError !== previous.identityError
+  ) {
+    usePermissionStore.setState({
+      isLoading: false,
+      isLoaded: false,
+      error: state.identityError,
+    });
+  }
+});

@@ -1,4 +1,6 @@
 import {
+  ApiError,
+  getSessionContext,
   completeLessonTheory,
   createCourseProgress,
   createLessonProgress,
@@ -24,6 +26,13 @@ export const PROGRESS_STATUS_LABELS = {
 
 const LESSON_PROGRESS_CONCURRENCY = 4;
 const pendingRequests = new Map();
+let pendingContext = getSessionContext();
+
+function assertContext(context) {
+  if (context !== getSessionContext()) {
+    throw new ApiError("Контекст сессии изменился.", { code: "STALE_SESSION" });
+  }
+}
 
 function isStatus(error, status) {
   return Number(error?.status) === status;
@@ -32,10 +41,23 @@ function isStatus(error, status) {
 // Один и тот же запрос (например, создание прогресса урока) не отправляем дважды,
 // пока первый ещё в полёте: эффекты React в StrictMode вызываются повторно.
 function once(key, factory) {
+  const context = getSessionContext();
+  if (pendingContext !== context) {
+    pendingRequests.clear();
+    pendingContext = context;
+  }
   if (pendingRequests.has(key)) {
     return pendingRequests.get(key);
   }
-  const promise = factory().finally(() => pendingRequests.delete(key));
+  const promise = factory(context)
+    .then((result) => {
+      assertContext(context);
+      return result;
+    })
+    .finally(() => {
+      // Старый запрос не должен удалить новый singleflight с тем же ID.
+      if (pendingRequests.get(key) === promise) pendingRequests.delete(key);
+    });
   pendingRequests.set(key, promise);
   return promise;
 }
@@ -121,49 +143,71 @@ export async function getLessonProgress(lessonId, options = {}) {
 }
 
 // GET → при 404 POST → при 409 (запись создалась параллельно) снова GET.
-async function ensureRecord({ read, create }) {
+async function ensureRecord({ read, create }, context) {
+  assertContext(context);
   try {
-    return await read();
+    const record = await read();
+    assertContext(context);
+    return record;
   } catch (error) {
+    assertContext(context);
     if (!isStatus(error, 404)) throw error;
   }
   try {
-    return await create();
+    const record = await create();
+    assertContext(context);
+    return record;
   } catch (error) {
-    if (isStatus(error, 409)) return read();
+    assertContext(context);
+    if (isStatus(error, 409)) {
+      const record = await read();
+      assertContext(context);
+      return record;
+    }
     throw error;
   }
 }
 
 export function ensureCourseProgress(courseId) {
-  return once(`course:${courseId}`, async () =>
+  return once(`course:${courseId}`, async (context) =>
     normalizeCourseProgress(
-      await ensureRecord({
-        read: () => fetchCourseProgress(courseId),
-        create: () => createCourseProgress(courseId),
-      }),
+      await ensureRecord(
+        {
+          read: () => fetchCourseProgress(courseId),
+          create: () => createCourseProgress(courseId),
+        },
+        context,
+      ),
     ),
   );
 }
 
 export function ensureModuleProgress(courseId, moduleId) {
-  return once(`module:${moduleId}`, async () => {
+  return once(`module:${moduleId}`, async (context) => {
     await ensureCourseProgress(courseId);
-    return ensureRecord({
-      read: () => fetchModuleProgress(moduleId),
-      create: () => createModuleProgress(courseId, moduleId),
-    });
+    assertContext(context);
+    return ensureRecord(
+      {
+        read: () => fetchModuleProgress(moduleId),
+        create: () => createModuleProgress(courseId, moduleId),
+      },
+      context,
+    );
   });
 }
 
 export function ensureLessonProgress(courseId, moduleId, lessonId) {
-  return once(`lesson:${lessonId}`, async () => {
+  return once(`lesson:${lessonId}`, async (context) => {
     await ensureModuleProgress(courseId, moduleId);
+    assertContext(context);
     return normalizeLessonProgress(
-      await ensureRecord({
-        read: () => fetchLessonProgress(lessonId),
-        create: () => createLessonProgress(moduleId, lessonId),
-      }),
+      await ensureRecord(
+        {
+          read: () => fetchLessonProgress(lessonId),
+          create: () => createLessonProgress(moduleId, lessonId),
+        },
+        context,
+      ),
     );
   });
 }
@@ -181,18 +225,22 @@ export async function syncCourseProgressPercent(courseId, totalLessons) {
 // Отдельной ручки «весь прогресс курса» на backend нет, поэтому прогресс уроков
 // для дерева запрашиваем по одному с ограничением параллельности.
 export async function getLessonsProgress(lessonIds, { signal, onError } = {}) {
+  const context = getSessionContext();
   const ids = [...new Set((lessonIds || []).filter(Boolean))];
   const result = {};
   let cursor = 0;
 
   async function worker() {
     while (cursor < ids.length) {
+      assertContext(context);
       if (signal?.aborted) return;
       const lessonId = ids[cursor];
       cursor += 1;
       try {
         result[lessonId] = await getLessonProgress(lessonId, { signal });
+        assertContext(context);
       } catch (error) {
+        assertContext(context);
         // Только 404 нормализуется getLessonProgress в отсутствие записи.
         // Остальные ошибки не должны выглядеть как «урок не начат».
         result[lessonId] = null;
@@ -207,5 +255,6 @@ export async function getLessonsProgress(lessonIds, { signal, onError } = {}) {
       worker,
     ),
   );
+  assertContext(context);
   return result;
 }

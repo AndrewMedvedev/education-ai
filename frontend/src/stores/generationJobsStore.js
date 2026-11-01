@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import { sanitizeGenerationJobs } from "../utils/agentPersistence";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { getLocalStorage } from "../utils/storage";
+import { bindReloadScope, scopedReloadStorage } from "../utils/reloadScope";
 
 /**
  * Запущенные генерации модулей и уроков из редактора курса.
@@ -13,12 +14,6 @@ import { getLocalStorage } from "../utils/storage";
  *   resultId, resultTitle, lessonsCount, lastChangeAt, error
  * }
  */
-
-const MEMORY_STORAGE = {
-  getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
-};
 
 export const generationJobKey = (kind, courseId, contextId = "") =>
   [kind, courseId, contextId].join(":");
@@ -71,8 +66,13 @@ export const useGenerationJobsStore = create(
     {
       name: "ai-course-generation-jobs-v1",
       version: 1,
-      storage: createJSONStorage(() => getLocalStorage() || MEMORY_STORAGE),
-      partialize: (state) => ({ jobs: state.jobs }),
+      storage: createJSONStorage(() => scopedReloadStorage),
+      partialize: sanitizeGenerationJobs,
+      merge: (persisted, current) => ({ ...current, ...sanitizeGenerationJobs(persisted) }),
     },
   ),
+);
+
+bindReloadScope(useGenerationJobsStore, () =>
+  useGenerationJobsStore.setState({ jobs: {} }),
 );

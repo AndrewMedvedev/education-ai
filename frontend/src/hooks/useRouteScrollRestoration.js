@@ -1,92 +1,83 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useUiLayoutStore } from "../stores/uiLayoutStore";
-
-const getRouteScrollKey = (location) =>
-  `${location.pathname}${location.search || ""}`;
+import { restoreRouteScroll } from "./routeScrollRestoration.js";
+import { useSessionStore } from "../stores/sessionStore";
+import { getReloadScope } from "../utils/reloadScope";
 
 export function useRouteScrollRestoration() {
   const location = useLocation();
-  const saveScrollPosition = useUiLayoutStore(
-    (state) => state.saveScrollPosition,
-  );
-  const getScrollPosition = useUiLayoutStore(
-    (state) => state.getScrollPosition,
-  );
-  const hasHydrated = useUiLayoutStore((state) => state.hasHydrated);
-  const currentRouteKeyRef = useRef(getRouteScrollKey(location));
-  const lastScrollYRef = useRef(
-    typeof window === "undefined" ? 0 : window.scrollY,
-  );
-  const frameRef = useRef(null);
-  const hasRestoredInitialRouteRef = useRef(false);
+  const scope = useSessionStore(() => getReloadScope());
+  const routeKey = scope
+    ? JSON.stringify([scope, location.pathname, location.search || ""])
+    : null;
+  const save = useUiLayoutStore((state) => state.saveScrollPosition);
+  const get = useUiLayoutStore((state) => state.getScrollPosition);
+  const hydrated = useUiLayoutStore((state) => state.hasHydrated);
+  const current = useRef(routeKey);
+  const lastY = useRef(typeof window === "undefined" ? 0 : window.scrollY);
+  const frame = useRef(null);
+  const restoring = useRef(false);
+  const restored = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-
-    const previousRestoration = window.history.scrollRestoration;
+    const previous = window.history.scrollRestoration;
     window.history.scrollRestoration = "manual";
-
     return () => {
-      window.history.scrollRestoration = previousRestoration;
+      window.history.scrollRestoration = previous;
     };
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-
-    const handleScroll = () => {
-      lastScrollYRef.current = window.scrollY;
-
-      if (frameRef.current !== null) return;
-      frameRef.current = window.requestAnimationFrame(() => {
-        frameRef.current = null;
-        saveScrollPosition(currentRouteKeyRef.current, lastScrollYRef.current);
+    const flush = () => {
+      if (!restoring.current && restored.current)
+        save(current.current, lastY.current);
+    };
+    const scroll = () => {
+      if (restoring.current || !restored.current) return;
+      lastY.current = window.scrollY;
+      if (frame.current !== null) return;
+      const key = current.current;
+      frame.current = window.requestAnimationFrame(() => {
+        frame.current = null;
+        save(key, lastY.current);
       });
     };
-
-    const handleBeforeUnload = () => {
-      saveScrollPosition(currentRouteKeyRef.current, window.scrollY);
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
+    window.addEventListener("scroll", scroll, { passive: true });
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
     return () => {
-      if (frameRef.current !== null) {
-        window.cancelAnimationFrame(frameRef.current);
-      }
-      saveScrollPosition(currentRouteKeyRef.current, window.scrollY);
-      window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+      frame.current = null;
+      flush();
+      window.removeEventListener("scroll", scroll);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
     };
-  }, [saveScrollPosition]);
+  }, [save]);
 
-  useEffect(() => {
-    if (!hasHydrated || typeof window === "undefined") return undefined;
-
-    const previousRouteKey = currentRouteKeyRef.current;
-    const nextRouteKey = getRouteScrollKey(location);
-
-    if (
-      hasRestoredInitialRouteRef.current &&
-      previousRouteKey !== nextRouteKey
-    ) {
-      saveScrollPosition(previousRouteKey, window.scrollY);
+  useLayoutEffect(() => {
+    if (!hydrated || typeof window === "undefined") return undefined;
+    if (!routeKey) {
+      restored.current = false;
+      current.current = null;
+      return undefined;
     }
-
-    currentRouteKeyRef.current = nextRouteKey;
-    hasRestoredInitialRouteRef.current = true;
-
-    const restoreFrame = window.requestAnimationFrame(() => {
-      const savedScrollY = getScrollPosition(nextRouteKey);
-      window.scrollTo({
-        top: typeof savedScrollY === "number" ? savedScrollY : 0,
-        left: 0,
-        behavior: "auto",
-      });
+    if (frame.current !== null) window.cancelAnimationFrame(frame.current);
+    frame.current = null;
+    if (restored.current && current.current !== routeKey)
+      save(current.current, lastY.current);
+    // Read before any scroll event can overwrite the destination position.
+    const saved = get(routeKey);
+    const target = Number.isFinite(saved) ? Math.max(0, saved) : 0;
+    current.current = routeKey;
+    restored.current = true;
+    restoring.current = true;
+    return restoreRouteScroll(target, window, () => {
+      restoring.current = false;
+      lastY.current = window.scrollY;
     });
-
-    return () => window.cancelAnimationFrame(restoreFrame);
-  }, [getScrollPosition, hasHydrated, location, saveScrollPosition]);
+  }, [get, hydrated, routeKey, save]);
 }

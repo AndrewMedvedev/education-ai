@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCourseLearningStructure } from "../services/courseService";
+import { useSessionStore } from "../stores/sessionStore";
+import { hasSessionCredentials } from "../utils/api";
 import {
   PROGRESS_STATUS,
   ensureCourseProgress,
@@ -62,8 +64,19 @@ function collectLessonIds(course) {
  * при прохождении, загружает статусы уроков для дерева и процент прохождения.
  */
 export function useCourseProgress(courseId, { enabled = true } = {}) {
-  const [state, setState] = useState(EMPTY_STATE);
-  const activeCourseIdRef = useRef(null);
+  const context = useSessionStore((session) => session.sessionContext);
+  const authenticated = useSessionStore(hasSessionCredentials);
+  const scope = useMemo(
+    () => ({
+      courseId,
+      context,
+      enabled: enabled && authenticated && Boolean(courseId),
+    }),
+    [courseId, context, enabled, authenticated],
+  );
+  const [storedState, setStoredState] = useState(EMPTY_STATE);
+  const state = storedState.scope === scope ? storedState : EMPTY_STATE;
+  const activeScopeRef = useRef(null);
   const lessonIdsRef = useRef([]);
   const lessonProgressRef = useRef({});
   const theoryRequestsRef = useRef(new Set());
@@ -71,37 +84,57 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
   const refreshControllersRef = useRef({});
 
   const isActive = useCallback(
-    (targetCourseId) => activeCourseIdRef.current === targetCourseId,
+    (target) =>
+      target?.enabled &&
+      activeScopeRef.current === target &&
+      useSessionStore.getState().sessionContext === target.context &&
+      hasSessionCredentials(useSessionStore.getState()),
     [],
   );
 
-  const setLessonProgress = useCallback((lessonId, progress) => {
-    lessonProgressRef.current = {
-      ...lessonProgressRef.current,
-      [lessonId]: progress,
-    };
-    setState((current) => ({
-      ...current,
-      lessonProgressById: {
-        ...current.lessonProgressById,
+  const setState = useCallback(
+    (update) => {
+      const target = activeScopeRef.current;
+      setStoredState((current) => {
+        if (!isActive(target) || target.scope !== scope) return current;
+        const next = typeof update === "function" ? update(current) : update;
+        return { ...next, scope };
+      });
+    },
+    [isActive, scope],
+  );
+
+  const setLessonProgress = useCallback(
+    (lessonId, progress) => {
+      lessonProgressRef.current = {
+        ...lessonProgressRef.current,
         [lessonId]: progress,
-      },
-    }));
-  }, []);
+      };
+      setState((current) => ({
+        ...current,
+        lessonProgressById: {
+          ...current.lessonProgressById,
+          [lessonId]: progress,
+        },
+      }));
+    },
+    [setState],
+  );
 
   const syncPercent = useCallback(
-    async (targetCourseId) => {
+    async (target) => {
+      if (!isActive(target)) return;
       const total = lessonIdsRef.current.length;
       try {
         const courseProgress = await syncCourseProgressPercent(
-          targetCourseId,
+          target.courseId,
           total,
         );
-        if (isActive(targetCourseId) && courseProgress) {
+        if (isActive(target) && courseProgress) {
           setState((current) => ({ ...current, courseProgress }));
         }
       } catch (error) {
-        if (isActive(targetCourseId)) {
+        if (isActive(target)) {
           setState((current) => ({
             ...current,
             error: getProgressErrorMessage(error),
@@ -109,11 +142,13 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         }
       }
     },
-    [isActive],
+    [isActive, setState],
   );
 
   useEffect(() => {
-    activeCourseIdRef.current = enabled && courseId ? courseId : null;
+    // Отдельный запуск эффекта: даже повторный mount того же курса — не тот же запрос.
+    const target = { ...scope, scope };
+    activeScopeRef.current = target;
     lessonIdsRef.current = [];
     lessonProgressRef.current = {};
     theoryRequestsRef.current = new Set();
@@ -123,8 +158,8 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
     refreshTokensRef.current = {};
     refreshControllersRef.current = {};
 
-    if (!enabled || !courseId) {
-      setState(EMPTY_STATE);
+    if (!scope.enabled) {
+      setStoredState(EMPTY_STATE);
       return undefined;
     }
 
@@ -137,6 +172,7 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
           getCourseLearningStructure(courseId),
           ensureCourseProgress(courseId),
         ]);
+        if (controller.signal.aborted || !isActive(target)) return;
         const lessonIds = collectLessonIds(structure);
         let progressLoadError = null;
         const lessonProgressById = await getLessonsProgress(lessonIds, {
@@ -145,7 +181,7 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
             progressLoadError ||= loadError;
           },
         });
-        if (controller.signal.aborted || !isActive(courseId)) return;
+        if (controller.signal.aborted || !isActive(target)) return;
 
         lessonIdsRef.current = lessonIds;
         lessonProgressRef.current = {
@@ -165,9 +201,9 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         });
         // Практика/тест могли закрыться событием, пока страница была закрыта, —
         // пересчитываем сохранённый процент курса.
-        syncPercent(courseId);
+        syncPercent(target);
       } catch (error) {
-        if (controller.signal.aborted || !isActive(courseId)) return;
+        if (controller.signal.aborted || !isActive(target)) return;
         setState((current) => ({
           ...current,
           isLoading: false,
@@ -183,8 +219,8 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
 
     return () => {
       controller.abort();
-      if (activeCourseIdRef.current === courseId) {
-        activeCourseIdRef.current = null;
+      if (activeScopeRef.current === target) {
+        activeScopeRef.current = null;
       }
       Object.values(refreshControllersRef.current).forEach(
         (refreshController) => refreshController.abort(),
@@ -192,27 +228,34 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
       refreshControllersRef.current = {};
       refreshTokensRef.current = {};
     };
-  }, [courseId, enabled, isActive, syncPercent]);
+  }, [courseId, scope, isActive, syncPercent, setState]);
 
   const trackLesson = useCallback(
     async (moduleId, lessonId) => {
-      const targetCourseId = activeCourseIdRef.current;
-      if (!targetCourseId || !moduleId || !lessonId) return null;
+      const target = activeScopeRef.current;
+      if (
+        !isActive(target) ||
+        target.scope !== scope ||
+        !moduleId ||
+        !lessonId
+      ) {
+        return null;
+      }
       if (lessonProgressRef.current[lessonId]) {
         return lessonProgressRef.current[lessonId];
       }
       try {
         const progress = await ensureLessonProgress(
-          targetCourseId,
+          target.courseId,
           moduleId,
           lessonId,
         );
-        if (isActive(targetCourseId) && progress) {
+        if (isActive(target) && progress) {
           setLessonProgress(lessonId, progress);
         }
-        return progress;
+        return isActive(target) ? progress : null;
       } catch (error) {
-        if (isActive(targetCourseId)) {
+        if (isActive(target)) {
           setState((current) => ({
             ...current,
             error: getProgressErrorMessage(error),
@@ -221,33 +264,34 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         return null;
       }
     },
-    [isActive, setLessonProgress],
+    [isActive, scope, setState, setLessonProgress],
   );
 
   const completeTheory = useCallback(
     async (moduleId, lessonId) => {
-      const targetCourseId = activeCourseIdRef.current;
-      if (!targetCourseId || !lessonId) return;
+      const target = activeScopeRef.current;
+      if (!isActive(target) || target.scope !== scope || !lessonId) return;
       if (lessonProgressRef.current[lessonId]?.theoryCompletedAt) return;
       if (theoryRequestsRef.current.has(lessonId)) return;
-      theoryRequestsRef.current.add(lessonId);
+      const theoryRequests = theoryRequestsRef.current;
+      theoryRequests.add(lessonId);
 
       try {
         const trackedProgress = await trackLesson(moduleId, lessonId);
-        if (!trackedProgress || !isActive(targetCourseId)) {
-          theoryRequestsRef.current.delete(lessonId);
+        if (!trackedProgress || !isActive(target)) {
+          theoryRequests.delete(lessonId);
           return;
         }
         const progress = await markLessonTheoryCompleted(lessonId);
-        if (!isActive(targetCourseId) || !progress) return;
+        if (!isActive(target) || !progress) return;
         setLessonProgress(lessonId, progress);
         if (getLessonProgressStatus(progress) === PROGRESS_STATUS.COMPLETED) {
-          syncPercent(targetCourseId);
+          syncPercent(target);
         }
       } catch (error) {
         // Не получилось — дадим ещё одну попытку при следующей прокрутке до конца.
-        theoryRequestsRef.current.delete(lessonId);
-        if (isActive(targetCourseId)) {
+        theoryRequests.delete(lessonId);
+        if (isActive(target)) {
           setState((current) => ({
             ...current,
             error: getProgressErrorMessage(error),
@@ -255,14 +299,14 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         }
       }
     },
-    [isActive, setLessonProgress, syncPercent, trackLesson],
+    [isActive, scope, setState, setLessonProgress, syncPercent, trackLesson],
   );
 
   // field: "practiceCompletedAt" | "testCompletedAt" — что должно появиться после проверки.
   const refreshLesson = useCallback(
     async (lessonId, field) => {
-      const targetCourseId = activeCourseIdRef.current;
-      if (!targetCourseId || !lessonId) return;
+      const target = activeScopeRef.current;
+      if (!isActive(target) || target.scope !== scope || !lessonId) return;
       const token = Symbol(lessonId);
       refreshTokensRef.current[lessonId] = token;
       refreshControllersRef.current[lessonId]?.abort();
@@ -275,7 +319,7 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         const shouldContinue = await wait(delay, controller.signal);
         if (
           !shouldContinue ||
-          !isActive(targetCourseId) ||
+          !isActive(target) ||
           refreshTokensRef.current[lessonId] !== token
         ) {
           return;
@@ -285,7 +329,12 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
             signal: controller.signal,
           });
           lastError = null;
-          if (!isActive(targetCourseId) || controller.signal.aborted) return;
+          if (
+            !isActive(target) ||
+            controller.signal.aborted ||
+            refreshTokensRef.current[lessonId] !== token
+          )
+            return;
           if (progress) setLessonProgress(lessonId, progress);
           if (!field || progress?.[field]) {
             expectedFieldFound = true;
@@ -296,10 +345,16 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
         }
       }
 
+      if (
+        !isActive(target) ||
+        controller.signal.aborted ||
+        refreshTokensRef.current[lessonId] !== token
+      )
+        return;
       if (refreshControllersRef.current[lessonId] === controller) {
         delete refreshControllersRef.current[lessonId];
       }
-      if (!expectedFieldFound && isActive(targetCourseId)) {
+      if (!expectedFieldFound && isActive(target)) {
         setState((current) => ({
           ...current,
           error: lastError
@@ -307,11 +362,11 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
             : "Backend ещё не подтвердил обновление прогресса урока.",
         }));
       }
-      if (expectedFieldFound && isActive(targetCourseId)) {
-        syncPercent(targetCourseId);
+      if (expectedFieldFound && isActive(target)) {
+        syncPercent(target);
       }
     },
-    [isActive, setLessonProgress, syncPercent],
+    [isActive, scope, setState, setLessonProgress, syncPercent],
   );
 
   const summary = useMemo(() => {
@@ -353,7 +408,7 @@ export function useCourseProgress(courseId, { enabled = true } = {}) {
   ]);
 
   return {
-    isEnabled: Boolean(enabled && courseId),
+    isEnabled: Boolean(scope.enabled),
     isLoading: state.isLoading,
     error: state.error,
     lessonProgressById: state.lessonProgressById,

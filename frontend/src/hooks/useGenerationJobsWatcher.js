@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { useSessionStore } from "../stores/sessionStore";
+import { getReloadScope } from "../utils/reloadScope";
 import { forgetCourseCache } from "../services/courseService";
 import {
   getCourseBasicInfo,
@@ -100,6 +102,8 @@ export function useGenerationJobsWatcher({
   onLesson,
   onDone,
 }) {
+  const sessionContext = useSessionStore((state) => state.sessionContext);
+  const scope = useSessionStore(() => getReloadScope());
   const callbacksRef = useRef({ onModule, onLesson, onDone });
   callbacksRef.current = { onModule, onLesson, onDone };
   const hasRunningJobs = useGenerationJobsStore((state) =>
@@ -107,7 +111,7 @@ export function useGenerationJobsWatcher({
   );
 
   useEffect(() => {
-    if (!enabled || !hasRunningJobs) return undefined;
+    if (!enabled || !scope || !hasRunningJobs) return undefined;
     let cancelled = false;
     let inFlight = false;
 
@@ -121,24 +125,38 @@ export function useGenerationJobsWatcher({
       for (const job of running) {
         if (cancelled) break;
         const before = job.status;
+        const isCurrent = () =>
+          !cancelled &&
+          getReloadScope() === scope &&
+          useSessionStore.getState().sessionContext === sessionContext &&
+          useGenerationJobsStore.getState().jobs[job.key] === job;
+        const updateJob = (key, patch) => {
+          if (isCurrent()) store.updateJob(key, patch);
+        };
+        const onModule = (...args) => {
+          if (isCurrent()) callbacksRef.current.onModule?.(...args);
+        };
+        const onLesson = (...args) => {
+          if (isCurrent()) callbacksRef.current.onLesson?.(...args);
+        };
         try {
           if (job.kind === "module") {
             // eslint-disable-next-line no-await-in-loop
             await checkModuleJob(job, {
-              updateJob: store.updateJob,
-              onModule: callbacksRef.current.onModule,
+              updateJob,
+              onModule,
             });
           } else if (job.kind === "lesson") {
             // eslint-disable-next-line no-await-in-loop
             await checkLessonJob(job, {
-              updateJob: store.updateJob,
-              onLesson: callbacksRef.current.onLesson,
+              updateJob,
+              onLesson,
             });
           }
         } catch (error) {
           // Сетевые сбои не прерывают ожидание: проверим ещё раз на следующем шаге.
           if (Number(error?.status) === 403 || Number(error?.status) === 404) {
-            store.updateJob(job.key, {
+            updateJob(job.key, {
               status: "error",
               error:
                 "Нет доступа к курсу или модулю, генерацию отследить нельзя.",
@@ -146,7 +164,15 @@ export function useGenerationJobsWatcher({
           }
         }
         const after = useGenerationJobsStore.getState().jobs[job.key];
-        if (before === "running" && after && after.status !== "running") {
+        if (
+          !cancelled &&
+          useSessionStore.getState().sessionContext === sessionContext &&
+          getReloadScope() === scope &&
+          before === "running" &&
+          after &&
+          after.startedAt === job.startedAt &&
+          after.status !== "running"
+        ) {
           callbacksRef.current.onDone?.(after);
         }
       }
@@ -159,5 +185,5 @@ export function useGenerationJobsWatcher({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [enabled, hasRunningJobs]);
+  }, [enabled, hasRunningJobs, sessionContext, scope]);
 }

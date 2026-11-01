@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   AI_MODEL_PERMISSIONS,
   COURSE_PERMISSIONS,
@@ -6,21 +7,38 @@ import {
   usePermissionStore,
 } from "../stores/permissionStore";
 import { useSessionStore } from "../stores/sessionStore";
-import { isTokenExpired } from "../utils/api";
+import { hasSessionCredentials } from "../utils/api";
 
 export function useAppPermissions() {
   const hasPermission = usePermissionStore((state) => state.hasPermission);
   const hasAnyPermission = usePermissionStore(
     (state) => state.hasAnyPermission,
   );
-  const arePermissionsLoaded = usePermissionStore((state) => state.isLoaded);
+  usePermissionStore((state) => state.permissions);
+  const context = useSessionStore((state) => state.sessionContext);
+  const arePermissionsLoaded = usePermissionStore(
+    (state) => state.isLoaded && state.context === context,
+  );
+  const hasHydrated = useSessionStore((state) => state.hasHydrated);
+  const loadPermissions = usePermissionStore((state) => state.loadPermissions);
   const accessToken = useSessionStore((state) => state.accessToken);
   const refreshToken = useSessionStore((state) => state.refreshToken);
   const expiresAt = useSessionStore((state) => state.expiresAt);
 
-  const isAuthenticated = Boolean(
-    accessToken && expiresAt && (!isTokenExpired(expiresAt) || refreshToken),
-  );
+  const isAuthenticated = hasSessionCredentials({
+    accessToken,
+    refreshToken,
+    expiresAt,
+  });
+  useEffect(() => {
+    if (
+      hasHydrated &&
+      isAuthenticated &&
+      !usePermissionStore.getState().isLoaded
+    ) {
+      loadPermissions();
+    }
+  }, [context, hasHydrated, isAuthenticated, loadPermissions]);
   const canCreateCourse =
     isAuthenticated &&
     arePermissionsLoaded &&
@@ -30,10 +48,7 @@ export function useAppPermissions() {
   const canReadCourse =
     isAuthenticated &&
     arePermissionsLoaded &&
-    hasAnyPermission([
-      COURSE_PERMISSIONS.READ,
-      COURSE_PERMISSIONS.COURSE_READ,
-    ]);
+    hasAnyPermission([COURSE_PERMISSIONS.READ, COURSE_PERMISSIONS.COURSE_READ]);
   const canOpenCourse =
     isAuthenticated &&
     arePermissionsLoaded &&
@@ -98,7 +113,8 @@ export function useAppPermissions() {
     accessToken,
     refreshToken,
     isAuthenticated,
-    arePermissionsLoaded,
+    arePermissionsLoaded:
+      hasHydrated && (!isAuthenticated || arePermissionsLoaded),
     canCreateCourse,
     canReadCourse,
     canOpenCourse,

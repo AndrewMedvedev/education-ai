@@ -254,6 +254,26 @@ async def check_test(
     )
 
 
+@router.get(
+    "/practices/{module_id}/{lesson_id}",
+    summary="Получить последнее практическое задание с загрузкой файла",
+    dependencies=[Depends(require_permissions(READ.code))],
+)
+async def get_practice(
+    module_id: UUID,
+    lesson_id: UUID,
+    agent: PracticeAgentDep,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
+) -> dict[str, Any]:
+    await check_access(identity=identity, permission=READ, uid=module_id)
+    return await agent.get_latest_practice(
+        user_id=identity.id,
+        module_id=module_id,
+        lesson_id=lesson_id,
+    )
+
+
 @router.post(
     "/practices/{module_id}/{lesson_id}",
     summary="Сгенерировать практическое задание",

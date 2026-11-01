@@ -1,3 +1,7 @@
+import { useSessionStore } from "../stores/sessionStore";
+import ReloadStorageWarning from "../utils/ReloadStorageWarning";
+import { getReloadScope } from "../utils/reloadScope";
+import { useAgentInputDraft } from "../hooks/useAgentInputDraft";
 import { useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -21,7 +25,14 @@ function safeMarkdownUrl(url) {
   return value.includes(":") ? "" : value;
 }
 
-export default function LessonAiChat({
+export default function LessonAiChat(props) {
+  const scope = useSessionStore(() => getReloadScope());
+  const session = useSessionStore((state) => state.sessionContext);
+  if (!scope) return null;
+  return <ScopedLessonAiChat {...props} key={JSON.stringify([scope, session, props.courseId, props.lessonId])} />;
+}
+
+function ScopedLessonAiChat({
   courseId,
   lessonId,
   lessonTitle,
@@ -33,7 +44,6 @@ export default function LessonAiChat({
   onClose,
   onAssistantResponse,
 }) {
-  const [inputValue, setInputValue] = useState("");
   const [isCompact, setIsCompact] = useState(
     () => window.matchMedia(COMPACT_QUERY).matches,
   );
@@ -46,6 +56,7 @@ export default function LessonAiChat({
     () => createAgentConversationKey("mentor", courseId, lessonId),
     [courseId, lessonId],
   );
+  const [inputValue, setInputValue, contextIsCurrent] = useAgentInputDraft(conversationKey);
   const conversation = useAgentStore(
     (state) => state.conversations[conversationKey],
   );
@@ -58,12 +69,17 @@ export default function LessonAiChat({
   const isSending = conversation?.status === "loading";
 
   useEffect(() => {
+    if (!contextIsCurrent()) return;
+    const scopeAtMount = getReloadScope();
+    const sessionAtMount = useSessionStore.getState().sessionContext;
     initializeConversation({
       key: conversationKey,
       agent: "mentor",
       courseId,
     });
-    return () => cancelRequest(conversationKey);
+    return () => {
+      if (getReloadScope() === scopeAtMount && useSessionStore.getState().sessionContext === sessionAtMount) cancelRequest(conversationKey);
+    };
   }, [cancelRequest, conversationKey, courseId, initializeConversation]);
 
   useEffect(() => {
@@ -87,7 +103,7 @@ export default function LessonAiChat({
     }
 
     if (
-      latestAssistantMessageId &&
+      contextIsCurrent() && latestAssistantMessageId &&
       latestAssistantMessageId !== latestAssistantMessageRef.current
     ) {
       latestAssistantMessageRef.current = latestAssistantMessageId;
@@ -147,7 +163,7 @@ export default function LessonAiChat({
 
   const sendMessage = async (value = inputValue) => {
     const prompt = value.trim();
-    if (!prompt || isSending || !courseId) return;
+    if (!contextIsCurrent() || !prompt || isSending || !courseId) return;
 
     setInputValue("");
     try {
@@ -301,6 +317,7 @@ export default function LessonAiChat({
           )}
         </div>
 
+        <ReloadStorageWarning names={["ai-course-agent-chats-v1"]} />
         <div className="lesson-ai-composer lesson-page-ai-chat-composer">
           <textarea
             value={inputValue}

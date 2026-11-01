@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { MAX_MESSAGE_LENGTH, sanitizeAgentState } from "../utils/agentPersistence";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   askEditorAgent,
@@ -7,26 +8,16 @@ import {
   askMentorAgent,
   askModuleInterviewerAgent,
 } from "../utils/api";
-import { getLocalStorage } from "../utils/storage";
+import {
+  bindReloadScope,
+  getReloadScope,
+  scopedReloadStorage,
+} from "../utils/reloadScope";
 import { isAgentMockEnabled, mockInterviewer } from "../services/agentMockHook";
 
-// Диалоги интервьюеров (курс, модуль, урок) сохраняются в браузере вместе с chat_id,
+// Диалоги агентов сохраняются в браузере вместе с chat_id,
 // чтобы после перезагрузки страницы можно было продолжить ту же беседу.
-// На backend нет ручки чтения истории чата, поэтому история живёт только здесь.
-const PERSISTED_AGENTS = new Set([
-  "interviewer",
-  "module_interviewer",
-  "lesson_interviewer",
-]);
-const MAX_PERSISTED_MESSAGES = 200;
-const MAX_PERSISTED_CONVERSATIONS = 30;
-const MEMORY_STORAGE = {
-  getItem: () => null,
-  setItem: () => {},
-  removeItem: () => {},
-};
-
-const MAX_MESSAGE_LENGTH = 10_000;
+// Backend хранит контекст, но не предоставляет GET истории для восстановления UI.
 const REQUEST_TIMEOUT_MS = 120_000;
 const requestControllers = new Map();
 let messageSequence = 0;
@@ -163,26 +154,8 @@ function callAgent(agent, payload, options) {
 export const createAgentConversationKey = (agent, courseId, contextId = "") =>
   [agent, courseId || "missing-course", contextId].join(":");
 
-function partializeAgentState(state) {
-  const conversations = {};
-  const generations = {};
-  // Храним только последние диалоги, чтобы localStorage не разрастался.
-  Object.entries(state.conversations || {})
-    .filter(([, conversation]) => PERSISTED_AGENTS.has(conversation?.agent))
-    .slice(-MAX_PERSISTED_CONVERSATIONS)
-    .forEach(([key, conversation]) => {
-      if (!PERSISTED_AGENTS.has(conversation?.agent)) return;
-      conversations[key] = {
-        ...conversation,
-        messages: (conversation.messages || []).slice(-MAX_PERSISTED_MESSAGES),
-        status:
-          conversation.status === "loading" ? "idle" : conversation.status,
-        activeRequestId: null,
-      };
-      if (state.generations?.[key]) generations[key] = state.generations[key];
-    });
-  return { conversations, generations };
-}
+const partializeAgentState = (state) =>
+  sanitizeAgentState(state, createInitialGenerationState());
 
 export const useAgentStore = create(
   persist(
@@ -191,6 +164,16 @@ export const useAgentStore = create(
       conversations: {},
       /** @type {Record<string, AgentGenerationState>} */
       generations: {},
+      interviewDrafts: {},
+      setInterviewDraft: (key, input) =>
+        set((state) => ({
+          interviewDrafts: { ...state.interviewDrafts, [key]: input },
+        })),
+      creatorDrafts: {},
+      setCreatorDraft: (key, draft) =>
+        set((state) => ({
+          creatorDrafts: { ...state.creatorDrafts, [key]: draft },
+        })),
 
       initializeConversation: ({
         key,
@@ -289,7 +272,11 @@ export const useAgentStore = create(
           const generations = { ...state.generations };
           delete conversations[key];
           delete generations[key];
-          return { conversations, generations };
+          const creatorDrafts = { ...state.creatorDrafts };
+          delete creatorDrafts[key];
+          const interviewDrafts = { ...state.interviewDrafts };
+          delete interviewDrafts[key];
+          return { conversations, generations, creatorDrafts, interviewDrafts };
         });
       },
 
@@ -357,6 +344,8 @@ export const useAgentStore = create(
         emptyResponseMessage = "Агент вернул пустой ответ. Попробуйте ещё раз.",
         responseDisplayMessage,
       }) => {
+        const scope = getReloadScope();
+        if (!scope) return null;
         const normalizedContent = normalizeUserContent(content);
         if (!courseId) {
           throw new Error("Не указан курс для обращения к ИИ-агенту.");
@@ -405,7 +394,11 @@ export const useAgentStore = create(
             { signal: controller.signal },
           );
           const latest = get().conversations[key];
-          if (latest?.activeRequestId !== requestId) return response;
+          if (
+            scope !== getReloadScope() ||
+            latest?.activeRequestId !== requestId
+          )
+            return null;
 
           const responseText =
             typeof response?.content === "string"
@@ -444,7 +437,11 @@ export const useAgentStore = create(
           return response;
         } catch (error) {
           const latest = get().conversations[key];
-          if (latest?.activeRequestId !== requestId) return null;
+          if (
+            scope !== getReloadScope() ||
+            latest?.activeRequestId !== requestId
+          )
+            return null;
           if (controller.signal.aborted && !didTimeout) return null;
 
           const errorMessage = didTimeout
@@ -472,9 +469,23 @@ export const useAgentStore = create(
     }),
     {
       name: "ai-course-agent-chats-v1",
-      version: 1,
-      storage: createJSONStorage(() => getLocalStorage() || MEMORY_STORAGE),
+      version: 2,
+      // Storage is already scoped: never import an unowned global legacy key.
+      migrate: (state, version) => partializeAgentState(version === 1 ? state || {} : {}),
+      merge: (persisted, current) => ({ ...current, ...partializeAgentState(persisted || {}) }),
+      storage: createJSONStorage(() => scopedReloadStorage),
       partialize: partializeAgentState,
     },
   ),
 );
+
+bindReloadScope(useAgentStore, () => {
+  requestControllers.forEach((controller) => controller.abort());
+  requestControllers.clear();
+  useAgentStore.setState({
+    conversations: {},
+    generations: {},
+    creatorDrafts: {},
+    interviewDrafts: {},
+  });
+});

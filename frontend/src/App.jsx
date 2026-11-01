@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -54,6 +54,7 @@ import {
   fetchCoursesPage,
   getCourse,
   getLessonBasicInfo,
+  getLessonTheory,
   getModuleBasicInfo,
   isUuid,
   publishCourse as publishCourseApi,
@@ -89,7 +90,13 @@ import EditorSaveBar from "./components/editor/EditorSaveBar";
 import { useGenerationJobsWatcher } from "./hooks/useGenerationJobsWatcher";
 import { forgetLessonTheory } from "./services/courseService";
 import { useEditorDraftStore } from "./stores/editorDraftStore";
+import { useCourseDetails } from "./hooks/useCourseDetails";
+import { getReloadScope } from "./utils/reloadScope";
 import { notify } from "./stores/toastStore";
+import {
+  saveEditorDrafts,
+  serializeEditorSave,
+} from "./course/editorDraftSave.js";
 
 function getCourseRouteTarget(pathname) {
   const segments = pathname.split("/").filter(Boolean);
@@ -138,7 +145,7 @@ function AppContent() {
     canDeleteModel,
     canManageModels,
   } = useAppPermissions();
-  const loadIdentity = useSessionStore((state) => state.loadIdentity);
+  const permissionsError = usePermissionStore((state) => state.error);
   const loadCurrentUser = useSessionStore((state) => state.loadCurrentUser);
   const theme = useThemeStore((state) => state.theme);
   const themeHasHydrated = useThemeStore((state) => state.hasHydrated);
@@ -157,19 +164,44 @@ function AppContent() {
   const appliedTheme = themeHasHydrated
     ? resolvedTheme
     : document.documentElement.dataset.theme || resolvedTheme;
-  const [editableCourses, setEditableCourses] = useState([]);
+  const sessionContext = useSessionStore((state) => state.sessionContext);
+  const identity = useSessionStore((state) => state.identity);
+  const draftEdits = useEditorDraftStore((state) => state.edits);
+  const storageWarning = useEditorDraftStore((state) => state.storageWarning);
+  const [serverCourses, setEditableCourses] = useState([]);
+  const editableCourses = useMemo(
+    () =>
+      serverCourses.map((course) =>
+        Object.values(draftEdits)
+          .filter((edit) => edit.courseId === course.id)
+          .reduce(
+            (current, edit) =>
+              applyEntityFields(
+                current,
+                edit.kind,
+                edit.entityId,
+                edit.changes,
+              ),
+            course,
+          ),
+      ),
+    [serverCourses, draftEdits],
+  );
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState("");
+  const [catalogIds, setCatalogIds] = useState([]);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const [coursesPageSize] = useState(9);
   const [coursesTotalPages, setCoursesTotalPages] = useState(1);
   const [coursesTotal, setCoursesTotal] = useState(0);
+  const editorSaveQueueRef = useRef(Promise.resolve());
   const coursesPageRequestRef = useRef(0);
   const courseRequestRef = useRef(0);
-  const loadedCourseDetailsRef = useRef(new Set());
+
   const moduleRequestRef = useRef(0);
-  const loadedModuleDetailsRef = useRef(new Set());
+
   const lessonRequestRef = useRef(0);
-  const loadedLessonDetailsRef = useRef(new Set());
+
   const [isCourseEditMode, setIsCourseEditMode] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState(
     initialRouteState.courseId,
@@ -200,22 +232,32 @@ function AppContent() {
   }, [appliedTheme]);
 
   useEffect(() => {
-    if (!accessToken) {
-      resetPermissions();
-      return;
-    }
+    if (accessToken) loadCurrentUser();
+  }, [sessionContext, accessToken, loadCurrentUser]);
 
-    loadIdentity().then((identity) => {
-      setPermissionsFromIdentity(identity);
-    });
-    loadCurrentUser();
-  }, [
-    accessToken,
-    loadIdentity,
-    loadCurrentUser,
-    resetPermissions,
-    setPermissionsFromIdentity,
-  ]);
+  useEffect(() => {
+    const scope = getReloadScope();
+    const ids = scope ? JSON.parse(scope) : null;
+    useEditorDraftStore.getState().setContext(
+      ids
+        ? {
+            userId: ids[0],
+            membershipId: ids[1],
+            organizationId: ids[2],
+          }
+        : null,
+    );
+  }, [sessionContext, identity]);
+
+  useEffect(() => {
+    setEditableCourses([]);
+    setCompletedLessons({});
+    setCompletedPractices({});
+    courseRequestRef.current += 1;
+    moduleRequestRef.current += 1;
+    lessonRequestRef.current += 1;
+    coursesPageRequestRef.current += 1;
+  }, [sessionContext]);
 
   useEffect(() => {
     if (!canBrowseCourses) {
@@ -235,8 +277,24 @@ function AppContent() {
       { signal: controller.signal },
     )
       .then((response) => {
-        if (coursesPageRequestRef.current !== requestId) return;
-        setEditableCourses((prev) => mergeCoursePage(prev, response.items));
+        if (
+          controller.signal.aborted ||
+          coursesPageRequestRef.current !== requestId
+        )
+          return;
+        setEditableCourses((prev) => {
+          const page = response.items.map(
+            (item) => prev.find((current) => current.id === item.id) || item,
+          );
+          const target = prev.find(
+            (item) =>
+              item.id === getRouteState(window.location.pathname).courseId,
+          );
+          return target && !page.some((item) => item.id === target.id)
+            ? [...page, target]
+            : page;
+        });
+        setCatalogIds(response.items.map((item) => item.id));
         setCoursesTotalPages(response.total_pages || 1);
         setCoursesTotal(response.total || response.items.length);
         if (!selectedCourseId && response.items[0]?.id) {
@@ -251,7 +309,6 @@ function AppContent() {
           return;
         }
         setCoursesError(getErrorMessage(error, "Не удалось загрузить курсы."));
-        setEditableCourses([]);
         setCoursesTotalPages(1);
         setCoursesTotal(0);
       })
@@ -262,7 +319,13 @@ function AppContent() {
       });
 
     return () => controller.abort();
-  }, [canBrowseCourses, coursesPage, coursesPageSize]);
+  }, [
+    canBrowseCourses,
+    coursesPage,
+    coursesPageSize,
+    sessionContext,
+    catalogAttempt,
+  ]);
 
   useEffect(() => {
     if (!location.pathname.startsWith("/course")) {
@@ -276,43 +339,15 @@ function AppContent() {
     setSelectedPracticeId(routeState.practiceId);
   }, [editableCourses, location.pathname]);
 
-  useEffect(() => {
-    const courseFromState = editableCourses.find(
-      (course) => course.id === selectedCourseId,
-    );
-    const hasLoadedBlocks = Boolean(courseFromState?.blocks?.length);
-
-    if (
-      !canViewCourseInfo ||
-      !selectedCourseId ||
-      hasLoadedBlocks ||
-      loadedCourseDetailsRef.current.has(selectedCourseId)
-    ) {
-      return;
-    }
-
-    loadedCourseDetailsRef.current.add(selectedCourseId);
-    const requestId = courseRequestRef.current + 1;
-    courseRequestRef.current = requestId;
-    setCoursesLoading(true);
-    setCoursesError("");
-
-    getCourse(selectedCourseId)
-      .then((nextCourse) => {
-        if (courseRequestRef.current !== requestId) return;
-        setEditableCourses((prev) => mergeCourse(prev, nextCourse));
-      })
-      .catch((error) => {
-        if (courseRequestRef.current === requestId) {
-          setCoursesError(getErrorMessage(error, "Не удалось загрузить курс."));
-        }
-      })
-      .finally(() => {
-        if (courseRequestRef.current === requestId) {
-          setCoursesLoading(false);
-        }
-      });
-  }, [canViewCourseInfo, editableCourses, selectedCourseId]);
+  const details = useCourseDetails({
+    courseId: selectedCourseId,
+    lessonId: selectedLessonId,
+    courses: serverCourses,
+    enabled: canViewCourseInfo,
+    context: sessionContext,
+    setCourses: setEditableCourses,
+    pathname: location.pathname,
+  });
 
   const selectedCourse = getSelectedCourse(editableCourses, selectedCourseId);
   const selectedBlock = getSelectedBlock(selectedCourse, selectedBlockId);
@@ -322,220 +357,20 @@ function AppContent() {
     selectedPracticeId,
   );
 
-  useEffect(() => {
-    if (!canViewCourseInfo || !selectedCourse.id) {
-      return;
-    }
-
-    const target = getCourseRouteTarget(location.pathname);
-
-    if (target.type === "block" && target.id) {
-      const block = selectedCourse.blocks.find((item) => item.id === target.id);
-      const shouldLoadBlock =
-        block &&
-        isUuid(block.id) &&
-        !block.lessons?.length &&
-        !loadedModuleDetailsRef.current.has(block.id);
-
-      if (!shouldLoadBlock) return;
-
-      loadedModuleDetailsRef.current.add(block.id);
-      const requestId = moduleRequestRef.current + 1;
-      moduleRequestRef.current = requestId;
-      setCoursesError("");
-
-      getModuleBasicInfo(block.id)
-        .then((loadedBlock) => {
-          if (moduleRequestRef.current !== requestId) return;
-          setEditableCourses((prev) =>
-            prev.map((course) =>
-              course.id === selectedCourse.id
-                ? mergeModule(course, loadedBlock)
-                : course,
-            ),
-          );
-          setSelectedBlockId(loadedBlock.id);
-          setSelectedLessonId(loadedBlock.lessons?.[0]?.id ?? null);
-          setSelectedPracticeId(loadedBlock.practice?.[0]?.id ?? null);
-        })
-        .catch((error) => {
-          if (moduleRequestRef.current === requestId) {
-            setCoursesError(
-              getErrorMessage(error, "Не удалось загрузить уроки модуля."),
-            );
-          }
-        });
-    }
-
-    if (target.type === "lesson" && target.id) {
-      const blockWithLesson = selectedCourse.blocks.find((block) =>
-        (block.lessons || []).some((lesson) => lesson.id === target.id),
-      );
-
-      if (blockWithLesson) {
-        if (selectedBlockId !== blockWithLesson.id) {
-          setSelectedBlockId(blockWithLesson.id);
-        }
-        if (selectedLessonId !== target.id) {
-          setSelectedLessonId(target.id);
-        }
-        return;
-      }
-
-      const modulesToLoad = selectedCourse.blocks.filter(
-        (block) =>
-          isUuid(block.id) &&
-          !block.lessons?.length &&
-          !loadedModuleDetailsRef.current.has(block.id),
-      );
-
-      if (modulesToLoad.length === 0) return;
-
-      modulesToLoad.forEach((block) =>
-        loadedModuleDetailsRef.current.add(block.id),
-      );
-      const requestId = moduleRequestRef.current + 1;
-      moduleRequestRef.current = requestId;
-      setCoursesError("");
-
-      Promise.all(modulesToLoad.map((block) => getModuleBasicInfo(block.id)))
-        .then((loadedBlocks) => {
-          if (moduleRequestRef.current !== requestId) return;
-          setEditableCourses((prev) =>
-            prev.map((course) => {
-              if (course.id !== selectedCourse.id) return course;
-              return loadedBlocks.reduce(
-                (nextCourse, loadedBlock) =>
-                  mergeModule(nextCourse, loadedBlock),
-                course,
-              );
-            }),
-          );
-
-          const parentBlock = loadedBlocks.find((block) =>
-            (block.lessons || []).some((lesson) => lesson.id === target.id),
-          );
-          if (parentBlock) {
-            setSelectedBlockId(parentBlock.id);
-            setSelectedLessonId(target.id);
-            setSelectedPracticeId(parentBlock.practice?.[0]?.id ?? null);
-          }
-        })
-        .catch((error) => {
-          if (moduleRequestRef.current === requestId) {
-            setCoursesError(
-              getErrorMessage(error, "Не удалось загрузить уроки модулей."),
-            );
-          }
-        });
-    }
-  }, [
-    canViewCourseInfo,
-    location.pathname,
-    selectedBlockId,
-    selectedCourse,
-    selectedLessonId,
-  ]);
-
-  // В редакторе дерево курса слева показывает уроки всех модулей, как в обучении:
-  // догружаем уроки модулей, которые ещё не открывали. Уже загруженные модули
-  // (и правки в них) не трогаем.
-  useEffect(() => {
-    if (
-      !canViewCourseInfo ||
-      !selectedCourse.id ||
-      !location.pathname.startsWith(`/course/${selectedCourse.id}/edit`)
-    ) {
-      return;
-    }
-
-    const modulesToLoad = selectedCourse.blocks.filter(
-      (block) =>
-        isUuid(block.id) &&
-        !block.lessons?.length &&
-        !loadedModuleDetailsRef.current.has(block.id),
-    );
-    if (modulesToLoad.length === 0) return;
-
-    modulesToLoad.forEach((block) =>
-      loadedModuleDetailsRef.current.add(block.id),
-    );
-    const courseId = selectedCourse.id;
-
-    Promise.allSettled(
-      modulesToLoad.map((block) => getModuleBasicInfo(block.id)),
-    ).then((results) => {
-      const loadedBlocks = results
-        .filter((result) => result.status === "fulfilled" && result.value)
-        .map((result) => result.value);
-      if (!loadedBlocks.length) return;
-      setEditableCourses((prev) =>
-        prev.map((course) =>
-          course.id !== courseId
-            ? course
-            : {
-                ...course,
-                blocks: course.blocks.map((block) => {
-                  const loaded = loadedBlocks.find(
-                    (item) => item.id === block.id,
-                  );
-                  if (!loaded || block.lessons?.length) return block;
-                  return {
-                    ...block,
-                    lessons: loaded.lessons || [],
-                    practice: block.practice?.length
-                      ? block.practice
-                      : loaded.practice || [],
-                  };
-                }),
-              },
-        ),
-      );
-    });
-  }, [canViewCourseInfo, location.pathname, selectedCourse]);
-
-  useEffect(() => {
-    if (!canViewCourseInfo || !selectedCourse.id || !selectedLessonId) {
-      return;
-    }
-
-    const lesson = selectedCourse.blocks
-      .flatMap((block) => block.lessons || [])
-      .find((item) => item.id === selectedLessonId);
-    const shouldLoadLesson =
-      lesson &&
-      isUuid(lesson.id) &&
-      !loadedLessonDetailsRef.current.has(lesson.id) &&
-      !lesson.contentBlocks?.length &&
-      !lesson.content_blocks?.length &&
-      !lesson.markdown &&
-      !lesson.content;
-
-    if (!shouldLoadLesson) return;
-
-    loadedLessonDetailsRef.current.add(lesson.id);
-    const requestId = lessonRequestRef.current + 1;
-    lessonRequestRef.current = requestId;
-    setCoursesError("");
-
-    getLessonBasicInfo(lesson.id)
-      .then((loadedLesson) => {
-        if (lessonRequestRef.current !== requestId || !loadedLesson) return;
-        setEditableCourses((prev) =>
-          prev.map((course) =>
-            course.id === selectedCourse.id
-              ? mergeLesson(course, loadedLesson)
-              : course,
-          ),
-        );
-      })
-      .catch((error) => {
-        if (lessonRequestRef.current === requestId) {
-          setCoursesError(getErrorMessage(error, "Не удалось загрузить урок."));
-        }
-      });
-  }, [canViewCourseInfo, selectedCourse, selectedLessonId]);
-
+  const routeTarget = getCourseRouteTarget(location.pathname);
+  const routeEntityMissing =
+    details.ready &&
+    !details.error &&
+    ((routeTarget.type === "block" &&
+      !selectedCourse.blocks.some((block) => block.id === routeTarget.id)) ||
+      (routeTarget.type === "lesson" &&
+        !selectedCourse.blocks.some((block) =>
+          block.lessons?.some((lesson) => lesson.id === routeTarget.id),
+        )) ||
+      (routeTarget.type === "practice" &&
+        !selectedCourse.blocks.some((block) =>
+          block.practice?.some((practice) => practice.id === routeTarget.id),
+        )));
   const lessonSequence = getLessonSequence(selectedCourse);
   const currentLessonIndex = lessonSequence.findIndex(
     (item) => item.lessonId === selectedLesson.id,
@@ -919,36 +754,44 @@ function AppContent() {
   };
 
   const updateCourseBlock = (blockId, changes) => {
-    if (!canUpdateCourse) {
+    if (
+      !canUpdateCourse ||
+      sessionContext !== useSessionStore.getState().sessionContext
+    )
+      return;
+
+    if (isUuid(selectedCourse.id) && isUuid(blockId)) {
+      const drafts = useEditorDraftStore.getState();
+      if (!drafts.contextKey || drafts.contextKey !== getReloadScope()) return;
+      const block = serverCourses
+        .find((course) => course.id === selectedCourse.id)
+        ?.blocks?.find((item) => item.id === blockId);
+      if (!block) return;
+      drafts.recordEdit({
+        kind: "module",
+        courseId: selectedCourse.id,
+        entityId: blockId,
+        label: changes.title || block.title || "",
+        entity: block,
+        changes,
+      });
       return;
     }
 
     setEditableCourses((prev) =>
-      prev.map((course) =>
-        course.id === selectedCourse.id
-          ? {
-              ...course,
-              blocks: course.blocks.map((block) =>
-                block.id === blockId ? { ...block, ...changes } : block,
-              ),
-            }
-          : course,
-      ),
+      sessionContext !== useSessionStore.getState().sessionContext
+        ? prev
+        : prev.map((course) =>
+            course.id === selectedCourse.id
+              ? {
+                  ...course,
+                  blocks: course.blocks.map((block) =>
+                    block.id === blockId ? { ...block, ...changes } : block,
+                  ),
+                }
+              : course,
+          ),
     );
-
-    // Правки существующего модуля копятся локально и уходят на backend только
-    // после подтверждения в окне «Сохранить изменения» (EditorSaveBar).
-    if (isUuid(selectedCourse.id) && isUuid(blockId)) {
-      const block = selectedCourse.blocks.find((item) => item.id === blockId);
-      useEditorDraftStore.getState().recordEdit({
-        kind: "module",
-        courseId: selectedCourse.id,
-        entityId: blockId,
-        label: changes.title || block?.title || "",
-        entity: block,
-        changes,
-      });
-    }
   };
 
   const insertCourseBlock = async (index) => {
@@ -1163,141 +1006,143 @@ function AppContent() {
   // options.originalContentBlocks — содержимое урока до правок (теория грузится
   // отдельно и в состоянии курса её может не быть), нужно для показа изменений.
   const updateLesson = (lessonId, changes, options = {}) => {
-    if (!canUpdateCourse) {
+    if (
+      !canUpdateCourse ||
+      sessionContext !== useSessionStore.getState().sessionContext
+    )
+      return;
+
+    if (isUuid(selectedCourse.id) && isUuid(lessonId)) {
+      const drafts = useEditorDraftStore.getState();
+      if (!drafts.contextKey || drafts.contextKey !== getReloadScope()) return;
+      const lesson = serverCourses
+        .find((course) => course.id === selectedCourse.id)
+        ?.blocks?.flatMap((block) => block.lessons || [])
+        .find((item) => item.id === lessonId);
+      if (!lesson) return;
+      drafts.recordEdit({
+        kind: "lesson",
+        courseId: selectedCourse.id,
+        entityId: lessonId,
+        label: changes.title || lesson.title || "",
+        entity: Array.isArray(options.originalContentBlocks)
+          ? {
+              ...lesson,
+              contentBlocks: options.originalContentBlocks,
+              content_blocks: options.originalContentBlocks,
+            }
+          : lesson,
+        changes,
+      });
       return;
     }
 
     setEditableCourses((prev) =>
-      prev.map((course) =>
-        course.id === selectedCourse.id
-          ? {
-              ...course,
-              blocks: course.blocks.map((block) => ({
-                ...block,
-                lessons: block.lessons.map((lesson) =>
-                  lesson.id === lessonId ? { ...lesson, ...changes } : lesson,
-                ),
-              })),
-            }
-          : course,
-      ),
+      sessionContext !== useSessionStore.getState().sessionContext
+        ? prev
+        : prev.map((course) =>
+            course.id === selectedCourse.id
+              ? {
+                  ...course,
+                  blocks: course.blocks.map((block) => ({
+                    ...block,
+                    lessons: block.lessons.map((lesson) =>
+                      lesson.id === lessonId
+                        ? { ...lesson, ...changes }
+                        : lesson,
+                    ),
+                  })),
+                }
+              : course,
+          ),
     );
-
-    // Как и для модулей: сохраняем на backend только после подтверждения.
-    if (isUuid(selectedCourse.id) && isUuid(lessonId)) {
-      const lesson = selectedCourse.blocks
-        .flatMap((block) => block.lessons || [])
-        .find((item) => item.id === lessonId);
-      useEditorDraftStore.getState().recordEdit({
-        kind: "lesson",
-        courseId: selectedCourse.id,
-        entityId: lessonId,
-        label: changes.title || lesson?.title || "",
-        entity:
-          lesson && Array.isArray(options.originalContentBlocks)
-            ? { ...lesson, contentBlocks: options.originalContentBlocks }
-            : lesson,
-        changes,
-      });
-    }
   };
 
   const savePendingEdits = async (edits) => {
     const drafts = useEditorDraftStore.getState();
-    let hasFailures = false;
+    const scope = getReloadScope();
+    const isContextCurrent = () =>
+      Boolean(
+        scope &&
+        sessionContext === useSessionStore.getState().sessionContext &&
+        scope === getReloadScope() &&
+        scope === useEditorDraftStore.getState().contextKey,
+      );
+    if (!canUpdateCourse || !isContextCurrent()) return false;
 
-    for (const edit of edits) {
-      try {
-        if (edit.kind === "module") {
-          // eslint-disable-next-line no-await-in-loop
-          const savedModule = await updateModuleApi(
-            edit.courseId,
-            edit.entityId,
-            edit.changes,
-          );
-          if (savedModule) {
-            setEditableCourses((prev) =>
-              prev.map((course) =>
-                course.id === edit.courseId
-                  ? mergeModule(course, savedModule)
-                  : course,
-              ),
-            );
-          }
-        } else {
-          const {
-            contentBlocks,
-            content_blocks: contentBlocksSnake,
-            markdown,
-            content,
-            ...meta
-          } = edit.changes;
-          const blocks = contentBlocks ?? contentBlocksSnake;
-          if (Object.keys(meta).length) {
-            // eslint-disable-next-line no-await-in-loop
-            const savedLesson = await updateLessonApi(
-              edit.courseId,
-              edit.entityId,
-              meta,
-            );
-            if (savedLesson) {
-              const {
-                contentBlocks: _ignored,
-                content_blocks: _ignoredSnake,
-                ...savedMeta
-              } = savedLesson;
-              setEditableCourses((prev) =>
-                prev.map((course) =>
+    return serializeEditorSave(editorSaveQueueRef, async () => {
+      if (!isContextCurrent()) return false;
+      const success = await saveEditorDrafts(edits, {
+        drafts,
+        isContextCurrent,
+        getModule: (id) => getModuleBasicInfo(id, { cache: "no-store" }),
+        getLesson: (id) => getLessonBasicInfo(id, { cache: "no-store" }),
+        getTheory: (id) => getLessonTheory(id, { cache: "no-store" }),
+        updateModule: updateModuleApi,
+        updateLesson: updateLessonApi,
+        forgetTheory: forgetLessonTheory,
+        mergeServer: (edit, entity) => {
+          if (!isContextCurrent()) return;
+          setEditableCourses((prev) =>
+            !isContextCurrent()
+              ? prev
+              : prev.map((course) =>
                   course.id === edit.courseId
-                    ? mergeLesson(course, savedMeta)
+                    ? edit.kind === "module"
+                      ? mergeModule(course, entity)
+                      : mergeLesson(course, entity)
                     : course,
                 ),
-              );
-            }
-          }
-          if (blocks !== undefined) {
-            // eslint-disable-next-line no-await-in-loop
-            await updateLessonApi(edit.courseId, edit.entityId, {
-              contentBlocks: blocks,
-            });
-            forgetLessonTheory(edit.entityId);
-          }
-        }
-        drafts.removeEdit(edit.key);
-      } catch (error) {
-        hasFailures = true;
-        drafts.setEditError(
-          edit.key,
+          );
+        },
+        errorMessage: (error) =>
           getErrorMessage(error, "Не удалось сохранить изменения."),
-        );
-      }
-    }
-
-    if (!hasFailures) {
-      notify("Изменения сохранены");
-    }
-    return !hasFailures;
+      });
+      if (!isContextCurrent()) return false;
+      if (success) notify("Изменения сохранены");
+      return success;
+    });
   };
 
   const discardPendingEdits = (edits) => {
+    if (sessionContext !== useSessionStore.getState().sessionContext) return;
     const drafts = useEditorDraftStore.getState();
-    setEditableCourses((prev) =>
-      prev.map((course) =>
-        edits.reduce(
-          (current, edit) =>
-            edit.courseId === course.id
-              ? applyEntityFields(
-                  current,
-                  edit.kind,
-                  edit.entityId,
-                  edit.original,
-                )
-              : current,
-          course,
-        ),
-      ),
+    const scope = getReloadScope();
+    if (!scope || drafts.contextKey !== scope) return;
+    const localEdits = edits.filter(
+      (edit) => !isUuid(edit.courseId) || !isUuid(edit.entityId),
     );
-    edits.forEach((edit) => drafts.removeEdit(edit.key));
+    if (localEdits.length) {
+      setEditableCourses((prev) =>
+        sessionContext !== useSessionStore.getState().sessionContext
+          ? prev
+          : prev.map((course) =>
+              localEdits.reduce(
+                (current, edit) =>
+                  edit.courseId === course.id
+                    ? applyEntityFields(
+                        current,
+                        edit.kind,
+                        edit.entityId,
+                        edit.original,
+                      )
+                    : current,
+                course,
+              ),
+            ),
+      );
+    }
+    // UUID entities already have a clean, potentially newer server baseline.
+    // Only remove the confirmed snapshot; never restore its stale originals.
+    edits.forEach((edit) => {
+      if (
+        drafts.removeEdit(edit.key, edit) &&
+        edit.kind === "lesson" &&
+        isUuid(edit.entityId)
+      ) {
+        forgetLessonTheory(edit.entityId);
+      }
+    });
     drafts.bumpRevision();
   };
 
@@ -1600,8 +1445,17 @@ function AppContent() {
           <section className="container section">
             <article className="glass-card">
               <p className="course-details-text">
-                Настраиваем доступный функционал...
+                {permissionsError || "Настраиваем доступный функционал..."}
               </p>
+              {permissionsError && (
+                <button
+                  onClick={() =>
+                    usePermissionStore.getState().loadPermissions()
+                  }
+                >
+                  Повторить проверку доступа
+                </button>
+              )}
             </article>
           </section>
         ) : (
@@ -1612,6 +1466,33 @@ function AppContent() {
               selectedLesson={selectedLesson}
               selectedPractice={selectedPractice}
             />
+            {storageWarning && (
+              <p role="alert">
+                {storageWarning}{" "}
+                <button
+                  onClick={() =>
+                    useEditorDraftStore.getState().retryPersistence()
+                  }
+                >
+                  Повторить сохранение черновика
+                </button>
+              </p>
+            )}
+            {location.pathname.startsWith("/course/") && details.error && (
+              <section role="alert" className="container section">
+                <p>{details.error}</p>
+                <button onClick={details.retry}>Повторить загрузку</button>
+              </section>
+            )}
+            {location.pathname.startsWith("/course/") && details.loading && (
+              <p role="status">Загружаем содержимое курса...</p>
+            )}
+            {routeEntityMissing && (
+              <section className="container section" role="alert">
+                Сущность из адреса не найдена в загруженном курсе. Несохранённый
+                черновик, если он есть, оставлен для ручного восстановления.
+              </section>
+            )}
             <Routes>
               <Route
                 path="/"
@@ -1631,7 +1512,9 @@ function AppContent() {
                 path="/courses"
                 element={
                   <CoursesPage
-                    coursesData={editableCourses}
+                    coursesData={editableCourses.filter((course) =>
+                      catalogIds.includes(course.id),
+                    )}
                     completedLessons={completedLessons}
                     completedPractices={completedPractices}
                     openCourse={openCourse}
@@ -1640,6 +1523,7 @@ function AppContent() {
                     canReadCourse={canBrowseCourses}
                     isLoading={coursesLoading}
                     error={coursesError}
+                    onRetry={() => setCatalogAttempt((value) => value + 1)}
                     page={coursesPage}
                     pageSize={coursesPageSize}
                     totalPages={coursesTotalPages}
@@ -1794,6 +1678,10 @@ function AppContent() {
                 element={<CourseViewer localCourse={selectedCourse} />}
               />
               <Route
+                path="/course/:courseId/lessons/:lessonId"
+                element={<CourseViewer localCourse={selectedCourse} />}
+              />
+              <Route
                 path="/course/:courseId/practice/:practiceId"
                 element={<CourseViewer localCourse={selectedCourse} />}
               />
@@ -1907,9 +1795,10 @@ function AppContent() {
 }
 
 export default function App() {
+  const context = useSessionStore((state) => state.sessionContext);
   return (
     <BrowserRouter>
-      <AppContent />
+      <AppContent key={context} />
     </BrowserRouter>
   );
 }

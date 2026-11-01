@@ -36,8 +36,22 @@ export const mergeCourse = (courses, nextCourse) => {
           ? {
               ...course,
               ...nextCourse,
-              blocks: nextCourse.blocks?.length
-                ? nextCourse.blocks
+              blocks: Array.isArray(nextCourse.blocks)
+                ? nextCourse.blocks.map((block) => {
+                    // Course responses contain module references, not the full
+                    // lesson list. Only the module endpoint replaces that list.
+                    const current = course.blocks?.find(
+                      (item) => item.id === block.id,
+                    );
+                    return current
+                      ? {
+                          ...current,
+                          ...block,
+                          lessons: current.lessons,
+                          practice: current.practice,
+                        }
+                      : block;
+                  })
                 : course.blocks,
             }
           : course,
@@ -63,8 +77,12 @@ export const mergeModule = (course, nextModule) => ({
       ? {
           ...block,
           ...nextModule,
-          lessons: nextModule.lessons?.length ? nextModule.lessons : block.lessons,
-          practice: block.practice || [],
+          lessons: Array.isArray(nextModule.lessons)
+            ? nextModule.lessons
+            : block.lessons,
+          practice: Array.isArray(nextModule.practice)
+            ? nextModule.practice
+            : block.practice || [],
         }
       : block,
   ),
@@ -157,7 +175,7 @@ export const applyEntityFields = (course, kind, entityId, fields) =>
 export function getSelectedCourse(courses, selectedCourseId) {
   return (
     courses.find((course) => course.id === selectedCourseId) ||
-    courses[0] ||
+    (!selectedCourseId ? courses[0] : null) ||
     EMPTY_COURSE
   );
 }
@@ -165,7 +183,7 @@ export function getSelectedCourse(courses, selectedCourseId) {
 export function getSelectedBlock(course, selectedBlockId) {
   return (
     (course.blocks || []).find((block) => block.id === selectedBlockId) ||
-    course.blocks?.[0] ||
+    (!selectedBlockId ? course.blocks?.[0] : null) ||
     EMPTY_BLOCK
   );
 }
@@ -173,7 +191,7 @@ export function getSelectedBlock(course, selectedBlockId) {
 export function getSelectedLesson(block, selectedLessonId) {
   return (
     (block.lessons || []).find((lesson) => lesson.id === selectedLessonId) ||
-    block.lessons?.[0] ||
+    (!selectedLessonId ? block.lessons?.[0] : null) ||
     EMPTY_LESSON
   );
 }
@@ -181,7 +199,7 @@ export function getSelectedLesson(block, selectedLessonId) {
 export function getSelectedPractice(block, selectedPracticeId) {
   return (
     block.practice?.find((practice) => practice.id === selectedPracticeId) ||
-    block.practice?.[0] ||
+    (!selectedPracticeId ? block.practice?.[0] : null) ||
     null
   );
 }

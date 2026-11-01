@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createSafeJSONStorage } from "../utils/storage";
 
 const UI_LAYOUT_STORAGE_KEY = "app-ui-layout-storage";
 const UI_LAYOUT_STORAGE_VERSION = 2;
@@ -12,22 +13,25 @@ const SUPPORTED_LESSON_TABS = new Set(["theory", "questions", "practice"]);
 const normalizeScrollY = (value) =>
   Math.max(0, Math.round(Number.isFinite(value) ? value : 0));
 
-const trimScrollPositions = (positions = {}) => {
-  const entries = Object.entries(positions).filter(
-    ([routeKey, scrollY]) =>
-      typeof routeKey === "string" &&
-      routeKey.length > 0 &&
-      Number.isFinite(scrollY),
-  );
+const isRecord = (value) =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
 
-  return Object.fromEntries(entries.slice(-MAX_SCROLL_POSITIONS));
+const trimScrollPositions = (positions = {}) => {
+  const entries = Object.entries(isRecord(positions) ? positions : {})
+    .filter(
+      ([routeKey, scrollY]) => routeKey.length > 0 && Number.isFinite(scrollY),
+    )
+    .slice(-MAX_SCROLL_POSITIONS)
+    .map(([routeKey, scrollY]) => [routeKey, normalizeScrollY(scrollY)]);
+
+  return Object.fromEntries(entries);
 };
 
 const normalizeLessonTab = (tab) =>
   SUPPORTED_LESSON_TABS.has(tab) ? tab : DEFAULT_LESSON_TAB;
 
 const trimActiveLessonTabs = (tabs = {}) => {
-  const entries = Object.entries(tabs)
+  const entries = Object.entries(isRecord(tabs) ? tabs : {})
     .filter(
       ([contextKey, tab]) =>
         typeof contextKey === "string" &&
@@ -51,7 +55,30 @@ const shouldSkipRouteHistory = (route) => {
 };
 
 const trimRouteHistory = (history = []) =>
-  history.map(normalizeRoute).filter(Boolean).slice(-MAX_ROUTE_HISTORY);
+  (Array.isArray(history) ? history : [])
+    .map(normalizeRoute)
+    .filter(Boolean)
+    .slice(-MAX_ROUTE_HISTORY);
+
+const normalizeCoursesPage = (value) => {
+  const page =
+    typeof value === "number" || typeof value === "string" ? Number(value) : 1;
+  return Number.isFinite(page) ? Math.max(1, Math.round(page) || 1) : 1;
+};
+
+const normalizePersistedLayout = (persistedState) => {
+  const cache = isRecord(persistedState) ? persistedState : {};
+  return {
+    activeProfileTab:
+      typeof cache.activeProfileTab === "string" &&
+      cache.activeProfileTab.trim()
+        ? cache.activeProfileTab
+        : "overview",
+    coursesPage: normalizeCoursesPage(cache.coursesPage),
+    scrollPositions: trimScrollPositions(cache.scrollPositions),
+    activeLessonTabs: trimActiveLessonTabs(cache.activeLessonTabs),
+  };
+};
 
 export const useUiLayoutStore = create(
   persist(
@@ -71,7 +98,7 @@ export const useUiLayoutStore = create(
         set({ activeProfileTab });
       },
       setCoursesPage: (coursesPage) =>
-        set({ coursesPage: Math.max(1, Math.round(Number(coursesPage) || 1)) }),
+        set({ coursesPage: normalizeCoursesPage(coursesPage) }),
       getScrollPosition: (routeKey) => get().scrollPositions[routeKey],
       saveScrollPosition: (routeKey, scrollY) => {
         if (typeof routeKey !== "string" || !routeKey) return;
@@ -151,6 +178,7 @@ export const useUiLayoutStore = create(
     {
       name: UI_LAYOUT_STORAGE_KEY,
       version: UI_LAYOUT_STORAGE_VERSION,
+      storage: createSafeJSONStorage(),
       // Персистим только лёгкие UI-флаги и id/key -> primitive mappings;
       // серверные списки, токены и производные данные здесь не хранятся.
       partialize: (state) => ({
@@ -160,25 +188,18 @@ export const useUiLayoutStore = create(
         activeLessonTabs: trimActiveLessonTabs(state.activeLessonTabs),
       }),
       migrate: (persistedState) => ({
-        activeProfileTab:
-          typeof persistedState?.activeProfileTab === "string" &&
-          persistedState.activeProfileTab.trim()
-            ? persistedState.activeProfileTab
-            : "overview",
-        coursesPage: Math.max(
-          1,
-          Math.round(Number(persistedState?.coursesPage) || 1),
-        ),
-        scrollPositions: trimScrollPositions(
-          persistedState?.scrollPositions || {},
-        ),
-        activeLessonTabs: trimActiveLessonTabs(
-          persistedState?.activeLessonTabs || {},
-        ),
+        ...normalizePersistedLayout(persistedState),
         routeHistory: [],
       }),
-      onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+      // Whitelist cached fields even when migrate is skipped for version 2.
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(isRecord(persistedState)
+          ? normalizePersistedLayout(persistedState)
+          : {}),
+      }),
+      onRehydrateStorage: (initialState) => (state) => {
+        (state || initialState).setHasHydrated(true);
       },
     },
   ),

@@ -1,4 +1,6 @@
 import {
+  ApiError,
+  getSessionContext,
   fetchCourses,
   getCourseBasicInfo as fetchCourseBasicInfo,
   getLessonBasicInfo,
@@ -12,6 +14,25 @@ const courseCache = new Map();
 const moduleCache = new Map();
 const lessonCache = new Map();
 const lessonTheoryCache = new Map();
+let cacheContext = getSessionContext();
+
+function getCacheContext() {
+  const context = getSessionContext();
+  if (cacheContext !== context) {
+    courseCache.clear();
+    moduleCache.clear();
+    lessonCache.clear();
+    lessonTheoryCache.clear();
+    cacheContext = context;
+  }
+  return context;
+}
+
+function assertContext(context) {
+  if (context !== getSessionContext()) {
+    throw new ApiError("Контекст сессии изменился.", { code: "STALE_SESSION" });
+  }
+}
 
 function replaceModule(course, module) {
   return {
@@ -42,11 +63,13 @@ function rememberCourse(course) {
 }
 
 export async function getCourse(courseId) {
+  const context = getCacheContext();
   if (courseId && courseCache.has(courseId)) {
     return courseCache.get(courseId);
   }
 
   const courses = await fetchCourses({ page: 1, size: 20 });
+  assertContext(context);
   courses.forEach(rememberCourse);
   const course = courseId
     ? courses.find((item) => item.id === courseId)
@@ -62,6 +85,7 @@ export async function getCourse(courseId) {
 // Сбрасывает кеш, чтобы после генерации или сохранения страницы курса
 // загрузили свежие данные с backend.
 export function forgetCourseCache(courseId, moduleIds = [], lessonIds = []) {
+  getCacheContext();
   if (courseId) courseCache.delete(courseId);
   moduleIds.forEach((moduleId) => moduleCache.delete(moduleId));
   lessonIds.forEach((lessonId) => {
@@ -71,26 +95,33 @@ export function forgetCourseCache(courseId, moduleIds = [], lessonIds = []) {
 }
 
 export function forgetLessonTheory(lessonId) {
+  getCacheContext();
   if (!lessonId) return;
   lessonCache.delete(lessonId);
   lessonTheoryCache.delete(lessonId);
 }
 
 export async function getCourseBasicInfo(courseId) {
+  const context = getCacheContext();
   if (!courseId) {
     return getCourse();
   }
   if (courseCache.has(courseId)) {
     return courseCache.get(courseId);
   }
-  return rememberCourse(await fetchCourseBasicInfo(courseId));
+  const course = await fetchCourseBasicInfo(courseId);
+  assertContext(context);
+  return rememberCourse(course);
 }
 
 export async function getCourseLearningStructure(courseId) {
+  const context = getCacheContext();
   const course = await getCourseBasicInfo(courseId);
+  assertContext(context);
   for (const moduleRef of course.blocks || []) {
     if (!moduleCache.has(moduleRef.id)) {
       const module = await getModuleById(moduleRef.id);
+      assertContext(context);
       rememberCourse(
         replaceModule(courseCache.get(course.id) || course, module),
       );
@@ -100,11 +131,13 @@ export async function getCourseLearningStructure(courseId) {
 }
 
 export async function getModuleById(moduleId) {
+  const context = getCacheContext();
   if (moduleCache.has(moduleId)) {
     return moduleCache.get(moduleId);
   }
 
   const module = await getModuleBasicInfo(moduleId);
+  assertContext(context);
   moduleCache.set(moduleId, module);
   for (const [courseId, course] of courseCache.entries()) {
     if ((course.blocks || []).some((block) => block.id === moduleId)) {
@@ -115,11 +148,13 @@ export async function getModuleById(moduleId) {
 }
 
 export async function getLessonById(lessonId) {
+  const context = getCacheContext();
   if (lessonCache.has(lessonId)) {
     return lessonCache.get(lessonId);
   }
 
   const lesson = await getLessonBasicInfo(lessonId);
+  assertContext(context);
   lessonCache.set(lessonId, lesson);
   for (const [courseId, course] of courseCache.entries()) {
     courseCache.set(courseId, replaceLessonInCourse(course, lesson));
@@ -128,6 +163,7 @@ export async function getLessonById(lessonId) {
 }
 
 export async function getLessonContentBlocks(lessonId) {
+  const context = getCacheContext();
   if (!lessonId) {
     return [];
   }
@@ -137,6 +173,7 @@ export async function getLessonContentBlocks(lessonId) {
   }
 
   const contentBlocks = await getLessonTheory(lessonId);
+  assertContext(context);
   lessonTheoryCache.set(lessonId, contentBlocks);
 
   const lesson = lessonCache.get(lessonId);
@@ -151,6 +188,7 @@ export async function getLessonContentBlocks(lessonId) {
 }
 
 export async function isUserEnrolled(courseId, initialPage = null) {
+  const context = getSessionContext();
   if (!courseId) {
     return false;
   }
@@ -158,6 +196,7 @@ export async function isUserEnrolled(courseId, initialPage = null) {
   let courses =
     initialPage ||
     (await getMyCourses({ page: 1, size: ENROLLMENT_PAGE_SIZE }));
+  assertContext(context);
   if (courses.items.some((course) => course.id === courseId)) {
     return true;
   }
@@ -169,6 +208,7 @@ export async function isUserEnrolled(courseId, initialPage = null) {
     page += 1
   ) {
     courses = await getMyCourses({ page, size: ENROLLMENT_PAGE_SIZE });
+    assertContext(context);
     if (courses.items.some((course) => course.id === courseId)) {
       return true;
     }

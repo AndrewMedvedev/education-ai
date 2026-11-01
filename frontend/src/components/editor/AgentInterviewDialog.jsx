@@ -1,3 +1,6 @@
+import ReloadStorageWarning from "../../utils/ReloadStorageWarning";
+import { getReloadScope } from "../../utils/reloadScope";
+import { useSessionStore } from "../../stores/sessionStore";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AppModal from "../ui/AppModal";
 import FloatingWindow from "../ui/FloatingWindow";
@@ -92,7 +95,14 @@ export function resetAgentInterview({ kind, courseId, moduleId = "" }) {
  * chat_id хранится в agentStore (вместе с историей) и передаётся повторно,
  * пока пользователь не начнёт новый диалог.
  */
-export default function AgentInterviewDialog({
+export default function AgentInterviewDialog(props) {
+  const scope = useSessionStore(() => getReloadScope());
+  const session = useSessionStore((state) => state.sessionContext);
+  if (!scope) return null;
+  return <ScopedAgentInterviewDialog {...props} key={JSON.stringify([scope, session, conversationKeyFor(props.kind, props.courseId, props.moduleId)])} />;
+}
+
+function ScopedAgentInterviewDialog({
   open,
   onClose,
   kind,
@@ -130,7 +140,12 @@ export default function AgentInterviewDialog({
   const startJob = useGenerationJobsStore((state) => state.startJob);
   const removeJob = useGenerationJobsStore((state) => state.removeJob);
 
-  const [input, setInput] = useState("");
+  const input = useAgentStore((state) => state.interviewDrafts?.[conversationKey] || "");
+  const context = useRef({ scope: getReloadScope(), session: useSessionStore.getState().sessionContext });
+  const contextIsCurrent = () => context.current.scope === getReloadScope() && context.current.session === useSessionStore.getState().sessionContext;
+  const setInput = (value) => {
+    if (contextIsCurrent()) useAgentStore.getState().setInterviewDraft(conversationKey, value);
+  };
   const [lastSent, setLastSent] = useState("");
   const [confirmText, setConfirmText] = useState(null);
   const [isResetOpen, setIsResetOpen] = useState(false);
@@ -178,7 +193,7 @@ export default function AgentInterviewDialog({
 
   const send = async (text) => {
     const content = String(text || "").trim();
-    if (!content || isThinking || job || !canWrite) return;
+    if (!contextIsCurrent() || !content || isThinking || job || !canWrite) return;
     setLastSent(content);
     setInput("");
     try {
@@ -196,7 +211,7 @@ export default function AgentInterviewDialog({
         responseDisplayMessage: (result) =>
           getResponseText(result, texts.started),
       });
-      if (!response) return;
+      if (!response || !contextIsCurrent()) return;
       const taskId = extractTaskId(response);
       if (taskId) {
         startJob({
@@ -265,6 +280,7 @@ export default function AgentInterviewDialog({
 
   const chatBody = (
     <div className="agent-chat">
+      <ReloadStorageWarning names={["ai-course-agent-chats-v1"]} />
       {isAgentMockEnabled() ? (
         <p className="agent-mock-badge">
           Демо-режим: ответы ИИ имитируются, модель не вызывается. Модуль и

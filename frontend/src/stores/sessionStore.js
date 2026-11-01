@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
+  ApiError,
   authenticateWithMembership,
   fetchIdentity,
   fetchCurrentUser,
@@ -11,18 +12,28 @@ import {
   saveStoredSession,
   setTokenChangeHandler,
   setUnauthorizedHandler,
-  isTokenExpired,
+  getSessionContext,
+  hasSessionCredentials,
 } from "../utils/api";
 import { attachmentsApi } from "../utils/attachments";
 import { getMediaId, getMediaUrl, MEDIA_FOLDERS } from "../utils/media";
+import { createSafeJSONStorage } from "../utils/storage";
 
 const initialStoredSession = readStoredSession();
 const SESSION_CACHE_STORAGE_KEY = "aicolab-session-cache";
 const SESSION_CACHE_VERSION = 1;
 let identityRequestPromise = null;
 let currentUserRequestPromise = null;
+let authenticationRequest = 0;
+
+function assertSessionContext(context) {
+  if (context !== getSessionContext()) {
+    throw new ApiError("Контекст сессии изменился.", { code: "STALE_SESSION" });
+  }
+}
 
 const initialState = {
+  sessionContext: getSessionContext(),
   accessToken: initialStoredSession.accessToken,
   refreshToken: initialStoredSession.refreshToken,
   expiresAt: initialStoredSession.expiresAt,
@@ -31,6 +42,7 @@ const initialState = {
   authenticationToken: null,
   memberships: [],
   identity: null,
+  identityError: null,
   user: null,
   loginStep: "credentials",
   isLoading: false,
@@ -160,11 +172,7 @@ export const useSessionStore = create(
 
       get isAuthenticated() {
         const state = get();
-        return Boolean(
-          state.accessToken &&
-          state.expiresAt &&
-          (!isTokenExpired(state.expiresAt) || state.refreshToken),
-        );
+        return hasSessionCredentials(state);
       },
 
       setTokens: (tokens, context = {}) => {
@@ -173,8 +181,14 @@ export const useSessionStore = create(
           accessToken: normalizedTokens.accessToken || get().accessToken,
           refreshToken: normalizedTokens.refreshToken || get().refreshToken,
           expiresAt: normalizedTokens.expiresAt || get().expiresAt,
-          membershipId: context.membershipId || get().membershipId,
-          organizationId: context.organizationId || get().organizationId,
+          membershipId:
+            context.membershipId !== undefined
+              ? context.membershipId
+              : get().membershipId,
+          organizationId:
+            context.organizationId !== undefined
+              ? context.organizationId
+              : get().organizationId,
         };
 
         saveStoredSession(nextSession);
@@ -188,10 +202,18 @@ export const useSessionStore = create(
       },
 
       loginWithCredentials: async ({ email, password }) => {
+        const request = ++authenticationRequest;
+        const context = getSessionContext();
         set({ isLoading: true, error: null, validationErrors: {} });
 
         try {
           const data = await loginApi({ email, password });
+          assertSessionContext(context);
+          if (request !== authenticationRequest) {
+            throw new ApiError("Запрос входа устарел.", {
+              code: "STALE_SESSION",
+            });
+          }
           set({
             authenticationToken: data.authentication_token,
             memberships: Array.isArray(data.memberships)
@@ -204,6 +226,11 @@ export const useSessionStore = create(
           });
           return data;
         } catch (error) {
+          if (
+            request !== authenticationRequest ||
+            context !== getSessionContext()
+          )
+            throw error;
           set({
             isLoading: false,
             error:
@@ -217,6 +244,8 @@ export const useSessionStore = create(
       },
 
       selectMembership: async (membershipId) => {
+        const request = ++authenticationRequest;
+        let context = getSessionContext();
         const { authenticationToken, memberships, setTokens, loadIdentity } =
           get();
         const membership = memberships.find(
@@ -242,16 +271,29 @@ export const useSessionStore = create(
             authentication_token: authenticationToken,
             membership_id: normalizedMembershipId,
           });
+          assertSessionContext(context);
+          if (request !== authenticationRequest) {
+            throw new ApiError("Запрос выбора организации устарел.", {
+              code: "STALE_SESSION",
+            });
+          }
           setTokens(tokens, {
             membershipId: normalizedMembershipId,
             organizationId,
           });
+          context = getSessionContext();
           set({
             authenticationToken: null,
             memberships: [],
             loginStep: "credentials",
           });
           const identity = await loadIdentity();
+          assertSessionContext(context);
+          if (request !== authenticationRequest) {
+            throw new ApiError("Запрос выбора организации устарел.", {
+              code: "STALE_SESSION",
+            });
+          }
           if (!identity) {
             const error = new Error(
               "Не удалось подтвердить сессию выбранной организации.",
@@ -264,6 +306,11 @@ export const useSessionStore = create(
           set({ isLoading: false });
           return tokens;
         } catch (error) {
+          if (
+            request !== authenticationRequest ||
+            context !== getSessionContext()
+          )
+            throw error;
           const isExpiredSelection = error.status === 401;
           set({
             isLoading: false,
@@ -284,55 +331,67 @@ export const useSessionStore = create(
       },
 
       loadIdentity: async () => {
-        if (!get().accessToken) return null;
-        if (identityRequestPromise) return identityRequestPromise;
-
-        identityRequestPromise = fetchIdentity()
+        if (!hasSessionCredentials(get())) return null;
+        const context = getSessionContext();
+        if (identityRequestPromise?.context === context) {
+          return identityRequestPromise.promise;
+        }
+        const flight = { context, promise: null };
+        set({ identityError: null });
+        flight.promise = fetchIdentity()
           .then((identity) => {
+            if (context !== getSessionContext()) return null;
+            const membershipId =
+              getMembershipIdFromIdentity(identity) || get().membershipId;
+            const organizationId =
+              getOrganizationIdFromIdentity(identity) || get().organizationId;
+            // Enrichment is not a new login; keep in-flight profile/refresh valid.
+            saveStoredSession(
+              { ...readStoredSession(), membershipId, organizationId },
+              { preserveContext: true },
+            );
             set({
               identity,
-              membershipId:
-                getMembershipIdFromIdentity(identity) || get().membershipId,
-              organizationId:
-                getOrganizationIdFromIdentity(identity) || get().organizationId,
+              membershipId,
+              organizationId,
+              identityError: null,
             });
             return identity;
           })
           .catch((error) => {
-            if (error.status === 401) {
-              get().clearSession();
-              return null;
-            }
-
-            set({
-              identity: null,
-              error:
-                error.userMessage ||
-                error.message ||
-                "Не удалось загрузить данные текущей сессии.",
-            });
+            if (context !== getSessionContext()) return null;
+            const message =
+              error.userMessage ||
+              error.message ||
+              "Не удалось загрузить данные текущей сессии.";
+            set({ identityError: message, error: message });
             return null;
           })
           .finally(() => {
-            identityRequestPromise = null;
+            if (identityRequestPromise === flight)
+              identityRequestPromise = null;
           });
-
-        return identityRequestPromise;
+        identityRequestPromise = flight;
+        return flight.promise;
       },
 
       loadCurrentUser: async () => {
-        if (!get().accessToken) return null;
-        if (currentUserRequestPromise) return currentUserRequestPromise;
-
-        currentUserRequestPromise = fetchCurrentUser()
+        if (!hasSessionCredentials(get())) return null;
+        const context = getSessionContext();
+        if (currentUserRequestPromise?.context === context) {
+          return currentUserRequestPromise.promise;
+        }
+        const flight = { context, promise: null };
+        flight.promise = fetchCurrentUser()
           .then((user) => {
+            if (context !== getSessionContext()) return null;
             const normalizedUser = normalizeSessionUser(user);
             set({ user: normalizedUser });
             return normalizedUser;
           })
           .catch((error) => {
+            if (context !== getSessionContext()) return null;
             set({
-              user: null,
               error:
                 error.status === 401
                   ? null
@@ -343,29 +402,36 @@ export const useSessionStore = create(
             return null;
           })
           .finally(() => {
-            currentUserRequestPromise = null;
+            if (currentUserRequestPromise === flight)
+              currentUserRequestPromise = null;
           });
-
-        return currentUserRequestPromise;
+        currentUserRequestPromise = flight;
+        return flight.promise;
       },
 
-      resetOrganizationSelection: () =>
+      resetOrganizationSelection: () => {
+        authenticationRequest += 1;
         set({
           authenticationToken: null,
           memberships: [],
           loginStep: "credentials",
+          isLoading: false,
           error: null,
           validationErrors: {},
-        }),
+        });
+      },
 
       updateProfile: async (changes) => {
+        const context = getSessionContext();
         set({ isLoading: true, error: null, validationErrors: {} });
 
         try {
           const user = normalizeSessionUser(await updateCurrentUser(changes));
+          assertSessionContext(context);
           set({ user, isLoading: false, error: null, validationErrors: {} });
           return user;
         } catch (error) {
+          if (context !== getSessionContext()) throw error;
           set({
             isLoading: false,
             error:
@@ -379,10 +445,12 @@ export const useSessionStore = create(
       },
 
       uploadAvatar: async (file) => {
+        const context = getSessionContext();
         set({ isLoading: true, error: null, validationErrors: {} });
 
         try {
           const currentUser = get().user || (await get().loadCurrentUser());
+          assertSessionContext(context);
           const ownerId = getSessionUserId(currentUser);
           const attachment = await attachmentsApi.uploadAttachment(
             file,
@@ -405,9 +473,11 @@ export const useSessionStore = create(
             MEDIA_FOLDERS.AVATAR,
             avatarId,
           );
+          assertSessionContext(context);
           const user = normalizeSessionUser(
             await updateCurrentUser({ avatarUrl }),
           );
+          assertSessionContext(context);
           const userWithAvatarUrl = {
             ...user,
             avatar_url: avatarId,
@@ -421,6 +491,7 @@ export const useSessionStore = create(
           });
           return userWithAvatarUrl;
         } catch (error) {
+          if (context !== getSessionContext()) throw error;
           set({
             isLoading: false,
             error:
@@ -436,6 +507,7 @@ export const useSessionStore = create(
       clearPersistedState: () => useSessionStore.persist.clearStorage(),
 
       clearSession: () => {
+        authenticationRequest += 1;
         identityRequestPromise = null;
         currentUserRequestPromise = null;
         saveStoredSession(null);
@@ -448,6 +520,7 @@ export const useSessionStore = create(
           authenticationToken: null,
           memberships: [],
           identity: null,
+          identityError: null,
           user: null,
           loginStep: "credentials",
           isLoading: false,
@@ -462,6 +535,7 @@ export const useSessionStore = create(
       logout: async () => {
         const { accessToken, refreshToken, clearSession } = get();
 
+        clearSession();
         try {
           if (accessToken && refreshToken) {
             await logoutApi({
@@ -471,14 +545,13 @@ export const useSessionStore = create(
           }
         } catch {
           // Локальная очистка обязательна даже если сервер не ответил или уже отозвал токены.
-        } finally {
-          clearSession();
         }
       },
     }),
     {
       name: SESSION_CACHE_STORAGE_KEY,
       version: SESSION_CACHE_VERSION,
+      storage: createSafeJSONStorage(),
       // Токены, identity, ошибки и промежуточные данные логина намеренно исключены.
       partialize: (state) => ({
         user: state.user,
@@ -510,8 +583,26 @@ export const useSessionStore = create(
   ),
 );
 
+let observedSessionContext = getSessionContext();
 setTokenChangeHandler((session) => {
+  const contextChanged = observedSessionContext !== getSessionContext();
+  observedSessionContext = getSessionContext();
+  if (contextChanged) {
+    identityRequestPromise = null;
+    currentUserRequestPromise = null;
+  }
   useSessionStore.setState({
+    sessionContext: getSessionContext(),
+    ...(contextChanged
+      ? {
+          identity: null,
+          identityError: null,
+          user: null,
+          isLoading: false,
+          error: null,
+          validationErrors: {},
+        }
+      : {}),
     accessToken: session.accessToken,
     refreshToken: session.refreshToken,
     expiresAt: session.expiresAt,

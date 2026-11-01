@@ -1,3 +1,5 @@
+import ReloadStorageWarning from "../utils/ReloadStorageWarning";
+import { creatorFileMetadata, needsFileReselection, RESELECT_CREATOR_FILES } from "../utils/creatorFileDraft";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -25,7 +27,9 @@ import {
   fetchCourseStatus,
   saveDocument,
 } from "../utils/api";
-import { getLocalStorage } from "../utils/storage";
+import { scopedReloadStorage, getReloadScope } from "../utils/reloadScope";
+import { useSessionStore } from "../stores/sessionStore";
+const getLocalStorage = () => scopedReloadStorage;
 
 const MAX_FILES = 5;
 
@@ -77,9 +81,7 @@ function clearGenerationState(courseId) {
   const storage = getLocalStorage();
   if (!storage || !courseId) return;
   storage.removeItem(getGenerationKey(courseId));
-  if (storage.getItem(ACTIVE_CREATOR_COURSE_KEY) === courseId) {
-    storage.removeItem(ACTIVE_CREATOR_COURSE_KEY);
-  }
+  // Keep the active dialog even after generation completes; only its polling record ends.
 }
 
 function estimateProgress(startedAt) {
@@ -205,6 +207,22 @@ function getStatusErrorMessage(error) {
 }
 
 export default function CreatorChatView() {
+  const scope = useSessionStore(() => getReloadScope());
+  const session = useSessionStore((state) => state.sessionContext);
+  return scope ? <ScopedCreatorChatView key={`${scope}:${session}`} /> : null;
+}
+
+function ScopedCreatorChatView() {
+  const contextRef = useRef({
+    scope: getReloadScope(),
+    session: useSessionStore.getState().sessionContext,
+  });
+  const contextIsCurrent = useCallback(
+    () =>
+      contextRef.current.scope === getReloadScope() &&
+      contextRef.current.session === useSessionStore.getState().sessionContext,
+    [],
+  );
   const navigate = useNavigate();
   const [courseId, setCourseId] = useState(createCourseId);
   // Текст, который уйдёт агенту после подтверждения запуска генерации.
@@ -234,10 +252,28 @@ export default function CreatorChatView() {
   const generation = storeGeneration || defaultGeneration;
   const messages = conversation?.messages || [];
   const isThinking = conversation?.status === "loading";
-  const [stepIndex, setStepIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [inputValue, setInputValue] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const savedDraft = useAgentStore.getState().creatorDrafts[conversationKey];
+  const [stepIndex, setStepIndex] = useState(() => savedDraft?.stepIndex || 0);
+  const [answers, setAnswers] = useState(() => savedDraft?.answers || {});
+  const [inputValue, setInputValue] = useState(
+    () => savedDraft?.inputValue || "",
+  );
+  const [uploadedFiles, setUploadedFiles] = useState(() => creatorFileMetadata(savedDraft?.files));
+  useEffect(() => {
+    if (!contextIsCurrent()) return;
+    useAgentStore
+      .getState()
+      .setCreatorDraft(conversationKey, { stepIndex, answers, inputValue, files: creatorFileMetadata(uploadedFiles) });
+    getLocalStorage().setItem(ACTIVE_CREATOR_COURSE_KEY, courseId);
+  }, [
+    contextIsCurrent,
+    conversationKey,
+    courseId,
+    stepIndex,
+    answers,
+    inputValue,
+    uploadedFiles,
+  ]);
   const hasGenerationStarted = generation.hasStarted;
   const isGenerating = generation.isGenerating;
   const generationProgress = generation.progress;
@@ -248,6 +284,14 @@ export default function CreatorChatView() {
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const pollingTimerRef = useRef(null);
+  const pollingEpochRef = useRef(0);
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
   const progressTimerRef = useRef(null);
   const statusRequestControllerRef = useRef(null);
   const statusRequestInFlightRef = useRef(false);
@@ -279,25 +323,37 @@ export default function CreatorChatView() {
   const currentQuestion = intakeQuestions[stepIndex] || null;
 
   const updateGeneration = useCallback(
-    (patch) => setGeneration(conversationKey, patch),
-    [conversationKey, setGeneration],
+    (patch) => {
+      if (contextIsCurrent()) setGeneration(conversationKey, patch);
+    },
+    [contextIsCurrent, conversationKey, setGeneration],
   );
 
   const pushAssistantMessage = useCallback(
     (text) => {
-      appendAgentMessage(conversationKey, "assistant", text);
+      if (contextIsCurrent())
+        appendAgentMessage(conversationKey, "assistant", text);
     },
-    [appendAgentMessage, conversationKey],
+    [appendAgentMessage, contextIsCurrent, conversationKey],
   );
 
   useEffect(() => {
+    if (!contextIsCurrent()) return;
     initializeConversation({
       key: conversationKey,
       agent: "interviewer",
       courseId,
     });
-    return () => cancelRequest(conversationKey);
-  }, [cancelRequest, conversationKey, courseId, initializeConversation]);
+    return () => {
+      if (contextIsCurrent()) cancelRequest(conversationKey);
+    };
+  }, [
+    cancelRequest,
+    contextIsCurrent,
+    conversationKey,
+    courseId,
+    initializeConversation,
+  ]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -312,6 +368,7 @@ export default function CreatorChatView() {
   }, [messages, isThinking]);
 
   const stopGenerationTimers = useCallback(() => {
+    pollingEpochRef.current += 1;
     if (pollingTimerRef.current) {
       window.clearInterval(pollingTimerRef.current);
       pollingTimerRef.current = null;
@@ -363,6 +420,7 @@ export default function CreatorChatView() {
   );
 
   const checkStatusOnce = useCallback(async () => {
+    if (!contextIsCurrent()) return true;
     if (statusRequestInFlightRef.current) return false;
 
     const currentGeneration = useAgentStore
@@ -389,6 +447,8 @@ export default function CreatorChatView() {
       const { status } = await fetchCourseStatus(statusLookupId, {
         signal: controller.signal,
       });
+      if (controller.signal.aborted || !aliveRef.current || !contextIsCurrent())
+        return true;
       const normalizedStatus = normalizeCourseStatus(status);
 
       if (isGenerationCourseStatus(normalizedStatus)) {
@@ -411,7 +471,7 @@ export default function CreatorChatView() {
       });
       return false;
     } catch (error) {
-      if (controller.signal.aborted) return true;
+      if (controller.signal.aborted || !contextIsCurrent()) return true;
 
       if (error?.status === NOT_FOUND_STATUS) {
         const started = Date.parse(currentGeneration.startedAt || "");
@@ -468,10 +528,11 @@ export default function CreatorChatView() {
     } finally {
       if (statusRequestControllerRef.current === controller) {
         statusRequestControllerRef.current = null;
+        statusRequestInFlightRef.current = false;
       }
-      statusRequestInFlightRef.current = false;
     }
   }, [
+    contextIsCurrent,
     conversationKey,
     courseId,
     finishGeneration,
@@ -485,8 +546,10 @@ export default function CreatorChatView() {
       window.clearInterval(pollingTimerRef.current);
       pollingTimerRef.current = null;
     }
+    const epoch = pollingEpochRef.current;
     const finished = await checkStatusOnce();
-    if (finished) return;
+    if (finished || !aliveRef.current || epoch !== pollingEpochRef.current)
+      return;
     pollingTimerRef.current = window.setInterval(
       checkStatusOnce,
       COURSE_GENERATION_POLLING_INTERVAL_MS,
@@ -550,6 +613,7 @@ export default function CreatorChatView() {
   };
 
   const uploadAllFiles = async () => {
+    if (needsFileReselection(uploadedFiles)) return false;
     if (uploadedFiles.length === 0) {
       return true;
     }
@@ -577,6 +641,7 @@ export default function CreatorChatView() {
     const results = await Promise.allSettled(
       uploadedFiles.map((uploadedFile) => saveDocument(uploadedFile.file)),
     );
+    if (!aliveRef.current || !contextIsCurrent()) return false;
     const failedUploads = results
       .map((result, index) => ({ result, file: uploadedFiles[index] }))
       .filter(({ result }) => result.status === "rejected")
@@ -609,10 +674,21 @@ export default function CreatorChatView() {
   );
 
   useEffect(() => {
-    const savedGeneration = readGenerationState(courseId);
+    if (!contextIsCurrent()) return;
+    const current = useAgentStore.getState().getGeneration(conversationKey);
+    const savedGeneration =
+      readGenerationState(courseId) ||
+      (current.isGenerating && current.generatedCourseId
+        ? {
+            taskId: current.taskId,
+            generatedCourseId: current.generatedCourseId,
+            generationStartedAt: current.startedAt,
+          }
+        : null);
     if (!savedGeneration) return;
 
-    setConversationChatId(conversationKey, savedGeneration.chatId || null);
+    if (savedGeneration.chatId)
+      setConversationChatId(conversationKey, savedGeneration.chatId);
     updateGeneration({
       taskId: savedGeneration.taskId || null,
       generatedCourseId: savedGeneration.generatedCourseId || null,
@@ -629,6 +705,7 @@ export default function CreatorChatView() {
   }, [
     conversationKey,
     courseId,
+    contextIsCurrent,
     setConversationChatId,
     startProgressSimulation,
     startStatusPolling,
@@ -636,6 +713,7 @@ export default function CreatorChatView() {
   ]);
 
   const submitMessage = async (overrideText) => {
+    if (!contextIsCurrent()) return;
     const isConfirmedLaunch = typeof overrideText === "string";
     const text = (isConfirmedLaunch ? overrideText : inputValue).trim();
     const hasFiles = !isConfirmedLaunch && uploadedFiles.length > 0;
@@ -669,7 +747,7 @@ export default function CreatorChatView() {
 
     if (hasFiles) {
       const filesOk = await uploadAllFiles();
-      if (!filesOk) return;
+      if (!filesOk || !aliveRef.current) return;
     }
 
     if (targetQuestion && text) {
@@ -695,7 +773,7 @@ export default function CreatorChatView() {
         content: messageText,
         emptyResponseMessage: "",
       });
-      if (!response) return;
+      if (!response || !aliveRef.current || !contextIsCurrent()) return;
 
       if (targetQuestion) {
         setStepIndex((current) =>
@@ -733,10 +811,11 @@ export default function CreatorChatView() {
       return;
     }
 
-    const remaining = MAX_FILES - uploadedFiles.length;
+    const liveFiles = uploadedFiles.filter((item) => item.file);
+    const remaining = MAX_FILES - uploadedFiles.filter((item) => item.file || !files.some((file) => file.name === item.name && file.size === item.size && file.size <= DOCUMENT_MAX_SIZE_BYTES && DOCUMENT_ALLOWED_EXTENSION.test(file.name || ""))).length;
     const accepted = [];
     const existingFileKeys = new Set(
-      uploadedFiles.map(
+      liveFiles.map(
         (uploadedFile) =>
           `${uploadedFile.name}:${uploadedFile.file.size}:${uploadedFile.file.lastModified}`,
       ),
@@ -784,6 +863,8 @@ export default function CreatorChatView() {
       id: `${file.name}-${Date.now()}-${index}`,
       name: file.name,
       sizeKb: Math.max(1, Math.round(file.size / 1024)),
+      size: file.size,
+      lastModified: file.lastModified,
       file,
     }));
 
@@ -793,7 +874,7 @@ export default function CreatorChatView() {
 
     if (nextFiles.length > 0) {
       setFileUploadError("");
-      setUploadedFiles((prev) => [...nextFiles, ...prev]);
+      setUploadedFiles((prev) => [...nextFiles, ...prev.filter((item) => item.file || !nextFiles.some((next) => next.name === item.name && next.size === item.size))].slice(0, MAX_FILES));
       setAnswers((prev) => ({
         ...prev,
         materials:
@@ -849,6 +930,8 @@ export default function CreatorChatView() {
 
   return (
     <section className="creator-chat-shell">
+      <ReloadStorageWarning names={["ai-course-agent-chats-v1", ACTIVE_CREATOR_COURSE_KEY, "course-generation:"]} />
+      {needsFileReselection(uploadedFiles) ? <p role="alert">{RESELECT_CREATOR_FILES}</p> : null}
       {isAgentMockEnabled() ? (
         <p className="agent-mock-badge">
           Демо-режим: ответы ИИ имитируются, модель не вызывается. Курс
@@ -1140,6 +1223,7 @@ export default function CreatorChatView() {
                   {uploadedFiles.map((file) => (
                     <li key={file.id}>
                       {file.name} • {file.sizeKb} КБ
+                      <button type="button" aria-label={`Удалить файл ${file.name}`} disabled={isUploadingFiles} onClick={() => setUploadedFiles((prev) => prev.filter((item) => item.id !== file.id))}>Удалить</button>
                     </li>
                   ))}
                 </ul>

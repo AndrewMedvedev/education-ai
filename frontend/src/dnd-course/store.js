@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { bindReloadScope, getReloadScope } from "../utils/reloadScope";
+import { createDraftDebounce } from "../utils/reloadPersistence.js";
 import {
   createAgentConversationKey,
   useAgentStore,
@@ -54,8 +56,12 @@ const fileRegistry = new Map();
 const contentTimers = new Map();
 const contentSaves = new Map();
 let toastSeq = 0;
-let persistTimer = null;
+const draftDebounce = createDraftDebounce(() =>
+  useDndCourseStore.getState().persistNow(),
+);
 let persistenceStarted = false;
+let hydrationRequested = false;
+let contextRevision = 0;
 
 const TRANSIENT = {
   hydrated: false,
@@ -208,14 +214,17 @@ export const useDndCourseStore = create((set, get) => {
     null;
 
   const flushLessonContent = async (lessonId) => {
+    const revision = contextRevision;
     const timer = contentTimers.get(lessonId);
     if (timer) {
       window.clearTimeout(timer);
       contentTimers.delete(lessonId);
       await get().saveLessonContentNow(lessonId);
+      if (revision !== contextRevision) return;
     }
     const running = contentSaves.get(lessonId);
     if (running) await running.promise.catch(() => null);
+    if (revision !== contextRevision) return;
   };
 
   const sendOrderUpdates = (items, updater) =>
@@ -225,6 +234,7 @@ export const useDndCourseStore = create((set, get) => {
   // через его модуль, поэтому урок без модуля нельзя ни изменить, ни удалить.
   // На сервер урок уходит в момент добавления в модуль — сразу с module_id.
   const materializeLesson = async (lessonId, moduleId, order) => {
+    const revision = contextRevision;
     const lesson = get().lessons.find((item) => item.id === lessonId);
     if (!lesson) throw new Error("Урок не найден.");
     const saved = await createLessonApi({
@@ -235,16 +245,21 @@ export const useDndCourseStore = create((set, get) => {
       estimatedTimeMinutes: lesson.estimatedTimeMinutes ?? null,
       moduleId,
     });
+    if (revision !== contextRevision) return;
     if (!saved?.id) throw new Error("Сервер не вернул идентификатор урока.");
     const blocks = getLessonBlocks(lesson);
     if (blocks.length) {
       try {
         await updateLessonContentBlocks(saved.id, blocks);
+        if (revision !== contextRevision) return;
       } catch (error) {
+        if (revision !== contextRevision) return;
         let rollbackFailed = false;
         try {
           await deleteLessonApi(saved.id);
+          if (revision !== contextRevision) return;
         } catch {
+          if (revision !== contextRevision) return;
           rollbackFailed = true;
         }
         throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
@@ -296,6 +311,7 @@ export const useDndCourseStore = create((set, get) => {
     ...TRANSIENT,
 
     hydrate: () => {
+      hydrationRequested = true;
       if (get().hydrated) return;
       const { draft, migrated } = loadDraft();
       set({ ...draft, hydrated: true });
@@ -314,17 +330,20 @@ export const useDndCourseStore = create((set, get) => {
             (key) => state[key] !== previous[key],
           );
           if (!changed) return;
-          window.clearTimeout(persistTimer);
-          persistTimer = window.setTimeout(() => get().persistNow(), 450);
+          draftDebounce.schedule();
         });
-        window.addEventListener("beforeunload", () => get().persistNow());
+        window.addEventListener("beforeunload", draftDebounce.flush);
+        window.addEventListener("pagehide", draftDebounce.flush);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") draftDebounce.flush();
+        });
       }
     },
 
     persistNow: () => {
-      window.clearTimeout(persistTimer);
+      draftDebounce.cancel();
       const state = get();
-      if (!state.hydrated) return;
+      if (!state.hydrated || !getReloadScope()) return;
       const isEmpty =
         !state.course &&
         !state.materials.length &&
@@ -343,13 +362,16 @@ export const useDndCourseStore = create((set, get) => {
     // Черновик живёт в браузере дольше базы: если курс на сервере пропал
     // (например, базу пересоздали), работать с ним нельзя — все запросы упадут.
     verifyCourse: async () => {
+      const revision = contextRevision;
       const courseId = get().course?.id;
       if (!courseId) return;
       try {
         await getCourseBasicInfo(courseId);
+        if (revision !== contextRevision) return;
       } catch (error) {
+        if (revision !== contextRevision) return;
         if (error?.status !== 404 && error?.status !== 400) return;
-        if (get().course?.id !== courseId) return;
+        if (revision !== contextRevision || get().course?.id !== courseId) return;
         set((state) => {
           const stale = state.course;
           const removedLessons = new Set(
@@ -396,6 +418,7 @@ export const useDndCourseStore = create((set, get) => {
       })),
 
     createCourse: async () => {
+      const revision = contextRevision;
       const { courseForm, pending, course } = get();
       if (pending.course || course?.id) return;
       const title = courseForm.title.trim();
@@ -414,6 +437,7 @@ export const useDndCourseStore = create((set, get) => {
           difficulty: courseForm.difficulty || "beginner",
           tags,
         });
+        if (revision !== contextRevision) return;
         const nextCourse = normalizeCourse(created, {
           title,
           description,
@@ -433,6 +457,7 @@ export const useDndCourseStore = create((set, get) => {
         });
         announce("Курс создан. Открыт конструктор.");
       } catch (error) {
+        if (revision !== contextRevision) return;
         set({
           courseError: getApiErrorMessage(
             error,
@@ -440,11 +465,13 @@ export const useDndCourseStore = create((set, get) => {
           ),
         });
       } finally {
+        if (revision !== contextRevision) return;
         setPending("course", false);
       }
     },
 
     saveCourse: async () => {
+      const revision = contextRevision;
       const { course, pending } = get();
       if (!course?.id || pending.course) return;
       const values = getFormValues("course", "course", course);
@@ -464,6 +491,7 @@ export const useDndCourseStore = create((set, get) => {
           difficulty: values.difficulty,
           tags,
         });
+        if (revision !== contextRevision) return;
         set({
           course: normalizeCourse(
             { ...(updated || {}), id: course.id },
@@ -483,12 +511,14 @@ export const useDndCourseStore = create((set, get) => {
         setSaveStatus("course", "saved");
         toast("success", "Карточка курса сохранена");
       } catch (error) {
+        if (revision !== contextRevision) return;
         setSaveStatus(
           "course",
           "error",
           getApiErrorMessage(error, "Не удалось сохранить курс."),
         );
       } finally {
+        if (revision !== contextRevision) return;
         setPending("course", false);
       }
     },
@@ -566,6 +596,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     uploadMaterial: async (id) => {
+      const revision = contextRevision;
       const file = fileRegistry.get(id);
       const material = get().materials.find((item) => item.id === id);
       if (!file || !material || get().pending[nodeId.material(id)]) return;
@@ -578,6 +609,7 @@ export const useDndCourseStore = create((set, get) => {
       patchMaterial(id, { status: "uploading", error: "", interrupted: false });
       try {
         const markdown = await uploadDocument(file);
+        if (revision !== contextRevision) return;
         patchMaterial(id, {
           status: "ready",
           markdown: typeof markdown === "string" ? markdown : String(markdown || ""),
@@ -594,9 +626,11 @@ export const useDndCourseStore = create((set, get) => {
           patchMaterial(id, { attachToLessonId: null });
           if (get().lessons.some((lesson) => lesson.id === target)) {
             await get().addMaterialsToLesson(target, [id]);
+            if (revision !== contextRevision) return;
           }
         }
       } catch (error) {
+        if (revision !== contextRevision) return;
         setPending(key, false);
         const message = getApiErrorMessage(error, "Не удалось обработать документ.");
         patchMaterial(id, { status: "error", error: message, attachToLessonId: null });
@@ -658,6 +692,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     askMaterialAi: async (id, prompt) => {
+      const revision = contextRevision;
       const { course, materials } = get();
       const material = materials.find((item) => item.id === id);
       const text = String(prompt || "").trim();
@@ -690,6 +725,7 @@ export const useDndCourseStore = create((set, get) => {
               ? "Правка готова. Проверьте предложенный вариант и примените его, если он подходит."
               : "",
         });
+        if (revision !== contextRevision) return;
         if (!response) return;
         const proposal = response.parsedContent?.md_content;
         if (typeof proposal !== "string" || !proposal.trim()) {
@@ -702,6 +738,7 @@ export const useDndCourseStore = create((set, get) => {
         patchMaterial(id, { proposal: proposal.trim() });
         announce("ИИ подготовил правку материала.");
       } catch {
+        if (revision !== contextRevision) return;
         // Ошибку сети уже записал agent store — инспектор покажет её с кнопкой «Повторить».
       }
     },
@@ -797,12 +834,14 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     addMaterialsToLesson: async (lessonId, materialIds) => {
+      const revision = contextRevision;
       const key = nodeId.lesson(lessonId);
       if (get().pending[key]) {
         toast("warning", "Урок ещё сохраняется. Попробуйте через секунду.");
         return false;
       }
       await flushLessonContent(lessonId);
+      if (revision !== contextRevision) return;
       const check = get().validateMaterialsForLesson(materialIds, lessonId);
       if (!check.ok) {
         toast("warning", check.reason);
@@ -834,26 +873,27 @@ export const useDndCourseStore = create((set, get) => {
       picked.forEach((item) => setPending(nodeId.material(item.id), true));
       try {
         await updateLessonContentBlocks(lessonId, nextBlocks);
+        if (revision !== contextRevision) return;
         applyLocally();
         flashEdges(ids.map((id) => `edge:${nodeId.material(id)}->${key}`));
-        toast(
-          "success",
-          picked.length === 1 ? "Материал добавлен в урок" : "Материалы добавлены в урок",
-        );
+        toast("success", picked.length === 1 ? "Материал добавлен в урок" : "Материалы добавлены в урок");
         announce(`Добавлено в «${lesson.title}»: ${countLabel(picked.length, WORDS.material)}.`);
         return true;
       } catch (error) {
+        if (revision !== contextRevision) return;
         toast("error", getApiErrorMessage(error, "Не удалось добавить материал в урок."), {
           retry: () => get().addMaterialsToLesson(lessonId, materialIds),
         });
         return false;
       } finally {
+        if (revision !== contextRevision) return;
         setPending(key, false);
         picked.forEach((item) => setPending(nodeId.material(item.id), false));
       }
     },
 
     saveLessonMeta: async (lessonId) => {
+      const revision = contextRevision;
       const { course, lessons, pending } = get();
       const lesson = lessons.find((item) => item.id === lessonId);
       const key = nodeId.lesson(lessonId);
@@ -884,12 +924,15 @@ export const useDndCourseStore = create((set, get) => {
           learningObjectives,
           estimatedTimeMinutes,
         });
+        if (revision !== contextRevision) return;
         patchLesson(lessonId, { title, description, learningObjectives, estimatedTimeMinutes });
         clearForm(key);
         setSaveStatus(key, "saved");
       } catch (error) {
+        if (revision !== contextRevision) return;
         setSaveStatus(key, "error", getApiErrorMessage(error, "Не удалось сохранить урок."));
       } finally {
+        if (revision !== contextRevision) return;
         setPending(key, false);
       }
     },
@@ -913,6 +956,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     saveLessonContentNow: async (lessonId) => {
+      const revision = contextRevision;
       const statusKey = `${nodeId.lesson(lessonId)}:content`;
       const running = contentSaves.get(lessonId);
       if (running) {
@@ -928,8 +972,10 @@ export const useDndCourseStore = create((set, get) => {
           setSaveStatus(statusKey, "saving");
           try {
             await updateLessonContentBlocks(lessonId, getLessonBlocks(lesson));
+            if (revision !== contextRevision) return;
             setSaveStatus(statusKey, entry.again ? "saving" : "saved");
           } catch (error) {
+            if (revision !== contextRevision) return;
             setSaveStatus(
               statusKey,
               "error",
@@ -942,13 +988,16 @@ export const useDndCourseStore = create((set, get) => {
       contentSaves.set(lessonId, entry);
       try {
         await entry.promise;
+        if (revision !== contextRevision) return;
       } finally {
-        contentSaves.delete(lessonId);
+        if (revision !== contextRevision) return;
+        if (contentSaves.get(lessonId) === entry) contentSaves.delete(lessonId);
       }
       return undefined;
     },
 
     deleteLesson: async (lessonId) => {
+      const revision = contextRevision;
       const { lessons, modules, course } = get();
       const lesson = lessons.find((item) => item.id === lessonId);
       const key = nodeId.lesson(lessonId);
@@ -958,6 +1007,7 @@ export const useDndCourseStore = create((set, get) => {
       setPending(key, true);
       try {
         if (!lesson.isLocal) await deleteLessonApi(lessonId);
+        if (revision !== contextRevision) return;
         const parent = moduleOfLesson(lessonId, modules);
         const remaining = parent
           ? parent.lessonIds.filter((id) => id !== lessonId)
@@ -998,9 +1048,11 @@ export const useDndCourseStore = create((set, get) => {
         announce(`Урок «${lesson.title}» удалён. Его материалы снова свободны.`);
         return true;
       } catch (error) {
+        if (revision !== contextRevision) return;
         toast("error", getApiErrorMessage(error, "Не удалось удалить урок."));
         return false;
       } finally {
+        if (revision !== contextRevision) return;
         setPending(key, false);
       }
     },
@@ -1033,6 +1085,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     submitModuleDialog: async () => {
+      const revision = contextRevision;
       const { moduleDialog, course, modules, lessons, pending } = get();
       if (!moduleDialog || !course?.id || pending["create-module"]) return;
       const title = moduleDialog.title.trim();
@@ -1063,6 +1116,7 @@ export const useDndCourseStore = create((set, get) => {
           order,
           learningObjectives,
         });
+        if (revision !== contextRevision) return;
         if (!savedModule?.id || savedModule.id === course.id) {
           throw new Error("Сервер не вернул корректный идентификатор модуля.");
         }
@@ -1070,14 +1124,17 @@ export const useDndCourseStore = create((set, get) => {
           const lesson = get().lessons.find((item) => item.id === lessonId);
           if (lesson?.isLocal) {
             const newId = await materializeLesson(lessonId, savedModule.id, moved.length + 1);
+            if (revision !== contextRevision) return;
             remapLessonId(lessonId, newId, { moduleId: savedModule.id });
             moved.push(newId);
           } else {
             await assignLessonToModule(lessonId, savedModule.id);
+            if (revision !== contextRevision) return;
             moved.push(lessonId);
           }
         }
       } catch (error) {
+        if (revision !== contextRevision) return;
         failure = error;
       }
 
@@ -1087,7 +1144,9 @@ export const useDndCourseStore = create((set, get) => {
         if (savedModule?.id) {
           try {
             await deleteModuleApi(savedModule.id);
+            if (revision !== contextRevision) return;
           } catch {
+            if (revision !== contextRevision) return;
             rollbackFailed = true;
           }
         }
@@ -1146,6 +1205,7 @@ export const useDndCourseStore = create((set, get) => {
       const orderResults = await sendOrderUpdates(moved, (id) =>
         updateLessonApi(course.id, id, { order: moved.indexOf(id) + 1 }),
       );
+      if (revision !== contextRevision) return;
       setPending("create-module", false);
       lessonIds.forEach((id) => setPending(nodeId.lesson(id), false));
       flashEdges([`edge:${nodeId.module(module.id)}->course`]);
@@ -1173,6 +1233,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     moveLessonToModule: async (lessonId, targetModuleId, toIndex = null) => {
+      const revision = contextRevision;
       const { course, modules, lessons, pending } = get();
       const lesson = lessons.find((item) => item.id === lessonId);
       const target = modules.find((item) => item.id === targetModuleId);
@@ -1196,6 +1257,7 @@ export const useDndCourseStore = create((set, get) => {
         setPending(`order:${target.id}`, true);
         try {
           const newId = await materializeLesson(lessonId, target.id, insertAt + 1);
+          if (revision !== contextRevision) return;
           remapLessonId(lessonId, newId, { moduleId: target.id });
           const freshTarget = get().modules.find((item) => item.id === target.id);
           const targetIds = [...(freshTarget?.lessonIds || [])];
@@ -1219,6 +1281,7 @@ export const useDndCourseStore = create((set, get) => {
           const results = await sendOrderUpdates(following, (id) =>
             updateLessonApi(course.id, id, { order: targetIds.indexOf(id) + 1 }),
           );
+          if (revision !== contextRevision) return;
           flashEdges([`edge:${nodeId.module(target.id)}->course`]);
           if (results.some((result) => result.status === "rejected")) {
             toast("warning", "Урок сохранён в модуле, но порядок остальных уроков обновился не полностью.");
@@ -1228,6 +1291,7 @@ export const useDndCourseStore = create((set, get) => {
           announce(`«${lesson.title}» сохранён в модуле «${target.title}», позиция ${insertAt + 1}.`);
           return true;
         } catch (error) {
+          if (revision !== contextRevision) return;
           toast(
             "error",
             `${getApiErrorMessage(error, "Не удалось сохранить урок в модуле.")}${rollbackNote(error)}`,
@@ -1235,6 +1299,7 @@ export const useDndCourseStore = create((set, get) => {
           );
           return false;
         } finally {
+          if (revision !== contextRevision) return;
           setPending(lessonKey, false);
           setPending(`order:${target.id}`, false);
         }
@@ -1276,7 +1341,9 @@ export const useDndCourseStore = create((set, get) => {
 
       try {
         await assignLessonToModule(lessonId, target.id);
+        if (revision !== contextRevision) return;
       } catch (error) {
+        if (revision !== contextRevision) return;
         set(previous);
         release();
         toast(
@@ -1293,6 +1360,7 @@ export const useDndCourseStore = create((set, get) => {
         ],
         (item) => updateLessonApi(course.id, item.id, { order: item.order }),
       );
+      if (revision !== contextRevision) return;
       release();
       flashEdges([`edge:${nodeId.module(target.id)}->course`]);
       if (results.some((result) => result.status === "rejected")) {
@@ -1305,6 +1373,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     reorderLesson: async (moduleId, lessonId, toIndex) => {
+      const revision = contextRevision;
       const { course, modules, lessons, pending } = get();
       const module = modules.find((item) => item.id === moduleId);
       if (!course?.id || !module) return false;
@@ -1333,14 +1402,17 @@ export const useDndCourseStore = create((set, get) => {
         await Promise.all(
           ids.map((id, index) => updateLessonApi(course.id, id, { order: index + 1 })),
         );
+        if (revision !== contextRevision) return;
         const lesson = lessons.find((item) => item.id === lessonId);
         announce(`«${lesson?.title || "Урок"}» теперь на позиции ${to + 1} в модуле «${module.title}».`);
         return true;
       } catch {
+        if (revision !== contextRevision) return;
         set(previous);
         toast("error", "Не удалось изменить порядок. Предыдущий порядок восстановлен.");
         return false;
       } finally {
+        if (revision !== contextRevision) return;
         setPending(lockKey, false);
       }
     },
@@ -1353,6 +1425,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     reorderModule: async (moduleId, toIndex) => {
+      const revision = contextRevision;
       const { course, modules, pending } = get();
       if (!course?.id || pending["order:modules"]) {
         if (pending["order:modules"]) toast("warning", "Порядок модулей ещё сохраняется.");
@@ -1372,13 +1445,16 @@ export const useDndCourseStore = create((set, get) => {
         await Promise.all(
           next.map((item) => updateModuleApi(course.id, item.id, { order: item.order })),
         );
+        if (revision !== contextRevision) return;
         announce(`Модуль «${moved.title}» теперь на позиции ${to + 1}.`);
         return true;
       } catch {
+        if (revision !== contextRevision) return;
         set({ modules: previous });
         toast("error", "Не удалось изменить порядок. Предыдущий порядок восстановлен.");
         return false;
       } finally {
+        if (revision !== contextRevision) return;
         setPending("order:modules", false);
       }
     },
@@ -1391,6 +1467,7 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     saveModuleMeta: async (moduleId) => {
+      const revision = contextRevision;
       const { course, modules, pending } = get();
       const module = modules.find((item) => item.id === moduleId);
       const key = nodeId.module(moduleId);
@@ -1407,6 +1484,7 @@ export const useDndCourseStore = create((set, get) => {
       setSaveStatus(key, "saving");
       try {
         await updateModuleApi(course.id, moduleId, { title, description, learningObjectives });
+        if (revision !== contextRevision) return;
         set((state) => ({
           modules: state.modules.map((item) =>
             item.id === moduleId ? { ...item, title, description, learningObjectives } : item,
@@ -1416,13 +1494,16 @@ export const useDndCourseStore = create((set, get) => {
         setSaveStatus(key, "saved");
         toast("success", "Модуль сохранён");
       } catch (error) {
+        if (revision !== contextRevision) return;
         setSaveStatus(key, "error", getApiErrorMessage(error, "Не удалось сохранить модуль."));
       } finally {
+        if (revision !== contextRevision) return;
         setPending(key, false);
       }
     },
 
     deleteModule: async (moduleId) => {
+      const revision = contextRevision;
       const { modules, course } = get();
       const module = modules.find((item) => item.id === moduleId);
       const key = nodeId.module(moduleId);
@@ -1430,6 +1511,7 @@ export const useDndCourseStore = create((set, get) => {
       setPending(key, true);
       try {
         await deleteModuleApi(moduleId);
+        if (revision !== contextRevision) return;
         // На сервере уроки удаляются вместе с модулем (каскад), поэтому убираем их и здесь.
         const removedLessons = new Set(module.lessonIds);
         const remaining = [...modules]
@@ -1469,9 +1551,11 @@ export const useDndCourseStore = create((set, get) => {
         announce(`Модуль «${module.title}» удалён.`);
         return true;
       } catch (error) {
+        if (revision !== contextRevision) return;
         toast("error", getApiErrorMessage(error, "Не удалось удалить модуль."));
         return false;
       } finally {
+        if (revision !== contextRevision) return;
         setPending(key, false);
       }
     },
@@ -1579,17 +1663,21 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     finish: async (onCreateCourse) => {
+      const revision = contextRevision;
       const { course, pending } = get();
       if (!course?.id || pending.finish) return;
       setPending("finish", true);
       set({ finishError: "" });
       try {
         await Promise.all(get().lessons.map((lesson) => flushLessonContent(lesson.id)));
+        if (revision !== contextRevision) return;
         await onCreateCourse({ courseId: course.id });
+        if (revision !== contextRevision) return;
         setPending("finish", false);
         set({ finishOpen: false });
         get().persistNow();
       } catch (error) {
+        if (revision !== contextRevision) return;
         setPending("finish", false);
         set({
           finishError: getApiErrorMessage(
@@ -1602,7 +1690,11 @@ export const useDndCourseStore = create((set, get) => {
 
     /** Собирает холст по курсу с сервера, если локального черновика этого курса нет. */
     loadFromServer: async (courseId) => {
+      const scope = getReloadScope();
+      const revision = ++contextRevision;
+      if (!scope) return;
       const { course, modules } = await fetchCourseStructure(courseId);
+      if (revision !== contextRevision) return;
       const lessonsWithContent = await Promise.all(
         modules.flatMap((module) =>
           module.lessons.map(async (lesson, index) => ({
@@ -1614,6 +1706,7 @@ export const useDndCourseStore = create((set, get) => {
           })),
         ),
       );
+      if (revision !== contextRevision || scope !== getReloadScope()) return;
       fileRegistry.clear();
       set({
         ...EMPTY_DRAFT,
@@ -1633,6 +1726,8 @@ export const useDndCourseStore = create((set, get) => {
     },
 
     resetAll: ({ silent = false } = {}) => {
+      contextRevision += 1;
+      draftDebounce.cancel();
       fileRegistry.clear();
       contentTimers.forEach((timer) => window.clearTimeout(timer));
       contentTimers.clear();
@@ -1641,4 +1736,19 @@ export const useDndCourseStore = create((set, get) => {
       if (!silent) toast("info", "Черновик конструктора очищен. Созданный курс остался на сервере.");
     },
   };
+});
+
+bindReloadScope(useDndCourseStore, (previousScope) => {
+  const previous = useDndCourseStore.getState();
+  if (previous.hydrated && previousScope) saveDraft(previous, previousScope);
+  contextRevision += 1;
+  draftDebounce.cancel();
+  fileRegistry.clear();
+  contentTimers.forEach((timer) => window.clearTimeout(timer));
+  contentTimers.clear();
+  contentSaves.clear();
+
+  useDndCourseStore.setState({ ...EMPTY_DRAFT, ...TRANSIENT });
+  if (hydrationRequested && getReloadScope())
+    useDndCourseStore.getState().hydrate();
 });

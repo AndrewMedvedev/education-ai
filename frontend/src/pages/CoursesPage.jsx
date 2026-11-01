@@ -14,6 +14,7 @@ export default function CoursesPage({
   totalPages = 1,
   totalItems = 0,
   onPageChange,
+  onRetry,
 }) {
   const catalogCourses = coursesData;
 
@@ -32,8 +33,8 @@ export default function CoursesPage({
       />
       <p className="courses-catalog-intro">
         Выбирайте готовые программы по разным темам, смотрите оценки сообщества
-        и начинайте обучение сразу. Каждый курс собран с помощью TYUIU Course Lab и
-        включает теорию, практику и последовательный учебный маршрут.
+        и начинайте обучение сразу. Каждый курс собран с помощью TYUIU Course
+        Lab и включает теорию, практику и последовательный учебный маршрут.
       </p>
       {!canReadCourse && (
         <aside className="courses-catalog-cta glass-card">
@@ -57,6 +58,9 @@ export default function CoursesPage({
       {canReadCourse && error && (
         <article className="glass-card courses-catalog-cta">
           <p>{error}</p>
+          <button type="button" onClick={onRetry}>
+            Повторить загрузку каталога
+          </button>
         </article>
       )}
 

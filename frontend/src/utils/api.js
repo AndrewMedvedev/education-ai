@@ -7,6 +7,24 @@ const API_BASE = "/api/v1";
 const REFRESH_SKEW_SECONDS = 30;
 
 let refreshPromise = null;
+let sessionContext = 0;
+let lastKnownSession = null;
+let memoryOnlySession = false;
+
+export function getSessionContext() {
+  return sessionContext;
+}
+
+function staleSessionError() {
+  return new ApiError("Контекст сессии изменился.", { code: "STALE_SESSION" });
+}
+
+export function hasSessionCredentials(session = readStoredSession()) {
+  return Boolean(
+    session.refreshToken ||
+    (session.accessToken && !isTokenExpired(session.expiresAt)),
+  );
+}
 let unauthorizedHandler = null;
 let tokenChangeHandler = null;
 const tokenEventTarget =
@@ -25,48 +43,60 @@ export class ApiError extends Error {
 }
 
 export function readStoredSession() {
+  // A failed clear/write must not resurrect stale credentials from disk.
+  if (memoryOnlySession) return { ...lastKnownSession };
   const storage = getLocalStorage();
   if (!storage) {
-    return emptySession();
+    return lastKnownSession ? { ...lastKnownSession } : emptySession();
   }
 
   try {
     const value = JSON.parse(storage.getItem(SESSION_KEY) || "null");
-    return {
+    lastKnownSession = {
       accessToken: value?.accessToken || null,
       refreshToken: value?.refreshToken || null,
       expiresAt: Number(value?.expiresAt) || null,
       membershipId: value?.membershipId || null,
       organizationId: value?.organizationId || null,
     };
+    return { ...lastKnownSession };
   } catch {
-    return emptySession();
+    return lastKnownSession ? { ...lastKnownSession } : emptySession();
   }
 }
 
-export function saveStoredSession(session) {
+export function saveStoredSession(session, { preserveContext = false } = {}) {
+  if (!preserveContext) sessionContext += 1;
   const storage = getLocalStorage();
-  if (!storage) return;
-
-  if (!session) {
-    storage.removeItem(SESSION_KEY);
-    storage.removeItem("user");
-    emitTokenChange(emptySession());
-    return;
-  }
 
   // Компромисс: backend возвращает bearer-токены в тело ответа, httpOnly cookie
   // здесь недоступны без изменения контракта API. Храним в localStorage для
   // восстановления сессии после перезагрузки; TODO: заменить на httpOnly cookies
   // или in-memory access token + refresh cookie, когда backend поддержит это.
-  const nextSession = {
-    accessToken: session.accessToken || null,
-    refreshToken: session.refreshToken || null,
-    expiresAt: Number(session.expiresAt) || null,
-    membershipId: session.membershipId || null,
-    organizationId: session.organizationId || null,
-  };
-  storage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+  const nextSession = session
+    ? {
+        accessToken: session.accessToken || null,
+        refreshToken: session.refreshToken || null,
+        expiresAt: Number(session.expiresAt) || null,
+        membershipId: session.membershipId || null,
+        organizationId: session.organizationId || null,
+      }
+    : emptySession();
+  lastKnownSession = nextSession;
+  memoryOnlySession = true;
+  try {
+    if (storage) {
+      if (session) {
+        storage.setItem(SESSION_KEY, JSON.stringify(nextSession));
+      } else {
+        storage.removeItem(SESSION_KEY);
+        storage.removeItem("user");
+      }
+      memoryOnlySession = false;
+    }
+  } catch {
+    // Keep this tab usable when storage is blocked or full.
+  }
   emitTokenChange(nextSession);
 }
 
@@ -189,7 +219,7 @@ function saveTokensFromResponse(data) {
     refreshToken: tokens.refreshToken || current.refreshToken,
     expiresAt: tokens.expiresAt || current.expiresAt,
   };
-  saveStoredSession(nextSession);
+  saveStoredSession(nextSession, { preserveContext: true });
   return nextSession;
 }
 
@@ -211,10 +241,7 @@ export function setTokenChangeHandler(handler) {
 }
 
 export function isAuthenticated() {
-  const { access, refresh, expiresAt } = getTokens();
-  return Boolean(
-    access && expiresAt && (!isTokenExpired(expiresAt) || refresh),
-  );
+  return hasSessionCredentials();
 }
 
 function buildRedirectUrl() {
@@ -330,31 +357,39 @@ async function postRefreshToken(refresh, body) {
 
 async function refreshAccessToken() {
   const { refresh } = getTokens();
+  const context = getSessionContext();
   if (!refresh) return null;
+  if (refreshPromise?.context === context) return refreshPromise.promise;
 
-  if (!refreshPromise) {
-    refreshPromise = postRefreshToken(refresh, refresh)
-      .then(async (response) => {
-        if (!response.ok && [400, 422].includes(response.status)) {
-          response = await postRefreshToken(refresh, {
-            refresh_token: refresh,
-          });
-        }
-
-        if (!response.ok) {
-          throw await createApiError(response, "Сессия истекла.");
-        }
-
-        const data = await response.json();
-        const session = saveTokensFromResponse(data);
-        return session.accessToken;
-      })
-      .finally(() => {
-        refreshPromise = null;
+  const flight = { context, promise: null };
+  flight.promise = (async () => {
+    let response = await postRefreshToken(refresh, refresh);
+    if (context !== getSessionContext()) throw staleSessionError();
+    if (!response.ok && [400, 422].includes(response.status)) {
+      response = await postRefreshToken(refresh, { refresh_token: refresh });
+    }
+    if (context !== getSessionContext()) throw staleSessionError();
+    if (!response.ok) {
+      const error = await createApiError(response, "Сессия истекла.");
+      // Только явный отказ refresh означает потерю сессии, не сеть/5xx/429.
+      if ([400, 401, 403].includes(response.status)) {
+        error.code = "SESSION_EXPIRED";
+      }
+      throw error;
+    }
+    const data = await response.json();
+    if (context !== getSessionContext()) throw staleSessionError();
+    if (!normalizeTokenResponse(data).accessToken) {
+      throw new ApiError("Некорректный ответ обновления сессии.", {
+        status: 502,
       });
-  }
-
-  return refreshPromise;
+    }
+    return saveTokensFromResponse(data).accessToken;
+  })().finally(() => {
+    if (refreshPromise === flight) refreshPromise = null;
+  });
+  refreshPromise = flight;
+  return flight.promise;
 }
 
 async function requestJson(
@@ -362,6 +397,7 @@ async function requestJson(
   options = {},
   { auth = true, retry = true, clearOnUnauthorized = true } = {},
 ) {
+  const context = getSessionContext();
   const response = await apiFetch(path, options, {
     auth,
     retry,
@@ -376,6 +412,7 @@ async function requestJson(
   if (response.status === 204) return null;
 
   const text = await response.text();
+  if (auth && context !== getSessionContext()) throw staleSessionError();
   if (!text.trim()) return null;
 
   try {
@@ -435,50 +472,50 @@ export async function apiFetch(
   { auth = true, retry = true, clearOnUnauthorized = true } = {},
 ) {
   const url = `${API_BASE}${path}`;
-  const headers = { ...options.headers };
-  let { access, expiresAt } = getTokens();
-
-  if (auth && !access) {
-    if (clearOnUnauthorized) {
-      handleUnauthorized();
+  const headers = new Headers(options.headers);
+  const context = getSessionContext();
+  const assertCurrent = () => {
+    if (auth && context !== getSessionContext()) throw staleSessionError();
+  };
+  const refresh = async () => {
+    try {
+      const token = await refreshAccessToken();
+      assertCurrent();
+      return token;
+    } catch (error) {
+      assertCurrent();
+      if (error.code === "SESSION_EXPIRED" && clearOnUnauthorized) {
+        handleUnauthorized();
+      }
+      throw error;
     }
+  };
+  let { access, refresh: refreshToken, expiresAt } = getTokens();
+
+  if (auth && refreshToken && (!access || isTokenExpired(expiresAt))) {
+    access = await refresh();
+  }
+  if (auth && !access) {
+    if (clearOnUnauthorized) handleUnauthorized();
     return new Response(null, { status: 401 });
   }
-
-  if (auth && access && shouldRefresh(expiresAt)) {
-    try {
-      access = await refreshAccessToken();
-    } catch {
-      handleUnauthorized();
-      return new Response(null, { status: 401 });
-    }
-  }
-
-  if (auth && access) {
-    headers.Authorization = `Bearer ${access}`;
-  }
+  if (auth) headers.set("Authorization", `Bearer ${access}`);
 
   let response = await fetch(url, { ...options, headers });
-
+  assertCurrent();
   if (auth && retry && response.status === 401 && access) {
-    try {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        response = await fetch(url, {
-          ...options,
-          headers: { ...headers, Authorization: `Bearer ${newToken}` },
-        });
-      }
-    } catch {
-      handleUnauthorized();
-      return response;
+    // Запоздалый 401 от старого access не должен запускать второй refresh.
+    const currentAccess = getTokens().access;
+    const newToken = currentAccess !== access ? currentAccess : await refresh();
+    if (newToken) {
+      headers.set("Authorization", `Bearer ${newToken}`);
+      response = await fetch(url, { ...options, headers });
+      assertCurrent();
     }
   }
-
   if (auth && response.status === 401 && clearOnUnauthorized) {
     handleUnauthorized();
   }
-
   return response;
 }
 
