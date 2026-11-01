@@ -8,7 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import TypeAdapter
+from pydantic import RootModel, TypeAdapter
 
 from src.core.others import thread_executor
 from src.llm_service import LLMTextService
@@ -166,7 +166,7 @@ class PracticerAgent:
             client=self._client,
             system_prompt=ASSIGNMENT_CREATOR_SYSTEM_PROMPT,
         )
-        result = await agent.invoke(messages=messages, schema=FileUploadAssignment)
+        result = await agent.invoke(messages=messages, schema=RootModel[FileUploadAssignment])
         practice = TypeAdapter(FileUploadAssignment).validate_python(result.output)
         created = await self.practice_repo.create(
             Practice(

@@ -261,11 +261,16 @@ def _response_item_to_dict(item: Any) -> dict[str, Any]:
         raise TypeError(f"Unsupported Responses API output item: {type(item)!r}") from exc
 
 
+def _reject_json_constant(_value: str) -> Any:
+    raise ValueError("Tool arguments contain a nonstandard JSON constant")
+
+
 @traceable(run_type="parser", name="ParseLLMResponse")
 def parse_llm_response(
     response: Response,
     input_messages: list[dict[str, Any]] | str,
     text_format: dict[str, Any] | None = None,
+    final_tool_name: str | None = None,
 ) -> LLMTextResponse:
     """
     Парсит один ответ Responses API.
@@ -314,23 +319,36 @@ def parse_llm_response(
                 if text:
                     output_parts.append(text)
         elif item_type == "function_call":
-            raw_arguments = getattr(item, "arguments", "{}") or "{}"
+            raw_arguments = getattr(item, "arguments", None)
+            arguments_error = None
+            is_final_tool = final_tool_name is not None and item.name == final_tool_name
 
             try:
-                arguments = json.loads(raw_arguments)
-            except (json.JSONDecodeError, TypeError):
-                logger.warning(
-                    "Model returned invalid tool arguments for %s: %r",
-                    getattr(item, "name", None),
-                    raw_arguments,
-                )
+                if is_final_tool:
+                    arguments = json.loads(raw_arguments, parse_constant=_reject_json_constant)
+                else:
+                    arguments = json.loads(raw_arguments)
+            except (ValueError, TypeError) as exc:
+                arguments_error = str(exc)
                 arguments = {}
+            else:
+                if is_final_tool and not isinstance(arguments, dict):
+                    arguments_error = "Tool arguments must be a JSON object"
+                    arguments = {}
+
+            if arguments_error is not None:
+                logger.warning(
+                    "Model returned invalid tool arguments for %s: %s",
+                    getattr(item, "name", None),
+                    arguments_error,
+                )
 
             tool_calls.append(
                 ToolCallParsed(
                     call_id=item.call_id,
                     name=item.name,
                     arguments=arguments,
+                    arguments_error=arguments_error,
                 )
             )
 

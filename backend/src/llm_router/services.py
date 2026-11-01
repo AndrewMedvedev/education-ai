@@ -125,22 +125,48 @@ class LLMRouter:
             result = await response.json()
             return result["answers"]["complexity"]["choice"]
 
-    @retry(**LLM_RETRY)
-    @traceable(run_type="llm", process_outputs=to_langsmith_llm_output)
-    @track_text_invocation
     async def _invoke(
         self,
         model: str,
         schema: LLMTextRequest,
     ) -> LLMTextResponse:
-        result: Response = await self._client.responses.create(
+        if schema.disable_retries is True:
+            return await self._invoke_once(model=model, schema=schema)
+        return await self._invoke_with_retries(model=model, schema=schema)
+
+    @retry(**LLM_RETRY)
+    async def _invoke_with_retries(
+        self,
+        model: str,
+        schema: LLMTextRequest,
+    ) -> LLMTextResponse:
+        return await self._invoke_once(model=model, schema=schema)
+
+    @traceable(run_type="llm", name="_invoke", process_outputs=to_langsmith_llm_output)
+    @track_text_invocation
+    async def _invoke_once(
+        self,
+        model: str,
+        schema: LLMTextRequest,
+    ) -> LLMTextResponse:
+        client = (
+            self._client.with_options(max_retries=0)
+            if schema.disable_retries is True
+            else self._client
+        )
+        result: Response = await client.responses.create(
             model=model,
-            **schema.model_dump(exclude_none=True, by_alias=True),
+            **schema.model_dump(
+                exclude_none=True,
+                by_alias=True,
+                exclude={"disable_retries", "final_tool_name"},
+            ),
         )
         return parse_llm_response(
             response=result,
             input_messages=schema.messages,
             text_format=schema.text,
+            final_tool_name=schema.final_tool_name,
         )
 
 
