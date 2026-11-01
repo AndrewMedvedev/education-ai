@@ -58,6 +58,37 @@ classDiagram
 | Invoke image | image/prompt | POST `/responses/image` | `LLMImageResponse` | HTTP/validation |
 | Tool execution | `tool_call` | find tool → execute → append tool output | response messages | tool exception logged as tool output error |
 
+### Структурированный ответ и бюджет текстового агента
+
+`LLMTextService.invoke(messages, schema=SomePydanticModel)` добавляет в набор tools
+текущего запуска синтетический `submit_final_result` (при конфликте — `_1`, `_2`, …).
+Параметры строятся существующим strict-schema helper; native `text.format` не используется.
+Результат принимается только из одного отдельного финального вызова после локальной
+Pydantic-валидации. `output` сохраняет исходный JSON dict: validation aliases, отсутствие
+непереданных default-полей и исходные значения до coercion — как прежний ответ router.
+Serialization aliases из `model_dump()` не подменяют входные ключи. История содержит вызов
+и `function_call_output` с подтверждением. Дополнительного запроса для подтверждения нет.
+
+Ошибки JSON/типа объекта/схемы возвращаются как tool feedback по исходному `call_id`.
+Несколько финальных вызовов отклоняются все. При смешанном ответе обычные инструменты
+выполняются, а финальный вызов получает feedback с требованием отдельной отправки после
+получения результатов. Текст без финального вызова вызывает корректирующее user-сообщение.
+Финальный инструмент не проходит через `wrap_tool_call` и не расходует лимиты обычных tools.
+
+Конструктор принимает `max_model_requests=10`: только положительный `int` (не `bool`).
+Бюджет локален одному `invoke`, включает первый запрос и все продолжения, со схемой и без.
+Сервис передаёт внутренний `disable_retries=True`; router обходит Tenacity и использует
+SDK-клиент с `max_retries=0` только для этого запроса. Флаг и служебное `final_tool_name`
+не попадают в provider payload.
+Внутренний HTTP-клиент не повторяет POST генерации. Резервирование консервативное:
+ошибка до обращения к провайдеру не возвращает единицу бюджета. Транспортные ошибки
+пробрасываются без попыток исправления схемы. Другие потребители router сохраняют retries.
+Гарантия относится к попыткам, инициированным приложением, а не внутренним повторам
+стороннего провайдерного шлюза или независимым вложенным агентам.
+
+После последней попытки валидный результат принимается; если нужно продолжение,
+выбрасывается `ModelRequestLimitError` (`ValueError`), до запуска ненужных обычных tools.
+
 ## 7. Публичный API модуля
 
 HTTP endpoints не предоставляет.
@@ -89,6 +120,7 @@ HTTP endpoints не предоставляет.
 |---|---|---|---|
 | Base URL/token session в `SrvBaseClient` | Авторизованные HTTP вызовы router | В shared service client | Обязателен |
 | `model` query | Явный выбор LLM model | Не задан | Опционален |
+| `max_model_requests` | Лимит model requests на `LLMTextService.invoke` | `10` | Опционален |
 
 ## 12. Фоновые процессы
 
@@ -123,7 +155,16 @@ Pydantic validation локально; если исключение выйдет
 
 ## 15. Тестирование
 
-Актуальные тесты для `llm_service` не найдены.
+Изолированные regression tests сервиса и router/parser, без сборки приложения,
+settings и внешних клиентов (из `backend/`):
+
+```sh
+.venv/bin/python tests/run_llm_tests.py -q
+.venv/bin/python tests/run_llm_tests.py tests/isolated_llm tests/unit/llm_router/test_llm_router.py tests/unit/llm_router/test_decorators.py tests/unit/llm_router/test_invocation_monitoring.py -q
+```
+
+Runner использует настоящие service/router/parser и tracking-декораторы с mocked provider;
+это не smoke-check реального внешнего API.
 
 ## 16. Как с этим работать разработчику
 

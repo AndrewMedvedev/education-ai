@@ -15,6 +15,7 @@ class ToolCallParsed(BaseModel):
     call_id: str
     name: str
     arguments: dict[str, Any]
+    arguments_error: str | None = None
 
 
 class LLMTextRequest(BaseModel):
@@ -26,6 +27,8 @@ class LLMTextRequest(BaseModel):
     reasoning: Literal["low", "medium", "high"] | None = None
     temperature: float | None = None
     text: dict[str, Any] | None = None
+    disable_retries: bool | None = None
+    final_tool_name: str | None = None
 
     def format_schema(self, schema: type[BaseModel]) -> None:
         """Форматирует схему данных, чтобы привести данные к ожидаемому виду."""
