@@ -3,6 +3,13 @@ const DB_NAME = "lesson-practice-requests-v1";
 const STORE = "requests";
 const active = new Map();
 const pendingStatuses = ["generating", "checking"];
+const recoverInterrupted = (key, value) => {
+  if (value && pendingStatuses.includes(value.status) &&
+      !active.has(`${key}:generate`) && !active.has(`${key}:check`)) {
+    return { ...value, status: "error", error: "Запрос прервался. Попробуйте ещё раз." };
+  }
+  return value;
+};
 const attemptId = (value) =>
   value?.generated?.practice_id ||
   value?.generated?.practiceId ||
@@ -82,11 +89,12 @@ self.addEventListener("message", (event) => {
   const port = event.ports[0];
   if (!port) return;
   let work;
-  if (type === "READ_LESSON_PRACTICE") work = record(key);
+  if (type === "READ_LESSON_PRACTICE") work = record(key, (value) => recoverInterrupted(key, value));
   if (type === "OPEN_LESSON_ASSESSMENT") {
-    work = record(key, (value) =>
-      value?.result && value.viewed ? null : value,
-    );
+    work = record(key, (value) => {
+      value = recoverInterrupted(key, value);
+      return value?.result && value.viewed ? null : value;
+    });
   }
   if (type === "ASSESSMENT_ANSWERS") {
     work = record(key, (value) =>

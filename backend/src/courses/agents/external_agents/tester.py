@@ -1,5 +1,6 @@
 from typing import Any
 
+import asyncio
 import json
 import secrets
 from uuid import UUID
@@ -41,12 +42,35 @@ class TesterAgent:
         module_id: UUID,
         lesson_id: UUID,
     ) -> dict[str, Any]:
-        """Создает тест для студента на основе теории урока и его предыдущих практик."""
+        """Сохраняет результат до закрытия зависимостей даже при отмене запроса."""
+        task = asyncio.create_task(self._create_or_reuse(user_id, module_id, lesson_id))
+        cancelled = False
+        while True:
+            try:
+                response = await asyncio.shield(task)
+                break
+            except asyncio.CancelledError:
+                if task.cancelled():
+                    raise
+                cancelled = True
+        if cancelled:
+            raise asyncio.CancelledError
+        return response
+
+    async def _create_or_reuse(
+        self, user_id: UUID, module_id: UUID, lesson_id: UUID
+    ) -> dict[str, Any]:
+        lesson = await self.lesson_repo.read(lesson_id)
+        if lesson is None or lesson.module_id != module_id:
+            raise NotFoundError(message="Урок не найден в указанном модуле")
+        await self.practice_repo.lock_knowledge_test(user_id, module_id, lesson_id)
+        existing = await self.practice_repo.read_latest_knowledge_test(user_id, module_id, lesson_id)
+        if existing is not None and existing.status == PracticeStatus.NOT_STARTED:
+            await self.transaction()
+            return {"practice": existing.practice[0], "practice_id": existing.id}
+
         random_type = secrets.choice(list(TestType))
         config = KNOWLEDGE_CONFIG.get(random_type, {})
-        lesson = await self.lesson_repo.read(lesson_id)
-        if lesson is None:
-            raise NotFoundError(message="Урок не найден")
         messages = [
             {"role": "user", "content": ASSIGNMENT_PROMPT},
             {"role": "user", "content": f"Теория урока\n{lesson.content_blocks}"},

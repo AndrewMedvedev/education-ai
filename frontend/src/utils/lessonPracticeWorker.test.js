@@ -27,3 +27,11 @@ test("practice worker preserves an upstream HTML error status and records a read
   assert.match(vm.runInContext("savedRecord.error", context), /HTTP 502/);
   assert.equal(vm.runInContext("savedRecord.status", context), "error");
 });
+
+test("a pending request without a live worker operation can be retried", async () => {
+  const source = await readFile(new URL("../../public/lesson-practice-worker.js", import.meta.url), "utf8");
+  const context = vm.createContext({ self: { addEventListener() {} }, Response, Request, Headers, AbortController, URL });
+  vm.runInContext(source, context);
+  assert.equal(vm.runInContext(`recoverInterrupted('key', {status: 'generating'}).status`, context), "error");
+  assert.equal(vm.runInContext(`active.set('key:generate', {}); recoverInterrupted('key', {status: 'generating'}).status`, context), "generating");
+});
