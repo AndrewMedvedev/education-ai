@@ -85,7 +85,7 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(self.clients.claim()),
 );
 self.addEventListener("message", (event) => {
-  const { type, key, expectedAttemptId, answers } = event.data || {};
+  const { type, key, expectedAttemptId, answers, generated } = event.data || {};
   const port = event.ports[0];
   if (!port) return;
   let work;
@@ -120,6 +120,14 @@ self.addEventListener("message", (event) => {
       value && !pendingStatuses.includes(value.status) && attemptId(value) === expectedAttemptId
         ? null
         : value,
+    );
+  }
+  if (type === "SAVE_GENERATED_PRACTICE") {
+    work = record(key, (value) =>
+      value && attemptId(value) === attemptId({ generated })
+        ? value
+        : { ...value, key, generated, result: generated?.result || null,
+            answers: {}, viewed: false, status: "ready", error: "" },
     );
   }
   if (!work) return;

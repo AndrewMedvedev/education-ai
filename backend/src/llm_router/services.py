@@ -149,17 +149,18 @@ class LLMRouter:
         model: str,
         schema: LLMTextRequest,
     ) -> LLMTextResponse:
-        client = (
-            self._client.with_options(max_retries=0)
-            if schema.disable_retries is True
-            else self._client
-        )
+        options = {}
+        if schema.disable_retries is True:
+            options["max_retries"] = 0
+        if schema.request_timeout is not None:
+            options["timeout"] = schema.request_timeout
+        client = self._client.with_options(**options) if options else self._client
         result: Response = await client.responses.create(
             model=model,
             **schema.model_dump(
                 exclude_none=True,
                 by_alias=True,
-                exclude={"disable_retries", "final_tool_name"},
+                exclude={"disable_retries", "final_tool_name", "request_timeout"},
             ),
         )
         return parse_llm_response(

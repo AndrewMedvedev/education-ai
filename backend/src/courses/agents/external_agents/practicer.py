@@ -111,6 +111,12 @@ class PracticerAgent:
             raise asyncio.CancelledError
         return response
 
+    async def create_in_background(
+        self, user_id: UUID, module_id: UUID, lesson_id: UUID,
+    ) -> dict[str, Any]:
+        # Worker owns its session; cancellation must stop the operation.
+        return await self._create_or_reuse(user_id, module_id, lesson_id)
+
     async def _create_or_reuse(
         self,
         user_id: UUID,
@@ -168,6 +174,7 @@ class PracticerAgent:
         agent = LLMTextService(
             client=self._client,
             system_prompt=ASSIGNMENT_CREATOR_SYSTEM_PROMPT,
+            request_timeout=1200,
         )
         result = await agent.invoke(messages=messages, schema=RootModel[FileUploadAssignment])
         practice = TypeAdapter(FileUploadAssignment).validate_python(result.output)

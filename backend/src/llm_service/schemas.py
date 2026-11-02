@@ -29,6 +29,7 @@ class LLMTextRequest(BaseModel):
     text: dict[str, Any] | None = None
     disable_retries: bool | None = None
     final_tool_name: str | None = None
+    request_timeout: float | None = Field(default=None, gt=0, le=1200)
 
     def format_schema(self, schema: type[BaseModel]) -> None:
         """Форматирует схему данных, чтобы привести данные к ожидаемому виду."""

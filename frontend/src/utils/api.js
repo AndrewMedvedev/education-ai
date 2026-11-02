@@ -2170,6 +2170,14 @@ export function fetchLessonPractice(moduleId, lessonId) {
   );
 }
 
+export function fetchPracticeGeneration(moduleId, lessonId) {
+  return requestJson(`/agent/practice-generations/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`);
+}
+
+export function startPracticeGeneration(moduleId, lessonId) {
+  return requestJson(`/agent/practice-generations/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`, { method: "POST" });
+}
+
 export async function checkLessonPractice(
   practiceId,
   assignment,

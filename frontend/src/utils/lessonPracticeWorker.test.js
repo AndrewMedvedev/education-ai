@@ -54,3 +54,22 @@ test("discarding a stale practice preserves a newer or pending attempt", async (
   assert.equal((await discard({ status: "ready", generated: { practice_id: "new" } }, "old")).generated.practice_id, "new");
   assert.equal((await discard({ status: "checking", generated: { practice_id: "old" } }, "old")).status, "checking");
 });
+
+test("a completed background practice is stored with its result", async () => {
+  const source = await readFile(new URL("../../public/lesson-practice-worker.js", import.meta.url), "utf8");
+  const handlers = {};
+  const context = vm.createContext({ self: { addEventListener(type, fn) { handlers[type] = fn; } }, Response, Request, Headers, AbortController, URL });
+  vm.runInContext(source, context);
+  vm.runInContext("let saved = null; record = async (key, update) => saved = update(saved)", context);
+  let work;
+  handlers.message({ data: { type: "SAVE_GENERATED_PRACTICE", key: "k", generated: { practice_id: "p", practice: { title: "task" }, result: { score: 70 } } }, ports: [{ postMessage() {} }], waitUntil(p) { work = p; } });
+  await work;
+  assert.equal(vm.runInContext("saved.status", context), "ready");
+  assert.equal(vm.runInContext("saved.generated.practice_id", context), "p");
+  assert.equal(vm.runInContext("saved.result.score", context), 70);
+  vm.runInContext("saved.answers = { 0: 'draft' }; saved.status = 'checking'", context);
+  handlers.message({ data: { type: "SAVE_GENERATED_PRACTICE", key: "k", generated: { practice_id: "p", practice: { title: "task" } } }, ports: [{ postMessage() {} }], waitUntil(p) { work = p; } });
+  await work;
+  assert.equal(vm.runInContext("saved.answers[0]", context), "draft");
+  assert.equal(vm.runInContext("saved.status", context), "checking");
+});

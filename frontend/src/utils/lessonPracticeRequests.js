@@ -113,6 +113,8 @@ export const finishAssessment = (key, expectedAttemptId) =>
   assessmentMessage("FINISH_LESSON_ASSESSMENT", key, { expectedAttemptId });
 export const discardStalePractice = (key, expectedAttemptId) =>
   assessmentMessage("DISCARD_STALE_PRACTICE", key, { expectedAttemptId });
+export const saveGeneratedPractice = (key, generated) =>
+  assessmentMessage("SAVE_GENERATED_PRACTICE", key, { generated });
 
 export const practiceRecordKey = (
   scope,

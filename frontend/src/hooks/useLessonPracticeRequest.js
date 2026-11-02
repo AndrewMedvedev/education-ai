@@ -3,12 +3,15 @@ import { useSessionStore } from "../stores/sessionStore";
 import {
   generateLessonPractice,
   fetchLessonPractice,
+  fetchPracticeGeneration,
+  startPracticeGeneration,
   checkLessonPractice,
   generateLessonTest,
   checkLessonTest,
 } from "../utils/api";
 import { reloadScope } from "../utils/reloadPersistence";
 import { getReloadScope } from "../utils/reloadScope";
+import { pollPracticeGeneration } from "../utils/practiceGenerationPoll";
 import {
   ensurePracticeWorker,
   readPracticeRequest,
@@ -19,6 +22,7 @@ import {
   markAssessmentViewed,
   finishAssessment,
   discardStalePractice,
+  saveGeneratedPractice,
 } from "../utils/lessonPracticeRequests";
 
 const empty = {
@@ -67,6 +71,18 @@ export function useLessonPracticeRequest(
     if (isCurrent()) setState({ ...restored(record), key });
   }, [key, isCurrent]);
 
+  const applyPracticeGeneration = useCallback(async (job) => {
+    if (!isCurrent()) return;
+    if (job?.status === "succeeded" && job.practice_id && job.practice) {
+      const record = await saveGeneratedPractice(key, job);
+      if (isCurrent()) setState({ ...restored(record), key });
+    } else if (["queued", "running"].includes(job?.status)) {
+      setState((previous) => ({ ...previous, key, status: "generating", error: "" }));
+    } else {
+      setState((previous) => ({ ...previous, key, status: "error", error: "Не удалось завершить генерацию практики. Попробуйте ещё раз." }));
+    }
+  }, [key, isCurrent]);
+
   useEffect(() => {
     if (!scope || !moduleId || !lessonId) return;
     let cancelled = false;
@@ -90,6 +106,18 @@ export function useLessonPracticeRequest(
             // Keep the local copy when the server cannot be reached.
           }
         }
+        if (kind === "practice" && !restored(record).practiceId) {
+          try {
+            const job = await fetchPracticeGeneration(moduleId, lessonId);
+            if (cancelled || !isCurrent()) return;
+            if (job?.status !== "idle") {
+              await applyPracticeGeneration(job);
+              return;
+            }
+          } catch {
+            // Allow an explicit retry when the status endpoint is unavailable.
+          }
+        }
         if (!cancelled && isCurrent()) setState({ ...restored(record), key });
       })
       .catch((error) => {
@@ -99,10 +127,10 @@ export function useLessonPracticeRequest(
     return () => {
       cancelled = true;
     };
-  }, [key, scope, moduleId, lessonId, kind, isCurrent]);
+  }, [key, scope, moduleId, lessonId, kind, isCurrent, applyPracticeGeneration]);
 
   useEffect(() => {
-    if (!scope || !pending.includes(visible.status)) return;
+    if (!scope || !pending.includes(visible.status) || (kind === "practice" && visible.status === "generating")) return;
     let cancelled = false;
     let timer;
     const poll = async () => {
@@ -130,7 +158,22 @@ export function useLessonPracticeRequest(
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [key, scope, visible.status, isCurrent]);
+  }, [key, scope, visible.status, isCurrent, kind]);
+
+  useEffect(() => {
+    if (!scope || kind !== "practice" || visible.status !== "generating") return;
+    return pollPracticeGeneration({
+      load: () => fetchPracticeGeneration(moduleId, lessonId),
+      apply: applyPracticeGeneration,
+      isCurrent,
+      isSending: () => sending.current,
+      onError: (error, terminal) => setState((previous) => ({
+        ...previous,
+        ...(terminal ? { status: "error" } : {}),
+        error: terminal ? (error.userMessage || error.message) : "Не удалось получить состояние. Повторяем запрос…",
+      })),
+    });
+  }, [scope, kind, visible.status, moduleId, lessonId, isCurrent, applyPracticeGeneration]);
 
   const send = async (operation, payload) => {
     if (
@@ -149,6 +192,11 @@ export function useLessonPracticeRequest(
     try {
       await ensurePracticeWorker();
       if (!isCurrent()) return null;
+      if (operation === "generate" && kind === "practice") {
+        const job = await startPracticeGeneration(moduleId, lessonId);
+        await applyPracticeGeneration(job);
+        return job;
+      }
       const options = practiceRequestOptions(key, operation);
       let response;
       if (operation === "generate") {

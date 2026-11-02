@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from dataclasses import asdict
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import TypeAdapter
 
 from src.courses.agents.schemas import AnyKnowledgeTest, Context, GenerationContext, PracticeResult
@@ -33,6 +33,7 @@ from src.courses.dependencies.services import (
 )
 from src.courses.domain.permissions.courses import CREATE, READ, UPDATE
 from src.courses.domain.vo import FileUploadAssignment
+from src.courses.infra import practice_jobs
 from src.courses.utils.docs_processing import read_upload_with_limit
 from src.iam.dependencies import require_permissions
 from src.iam.dependencies.identity import CurrentIdentity
@@ -252,6 +253,64 @@ async def check_test(
         answers=answers,
         practice_id=practice_id,
     )
+
+
+@router.get(
+    "/practice-generations/{module_id}/{lesson_id}",
+    summary="Получить состояние генерации практики",
+    dependencies=[Depends(require_permissions(READ.code))],
+)
+async def get_practice_generation(
+    module_id: UUID,
+    lesson_id: UUID,
+    agent: PracticeAgentDep,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
+) -> dict[str, Any]:
+    await check_access(identity=identity, permission=READ, uid=module_id)
+    job = await practice_jobs.read(identity.id, module_id, lesson_id)
+    result = await agent.get_latest_practice(identity.id, module_id, lesson_id)
+    if result["practice_id"] is not None:
+        return {"status": "succeeded", **result, **({"job_id": job["job_id"]} if job else {})}
+    if job and job["status"] in ("queued", "running", "failed"):
+        return job
+    return {"status": "idle"}
+
+
+@router.post(
+    "/practice-generations/{module_id}/{lesson_id}",
+    summary="Запустить фоновую генерацию практики",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(require_permissions(READ.code))],
+)
+async def start_practice_generation(
+    module_id: UUID,
+    lesson_id: UUID,
+    agent: PracticeAgentDep,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
+) -> dict[str, Any]:
+    await check_access(identity=identity, permission=READ, uid=module_id)
+    result = await agent.get_latest_practice(identity.id, module_id, lesson_id)
+    if result["practice_id"] is not None:
+        return {"status": "succeeded", **result}
+    job, created = await practice_jobs.begin(identity.id, module_id, lesson_id)
+    if created:
+        from src.courses.infra.tasks import generate_practice
+
+        try:
+            await generate_practice.kiq(
+                str(identity.id), str(module_id), str(lesson_id), job["job_id"]
+            )
+        except Exception as exc:
+            await practice_jobs.transition(
+                identity.id, module_id, lesson_id, job["job_id"],
+                ("queued",), "failed", practice_jobs.FINISHED_TTL,
+            )
+            raise HTTPException(
+                status_code=503, detail="Не удалось запустить генерацию практики"
+            ) from exc
+    return job
 
 
 @router.get(

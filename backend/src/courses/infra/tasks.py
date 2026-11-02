@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from uuid import UUID
 
@@ -6,11 +7,46 @@ from langchain_core.runnables import RunnableConfig
 from src.core.tkq import taskiq_broker
 from src.courses.agents.course_generator.helper import invoke_or_resume
 from src.courses.agents.schemas import Context, GenerationContext
-from src.courses.dependencies.agents import CourseAgentDep, LessonAgentDep, ModuleAgentDep
+from src.courses.dependencies.agents import (
+    CourseAgentDep, LessonAgentDep, ModuleAgentDep, PracticeAgentDep,
+)
 from src.courses.dependencies.base import LessonRepoDep, VectorRepoDep
+from src.courses.infra import practice_jobs
 from src.courses.utils.formatting import get_lesson_context
 
 logger = logging.getLogger(__name__)
+
+
+@taskiq_broker.task(task_name="courses.generate_practice", retry_on_error=False, timeout=3600)
+async def generate_practice(
+    user_id: str, module_id: str, lesson_id: str, job_id: str, agent: PracticeAgentDep,
+) -> None:
+    user_uuid, module_uuid, lesson_uuid = UUID(user_id), UUID(module_id), UUID(lesson_id)
+    if not await practice_jobs.transition(
+        user_uuid, module_uuid, lesson_uuid, job_id,
+        ("queued", "running"), "running", practice_jobs.RUNNING_TTL,
+    ):
+        return
+    try:
+        await agent.create_in_background(user_uuid, module_uuid, lesson_uuid)
+    except asyncio.CancelledError:
+        await asyncio.shield(practice_jobs.transition(
+            user_uuid, module_uuid, lesson_uuid, job_id,
+            ("running",), "failed", practice_jobs.FINISHED_TTL,
+        ))
+        raise
+    except Exception as exc:
+        logger.error("Practice generation failed: job_id=%s error_type=%s", job_id, type(exc).__name__)
+        await practice_jobs.transition(
+            user_uuid, module_uuid, lesson_uuid, job_id,
+            ("running",), "failed", practice_jobs.FINISHED_TTL,
+        )
+        raise
+    await practice_jobs.transition(
+        user_uuid, module_uuid, lesson_uuid, job_id,
+        ("running",), "succeeded", practice_jobs.FINISHED_TTL,
+    )
+
 
 RETRY_OPTS = {"retry_on_error": True, "max_retries": 5, "delay": 10, "timeout": 5 * 60 * 60}
 

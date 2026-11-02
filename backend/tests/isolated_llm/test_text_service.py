@@ -320,6 +320,38 @@ async def test_base_http_session_transmits_final_name_to_real_router_but_not_pro
     h.create.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_practice_timeout_reaches_sdk_options_but_not_provider_payload():
+    h = Harness([reply("timeout", call("timeout"))], request_timeout=1200)
+    result = await h.service.invoke(copy.deepcopy(INPUT), schema=Result)
+    assert result.output == {"value": 1}
+    h.client.with_options.assert_called_with(max_retries=0, timeout=1200)
+    assert "request_timeout" not in h.create.await_args.kwargs
+
+
+@pytest.mark.asyncio
+async def test_practice_timeout_applies_to_internal_http_request():
+    h = Harness([reply("http_timeout", call("http_timeout"))], request_timeout=1200)
+    posted = []
+
+    async def post(url, json, timeout):
+        posted.append(timeout.total)
+        result = await h.router.call_llm(LLMTextRequest.model_validate(json))
+        return SimpleNamespace(json=AsyncMock(return_value=result.model_dump(mode="json")))
+
+    session = SimpleNamespace(post=AsyncMock(side_effect=post))
+
+    @asynccontextmanager
+    async def token_session():
+        yield session
+
+    h.service._client = SimpleNamespace(_get_token_session=token_session)
+    h.service._send_request = BaseLLMService._send_request.__get__(h.service)
+    result = await h.service.invoke(copy.deepcopy(INPUT), schema=Result)
+    assert result.output == {"value": 1}
+    assert posted == [1200]
+
+
 def test_validate_final_validates_deepcopy_but_returns_original_arguments():
     class MutatingAliases(BaseModel):
         value: int = Field(validation_alias="inputValue", serialization_alias="outputValue")

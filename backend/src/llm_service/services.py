@@ -8,6 +8,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from copy import deepcopy
 from functools import wraps
 
+import aiohttp
 from openai.types.responses import ToolParam
 from pydantic import BaseModel, ValidationError
 
@@ -86,10 +87,16 @@ class BaseLLMService[RequestT: BaseModel, ResponseT: BaseModel](ABC):
         self._client = client
         self.middlewares = middlewares if middlewares is not None else []
         self.runtime = runtime
+        self.request_timeout: float | None = None
 
     async def _send_request(self, request: RequestT, path: str) -> ResponseT:
         async with self._client._get_token_session() as session:  # noqa: SLF001
-            response = await session.post(url=path, json=request.model_dump(exclude_none=True))
+            kwargs = {}
+            if self.request_timeout is not None:
+                kwargs["timeout"] = aiohttp.ClientTimeout(total=self.request_timeout)
+            response = await session.post(
+                url=path, json=request.model_dump(exclude_none=True), **kwargs
+            )
 
             return self.response_model.model_validate(await response.json())
 
@@ -115,6 +122,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         runtime: Runtime | None = None,
         max_parallel: int = 4,
         max_model_requests: int = 10,
+        request_timeout: float | None = None,
     ) -> None:
         self._validate_request_limit(max_model_requests)
         super().__init__(client=client, runtime=runtime, middlewares=middlewares)
@@ -125,6 +133,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         self.temperature = temperature
         self.semaphore = Semaphore(max_parallel)
         self.max_model_requests = max_model_requests
+        self.request_timeout = request_timeout
 
     @staticmethod
     def _validate_request_limit(value: int) -> None:
@@ -273,6 +282,7 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
             final_tool_name=final_tool_name,
             reasoning=self.reasoning,
             temperature=self.temperature,
+            request_timeout=self.request_timeout,
         )
 
         if self.runtime is not None:
