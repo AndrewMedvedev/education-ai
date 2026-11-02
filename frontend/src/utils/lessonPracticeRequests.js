@@ -111,6 +111,8 @@ export const markAssessmentViewed = (key, expectedAttemptId) =>
   assessmentMessage("ASSESSMENT_VIEWED", key, { expectedAttemptId });
 export const finishAssessment = (key, expectedAttemptId) =>
   assessmentMessage("FINISH_LESSON_ASSESSMENT", key, { expectedAttemptId });
+export const discardStalePractice = (key, expectedAttemptId) =>
+  assessmentMessage("DISCARD_STALE_PRACTICE", key, { expectedAttemptId });
 
 export const practiceRecordKey = (
   scope,

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import {
   generateLessonPractice,
+  fetchLessonPractice,
   checkLessonPractice,
   generateLessonTest,
   checkLessonTest,
@@ -17,6 +18,7 @@ import {
   saveAssessmentAnswers,
   markAssessmentViewed,
   finishAssessment,
+  discardStalePractice,
 } from "../utils/lessonPracticeRequests";
 
 const empty = {
@@ -74,7 +76,20 @@ export function useLessonPracticeRequest(
       opening.current = { key, promise: openAssessment(key) };
     }
     opening.current.promise
-      .then((record) => {
+      .then(async (record) => {
+        const savedId = restored(record).practiceId;
+        if (kind === "practice" && savedId && !pending.includes(record.status)) {
+          try {
+            const remote = await fetchLessonPractice(moduleId, lessonId);
+            if (cancelled || !isCurrent()) return;
+            if (remote && typeof remote === "object" &&
+                Object.hasOwn(remote, "practice_id") && remote.practice_id !== savedId) {
+              record = await discardStalePractice(key, savedId);
+            }
+          } catch {
+            // Keep the local copy when the server cannot be reached.
+          }
+        }
         if (!cancelled && isCurrent()) setState({ ...restored(record), key });
       })
       .catch((error) => {
@@ -84,7 +99,7 @@ export function useLessonPracticeRequest(
     return () => {
       cancelled = true;
     };
-  }, [key, scope, moduleId, lessonId, isCurrent]);
+  }, [key, scope, moduleId, lessonId, kind, isCurrent]);
 
   useEffect(() => {
     if (!scope || !pending.includes(visible.status)) return;

@@ -35,3 +35,22 @@ test("a pending request without a live worker operation can be retried", async (
   assert.equal(vm.runInContext(`recoverInterrupted('key', {status: 'generating'}).status`, context), "error");
   assert.equal(vm.runInContext(`active.set('key:generate', {}); recoverInterrupted('key', {status: 'generating'}).status`, context), "generating");
 });
+
+test("discarding a stale practice preserves a newer or pending attempt", async () => {
+  const source = await readFile(new URL("../../public/lesson-practice-worker.js", import.meta.url), "utf8");
+  const handlers = {};
+  const context = vm.createContext({ self: { addEventListener(type, fn) { handlers[type] = fn; } }, Response, Request, Headers, AbortController, URL });
+  vm.runInContext(source, context);
+  vm.runInContext(`let saved = null; record = async (key, update) => saved = update(saved)`, context);
+  async function discard(value, expected) {
+    context.input = value;
+    vm.runInContext("saved = input", context);
+    let work;
+    handlers.message({ data: { type: "DISCARD_STALE_PRACTICE", key: "key", expectedAttemptId: expected }, ports: [{ postMessage() {} }], waitUntil(p) { work = p; } });
+    await work;
+    return vm.runInContext("saved", context);
+  }
+  assert.equal(await discard({ status: "ready", generated: { practice_id: "old" } }, "old"), null);
+  assert.equal((await discard({ status: "ready", generated: { practice_id: "new" } }, "old")).generated.practice_id, "new");
+  assert.equal((await discard({ status: "checking", generated: { practice_id: "old" } }, "old")).status, "checking");
+});

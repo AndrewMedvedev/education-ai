@@ -115,6 +115,13 @@ self.addEventListener("message", (event) => {
       value?.result && attemptId(value) === expectedAttemptId ? null : value,
     );
   }
+  if (type === "DISCARD_STALE_PRACTICE") {
+    work = record(key, (value) =>
+      value && !pendingStatuses.includes(value.status) && attemptId(value) === expectedAttemptId
+        ? null
+        : value,
+    );
+  }
   if (!work) return;
   event.waitUntil(
     work.then(

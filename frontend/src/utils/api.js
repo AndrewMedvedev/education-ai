@@ -2164,6 +2164,12 @@ export async function generateLessonPractice(moduleId, lessonId, options = {}) {
   );
 }
 
+export function fetchLessonPractice(moduleId, lessonId) {
+  return requestJson(
+    `/agent/practices/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`,
+  );
+}
+
 export async function checkLessonPractice(
   practiceId,
   assignment,
