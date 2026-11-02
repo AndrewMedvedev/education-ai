@@ -42,6 +42,8 @@ async def test_simultaneous_starts_share_job_and_user_scope(redis):
     assert len({job["job_id"] for job, _ in results}) == 1
     assert sum(created for _, created in results) == 1
     assert await practice_jobs.read(uuid4(), *ids[1:]) is None
+    other, created = await practice_jobs.begin(*ids, kind="test")
+    assert created and other["job_id"] != results[0][0]["job_id"]
 
 
 @pytest.mark.asyncio
@@ -167,3 +169,37 @@ async def test_start_worker_and_poll_returns_persisted_practice(redis, monkeypat
     assert result["status"] == "succeeded"
     assert result["practice_id"] == practice_id
     assert result["practice"]["title"] == "Generated"
+
+
+@pytest.mark.asyncio
+async def test_background_test_start_worker_poll_and_retry(redis, monkeypatch):
+    from src.courses.api.v1.agents import get_test_generation, start_test_generation
+    from src.courses.infra import tasks
+
+    ids = uuid4(), uuid4(), uuid4()
+    identity, check = SimpleNamespace(id=ids[0]), AsyncMock()
+    stored = {"practice_id": None, "practice": None, "result": None}
+    test_id = uuid4()
+
+    async def latest(*args):
+        return dict(stored)
+
+    async def generate(*args):
+        stored.update(practice_id=test_id, practice={"test_type": "detailed_answer"})
+
+    agent = SimpleNamespace(get_pending_test=AsyncMock(side_effect=latest),
+                            create_in_background=AsyncMock(side_effect=generate))
+    original = tasks.generate_test
+    queued = []
+    enqueue = AsyncMock(side_effect=lambda *args: queued.append(args))
+    monkeypatch.setattr(tasks, "generate_test", SimpleNamespace(kiq=enqueue))
+    first = await start_test_generation(ids[1], ids[2], agent, identity, check)
+    retry = await start_test_generation(ids[1], ids[2], agent, identity, check)
+    assert first["job_id"] == retry["job_id"]
+    assert enqueue.await_count == 1
+    assert (await get_test_generation(ids[1], ids[2], agent, identity, check))["status"] == "queued"
+    await original.original_func(*queued[0], agent)
+    result = await get_test_generation(ids[1], ids[2], agent, identity, check)
+    assert result["status"] == "succeeded"
+    assert result["practice_id"] == test_id
+    assert await practice_jobs.read(*ids) is None

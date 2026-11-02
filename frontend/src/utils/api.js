@@ -2178,6 +2178,14 @@ export function startPracticeGeneration(moduleId, lessonId) {
   return requestJson(`/agent/practice-generations/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`, { method: "POST" });
 }
 
+export function fetchTestGeneration(moduleId, lessonId) {
+  return requestJson(`/agent/test-generations/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`);
+}
+
+export function startTestGeneration(moduleId, lessonId) {
+  return requestJson(`/agent/test-generations/${encodeURIComponent(moduleId)}/${encodeURIComponent(lessonId)}`, { method: "POST" });
+}
+
 export async function checkLessonPractice(
   practiceId,
   assignment,

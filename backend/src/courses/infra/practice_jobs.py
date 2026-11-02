@@ -1,4 +1,4 @@
-"""Short-lived, user-scoped status for practice generation tasks."""
+"""Short-lived, user-scoped status for assessment generation tasks."""
 import json
 from uuid import UUID, uuid4
 
@@ -17,17 +17,21 @@ return 0
 """
 
 
-def key(user_id: UUID, module_id: UUID, lesson_id: UUID) -> str:
-    return f"practice-generation:{user_id}:{module_id}:{lesson_id}"
+def key(user_id: UUID, module_id: UUID, lesson_id: UUID, kind: str = "practice") -> str:
+    return f"{kind}-generation:{user_id}:{module_id}:{lesson_id}"
 
 
-async def read(user_id: UUID, module_id: UUID, lesson_id: UUID) -> dict | None:
-    value = await redis_client.get(key(user_id, module_id, lesson_id))
+async def read(
+    user_id: UUID, module_id: UUID, lesson_id: UUID, kind: str = "practice",
+) -> dict | None:
+    value = await redis_client.get(key(user_id, module_id, lesson_id, kind))
     return json.loads(value) if value else None
 
 
-async def begin(user_id: UUID, module_id: UUID, lesson_id: UUID) -> tuple[dict, bool]:
-    redis_key = key(user_id, module_id, lesson_id)
+async def begin(
+    user_id: UUID, module_id: UUID, lesson_id: UUID, kind: str = "practice",
+) -> tuple[dict, bool]:
+    redis_key = key(user_id, module_id, lesson_id, kind)
     while True:
         raw = await redis_client.get(redis_key)
         old = json.loads(raw) if raw else None
@@ -51,8 +55,9 @@ async def transition(
     allowed: tuple[str, ...],
     status: str,
     ttl: int,
+    kind: str = "practice",
 ) -> bool:
-    redis_key = key(user_id, module_id, lesson_id)
+    redis_key = key(user_id, module_id, lesson_id, kind)
     while raw := await redis_client.get(redis_key):
         old = json.loads(raw)
         if old.get("job_id") != job_id or old.get("status") not in allowed:

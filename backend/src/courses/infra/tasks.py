@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from typing import Literal
 from uuid import UUID
 
 from langchain_core.runnables import RunnableConfig
@@ -7,8 +8,10 @@ from langchain_core.runnables import RunnableConfig
 from src.core.tkq import taskiq_broker
 from src.courses.agents.course_generator.helper import invoke_or_resume
 from src.courses.agents.schemas import Context, GenerationContext
+from src.courses.agents.external_agents.practicer import PracticerAgent
+from src.courses.agents.external_agents.tester import TesterAgent
 from src.courses.dependencies.agents import (
-    CourseAgentDep, LessonAgentDep, ModuleAgentDep, PracticeAgentDep,
+    CourseAgentDep, LessonAgentDep, ModuleAgentDep, PracticeAgentDep, TesterAgentDep,
 )
 from src.courses.dependencies.base import LessonRepoDep, VectorRepoDep
 from src.courses.infra import practice_jobs
@@ -21,10 +24,25 @@ logger = logging.getLogger(__name__)
 async def generate_practice(
     user_id: str, module_id: str, lesson_id: str, job_id: str, agent: PracticeAgentDep,
 ) -> None:
+    await _generate_assessment(user_id, module_id, lesson_id, job_id, agent, "practice")
+
+
+@taskiq_broker.task(task_name="courses.generate_test", retry_on_error=False, timeout=3600)
+async def generate_test(
+    user_id: str, module_id: str, lesson_id: str, job_id: str, agent: TesterAgentDep,
+) -> None:
+    await _generate_assessment(user_id, module_id, lesson_id, job_id, agent, "test")
+
+
+async def _generate_assessment(
+    user_id: str, module_id: str, lesson_id: str, job_id: str,
+    agent: PracticerAgent | TesterAgent, kind: Literal["practice", "test"],
+) -> None:
     user_uuid, module_uuid, lesson_uuid = UUID(user_id), UUID(module_id), UUID(lesson_id)
     if not await practice_jobs.transition(
         user_uuid, module_uuid, lesson_uuid, job_id,
         ("queued", "running"), "running", practice_jobs.RUNNING_TTL,
+        kind=kind,
     ):
         return
     try:
@@ -33,18 +51,24 @@ async def generate_practice(
         await asyncio.shield(practice_jobs.transition(
             user_uuid, module_uuid, lesson_uuid, job_id,
             ("running",), "failed", practice_jobs.FINISHED_TTL,
+            kind=kind,
         ))
         raise
     except Exception as exc:
-        logger.error("Practice generation failed: job_id=%s error_type=%s", job_id, type(exc).__name__)
+        logger.error(
+            "Assessment generation failed: kind=%s job_id=%s error_type=%s",
+            kind, job_id, type(exc).__name__,
+        )
         await practice_jobs.transition(
             user_uuid, module_uuid, lesson_uuid, job_id,
             ("running",), "failed", practice_jobs.FINISHED_TTL,
+            kind=kind,
         )
         raise
     await practice_jobs.transition(
         user_uuid, module_uuid, lesson_uuid, job_id,
         ("running",), "succeeded", practice_jobs.FINISHED_TTL,
+        kind=kind,
     )
 
 

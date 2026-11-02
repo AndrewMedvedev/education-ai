@@ -32,6 +32,17 @@ async def test_reuses_latest_unfinished_test(agent, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_recovery_does_not_restore_a_completed_test(agent):
+    ids = uuid4(), uuid4(), uuid4()
+    agent.lesson_repo.read.return_value = SimpleNamespace(module_id=ids[1])
+    agent.practice_repo.read_latest_knowledge_test.return_value = Practice(
+        user_id=ids[0], module_id=ids[1], lesson_id=ids[2], status=PracticeStatus.COMPLETED,
+        practice={"practice": {"test_type": "multiple_choice"}, "score": 100},
+    )
+    assert (await agent.get_pending_test(*ids))["practice_id"] is None
+
+
+@pytest.mark.asyncio
 async def test_rejects_lesson_from_another_module(agent):
     ids = uuid4(), uuid4(), uuid4()
     agent.lesson_repo.read.return_value = SimpleNamespace(module_id=uuid4())

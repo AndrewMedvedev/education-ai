@@ -209,6 +209,45 @@ async def chat_with_mentor(
     )
 
 
+@router.get("/test-generations/{module_id}/{lesson_id}", summary="Состояние генерации теста")
+async def get_test_generation(
+    module_id: UUID, lesson_id: UUID, agent: TesterAgentDep,
+    identity: CurrentIdentity, check_access: CheckModuleAccessDep,
+) -> dict[str, Any]:
+    await check_access(identity=identity, permission=READ, uid=module_id)
+    result = await agent.get_pending_test(identity.id, module_id, lesson_id)
+    if result["practice_id"] is not None:
+        return {"status": "succeeded", **result}
+    job = await practice_jobs.read(identity.id, module_id, lesson_id, kind="test")
+    if job and job["status"] in ("queued", "running", "failed"):
+        return job
+    return {"status": "idle"}
+
+
+@router.post("/test-generations/{module_id}/{lesson_id}", status_code=status.HTTP_202_ACCEPTED)
+async def start_test_generation(
+    module_id: UUID, lesson_id: UUID, agent: TesterAgentDep,
+    identity: CurrentIdentity, check_access: CheckModuleAccessDep,
+) -> dict[str, Any]:
+    await check_access(identity=identity, permission=READ, uid=module_id)
+    result = await agent.get_pending_test(identity.id, module_id, lesson_id)
+    if result["practice_id"] is not None:
+        return {"status": "succeeded", **result}
+    job, created = await practice_jobs.begin(identity.id, module_id, lesson_id, kind="test")
+    if created:
+        from src.courses.infra.tasks import generate_test
+
+        try:
+            await generate_test.kiq(str(identity.id), str(module_id), str(lesson_id), job["job_id"])
+        except Exception as exc:
+            await practice_jobs.transition(
+                identity.id, module_id, lesson_id, job["job_id"],
+                ("queued",), "failed", practice_jobs.FINISHED_TTL, kind="test",
+            )
+            raise HTTPException(status_code=503, detail="Не удалось запустить генерацию теста") from exc
+    return job
+
+
 @router.post(
     "/tests/{module_id}/{lesson_id}",
     summary="Сгенерировать тест для урока",

@@ -57,6 +57,22 @@ class TesterAgent:
             raise asyncio.CancelledError
         return response
 
+    async def get_pending_test(
+        self, user_id: UUID, module_id: UUID, lesson_id: UUID,
+    ) -> dict[str, Any]:
+        lesson = await self.lesson_repo.read(lesson_id)
+        if lesson is None or lesson.module_id != module_id:
+            raise NotFoundError(message="Урок не найден в указанном модуле")
+        test = await self.practice_repo.read_latest_knowledge_test(user_id, module_id, lesson_id)
+        if test is None or test.status != PracticeStatus.NOT_STARTED:
+            return {"practice": None, "practice_id": None, "result": None}
+        return {"practice": test.practice[0], "practice_id": test.id, "result": None}
+
+    async def create_in_background(
+        self, user_id: UUID, module_id: UUID, lesson_id: UUID,
+    ) -> dict[str, Any]:
+        return await self._create_or_reuse(user_id, module_id, lesson_id)
+
     async def _create_or_reuse(
         self, user_id: UUID, module_id: UUID, lesson_id: UUID
     ) -> dict[str, Any]:
@@ -86,6 +102,7 @@ class TesterAgent:
         agent = LLMTextService(
             client=self._client,
             system_prompt=config.get("system_prompt", ""),
+            request_timeout=1200,
         )
         response_format: AnyKnowledgeTest = config.get("response_format")  # pyright: ignore[reportAssignmentType]
         result = await agent.invoke(messages=messages, schema=response_format)

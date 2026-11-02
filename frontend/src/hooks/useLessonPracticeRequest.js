@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import {
-  generateLessonPractice,
   fetchLessonPractice,
   fetchPracticeGeneration,
   startPracticeGeneration,
+  fetchTestGeneration,
+  startTestGeneration,
   checkLessonPractice,
-  generateLessonTest,
   checkLessonTest,
 } from "../utils/api";
 import { reloadScope } from "../utils/reloadPersistence";
@@ -79,9 +79,9 @@ export function useLessonPracticeRequest(
     } else if (["queued", "running"].includes(job?.status)) {
       setState((previous) => ({ ...previous, key, status: "generating", error: "" }));
     } else {
-      setState((previous) => ({ ...previous, key, status: "error", error: "Не удалось завершить генерацию практики. Попробуйте ещё раз." }));
+      setState((previous) => ({ ...previous, key, status: "error", error: kind === "test" ? "Не удалось завершить генерацию теста. Попробуйте ещё раз." : "Не удалось завершить генерацию практики. Попробуйте ещё раз." }));
     }
-  }, [key, isCurrent]);
+  }, [key, isCurrent, kind]);
 
   useEffect(() => {
     if (!scope || !moduleId || !lessonId) return;
@@ -106,9 +106,9 @@ export function useLessonPracticeRequest(
             // Keep the local copy when the server cannot be reached.
           }
         }
-        if (kind === "practice" && !restored(record).practiceId) {
+        if (!restored(record).practiceId) {
           try {
-            const job = await fetchPracticeGeneration(moduleId, lessonId);
+            const job = await (kind === "test" ? fetchTestGeneration : fetchPracticeGeneration)(moduleId, lessonId);
             if (cancelled || !isCurrent()) return;
             if (job?.status !== "idle") {
               await applyPracticeGeneration(job);
@@ -130,7 +130,7 @@ export function useLessonPracticeRequest(
   }, [key, scope, moduleId, lessonId, kind, isCurrent, applyPracticeGeneration]);
 
   useEffect(() => {
-    if (!scope || !pending.includes(visible.status) || (kind === "practice" && visible.status === "generating")) return;
+    if (!scope || !pending.includes(visible.status) || visible.status === "generating") return;
     let cancelled = false;
     let timer;
     const poll = async () => {
@@ -161,9 +161,9 @@ export function useLessonPracticeRequest(
   }, [key, scope, visible.status, isCurrent, kind]);
 
   useEffect(() => {
-    if (!scope || kind !== "practice" || visible.status !== "generating") return;
+    if (!scope || visible.status !== "generating") return;
     return pollPracticeGeneration({
-      load: () => fetchPracticeGeneration(moduleId, lessonId),
+      load: () => (kind === "test" ? fetchTestGeneration : fetchPracticeGeneration)(moduleId, lessonId),
       apply: applyPracticeGeneration,
       isCurrent,
       isSending: () => sending.current,
@@ -192,18 +192,14 @@ export function useLessonPracticeRequest(
     try {
       await ensurePracticeWorker();
       if (!isCurrent()) return null;
-      if (operation === "generate" && kind === "practice") {
-        const job = await startPracticeGeneration(moduleId, lessonId);
+      if (operation === "generate") {
+        const job = await (kind === "test" ? startTestGeneration : startPracticeGeneration)(moduleId, lessonId);
         await applyPracticeGeneration(job);
         return job;
       }
       const options = practiceRequestOptions(key, operation);
       let response;
-      if (operation === "generate") {
-        response = await (
-          kind === "test" ? generateLessonTest : generateLessonPractice
-        )(moduleId, lessonId, options);
-      } else if (kind === "test") {
+      if (kind === "test") {
         response = await checkLessonTest(visible.practiceId, payload, options);
       } else {
         response = await checkLessonPractice(
