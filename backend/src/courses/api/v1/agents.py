@@ -5,8 +5,11 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from dataclasses import asdict
+from datetime import timedelta
 from uuid import UUID
 
+from ddf.ratelimit.fastapi import rate_limit
+from ddf.ratelimit.models import SlidingWindowPolicy
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import TypeAdapter
 
@@ -41,12 +44,32 @@ from src.iam.dependencies.identity import CurrentIdentity
 router = APIRouter(prefix="/agent", tags=["Agents"])
 
 
+async def get_identity_id(
+    identity: CurrentIdentity,
+) -> str:
+    return str(identity.id)
+
+
+# 2. Политика ограничения
+agents_limit = rate_limit(
+    name="agents:ai",
+    policy=SlidingWindowPolicy(
+        limit=10,
+        window=timedelta(minutes=10),
+    ),
+    identity=get_identity_id,
+)
+
+
 @router.post(
     "/course/interviewer",
     summary="Написать AI-интервьюеру",
     description="Передаёт сообщение AI-интервьюеру, который помогает собрать вводные данные для создания курса.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(CREATE.code))],
+    dependencies=[
+        Depends(require_permissions(CREATE.code)),
+        Depends(agents_limit),
+    ],
 )
 async def chat_with_course_interviewer(
     request: Chat,
@@ -73,6 +96,7 @@ async def chat_with_course_interviewer(
 @router.post(
     "/module/interviewer",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(agents_limit)],
 )
 async def chat_with_module_interviewer(
     request: ModuleGenerationChat,
@@ -107,6 +131,7 @@ async def chat_with_module_interviewer(
 @router.post(
     "/lesson/interviewer",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(agents_limit)],
 )
 async def chat_with_lesson_interviewer(
     request: LessonGenerationChat,
@@ -145,7 +170,10 @@ async def chat_with_lesson_interviewer(
     summary="Написать AI-редактору",
     description="Передаёт сообщение AI-редактору для редактирования материалов курса.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(UPDATE.code))],
+    dependencies=[
+        Depends(require_permissions(UPDATE.code)),
+        Depends(agents_limit),
+    ],
 )
 async def chat_with_editor(
     request: EditorChat,
@@ -180,7 +208,10 @@ async def chat_with_editor(
     summary="Написать AI-наставнику",
     description="Передаёт сообщение AI-наставнику и возвращает его ответ по материалам курса.",
     status_code=status.HTTP_200_OK,
-    dependencies=[Depends(require_permissions(READ.code))],
+    dependencies=[
+        Depends(require_permissions(READ.code)),
+        Depends(agents_limit),
+    ],
 )
 async def chat_with_mentor(
     request: MentorChat,
@@ -209,10 +240,16 @@ async def chat_with_mentor(
     )
 
 
-@router.get("/test-generations/{module_id}/{lesson_id}", summary="Состояние генерации теста")
+@router.get(
+    "/test-generations/{module_id}/{lesson_id}",
+    summary="Состояние генерации теста",
+)
 async def get_test_generation(
-    module_id: UUID, lesson_id: UUID, agent: TesterAgentDep,
-    identity: CurrentIdentity, check_access: CheckModuleAccessDep,
+    module_id: UUID,
+    lesson_id: UUID,
+    agent: TesterAgentDep,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
 ) -> dict[str, Any]:
     await check_access(identity=identity, permission=READ, uid=module_id)
     result = await agent.get_pending_test(identity.id, module_id, lesson_id)
@@ -224,10 +261,17 @@ async def get_test_generation(
     return {"status": "idle"}
 
 
-@router.post("/test-generations/{module_id}/{lesson_id}", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/test-generations/{module_id}/{lesson_id}",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(agents_limit)],
+)
 async def start_test_generation(
-    module_id: UUID, lesson_id: UUID, agent: TesterAgentDep,
-    identity: CurrentIdentity, check_access: CheckModuleAccessDep,
+    module_id: UUID,
+    lesson_id: UUID,
+    agent: TesterAgentDep,
+    identity: CurrentIdentity,
+    check_access: CheckModuleAccessDep,
 ) -> dict[str, Any]:
     await check_access(identity=identity, permission=READ, uid=module_id)
     result = await agent.get_pending_test(identity.id, module_id, lesson_id)
@@ -238,13 +282,23 @@ async def start_test_generation(
         from src.courses.infra.tasks import generate_test
 
         try:
-            await generate_test.kiq(str(identity.id), str(module_id), str(lesson_id), job["job_id"])
+            await generate_test.kiq(
+                str(identity.id), str(module_id), str(lesson_id), job["job_id"]
+            )
         except Exception as exc:
             await practice_jobs.transition(
-                identity.id, module_id, lesson_id, job["job_id"],
-                ("queued",), "failed", practice_jobs.FINISHED_TTL, kind="test",
+                identity.id,
+                module_id,
+                lesson_id,
+                job["job_id"],
+                ("queued",),
+                "failed",
+                practice_jobs.FINISHED_TTL,
+                kind="test",
             )
-            raise HTTPException(status_code=503, detail="Не удалось запустить генерацию теста") from exc
+            raise HTTPException(
+                status_code=503, detail="Не удалось запустить генерацию теста"
+            ) from exc
     return job
 
 
@@ -253,6 +307,7 @@ async def start_test_generation(
     summary="Сгенерировать тест для урока",
     description="Генерирует тест по указанному уроку с учётом контекста модуля и текущего пользователя.",
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(agents_limit)],
 )
 async def create_test(
     module_id: UUID,
@@ -279,6 +334,7 @@ async def create_test(
     summary="Проверить ответы на тест",
     description="Проверяет ответы пользователя на сгенерированный тест и возвращает результат проверки.",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(agents_limit)],
 )
 async def check_test(
     practice: AnyKnowledgeTest,
@@ -297,7 +353,9 @@ async def check_test(
 @router.get(
     "/practice-generations/{module_id}/{lesson_id}",
     summary="Получить состояние генерации практики",
-    dependencies=[Depends(require_permissions(READ.code))],
+    dependencies=[
+        Depends(require_permissions(READ.code)),
+    ],
 )
 async def get_practice_generation(
     module_id: UUID,
@@ -320,7 +378,10 @@ async def get_practice_generation(
     "/practice-generations/{module_id}/{lesson_id}",
     summary="Запустить фоновую генерацию практики",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_permissions(READ.code))],
+    dependencies=[
+        Depends(require_permissions(READ.code)),
+        Depends(agents_limit),
+    ],
 )
 async def start_practice_generation(
     module_id: UUID,
@@ -343,8 +404,13 @@ async def start_practice_generation(
             )
         except Exception as exc:
             await practice_jobs.transition(
-                identity.id, module_id, lesson_id, job["job_id"],
-                ("queued",), "failed", practice_jobs.FINISHED_TTL,
+                identity.id,
+                module_id,
+                lesson_id,
+                job["job_id"],
+                ("queued",),
+                "failed",
+                practice_jobs.FINISHED_TTL,
             )
             raise HTTPException(
                 status_code=503, detail="Не удалось запустить генерацию практики"
@@ -355,7 +421,9 @@ async def start_practice_generation(
 @router.get(
     "/practices/{module_id}/{lesson_id}",
     summary="Получить последнее практическое задание с загрузкой файла",
-    dependencies=[Depends(require_permissions(READ.code))],
+    dependencies=[
+        Depends(require_permissions(READ.code)),
+    ],
 )
 async def get_practice(
     module_id: UUID,
@@ -377,7 +445,10 @@ async def get_practice(
     summary="Сгенерировать практическое задание",
     description="Генерирует практическое задание по указанному уроку с учётом контекста модуля.",
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_permissions(READ.code))],
+    dependencies=[
+        Depends(require_permissions(READ.code)),
+        Depends(agents_limit),
+    ],
 )
 async def create_practice(
     module_id: UUID,
@@ -404,6 +475,7 @@ async def create_practice(
     summary="Проверить практическое задание",
     description="Принимает файл с выполненным заданием, проверяет его и возвращает результат.",
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(agents_limit)],
 )
 async def check_practice(
     practice_id: UUID,

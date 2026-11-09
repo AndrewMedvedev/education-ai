@@ -146,7 +146,6 @@ class LLMTextService(BaseLLMService[LLMTextRequest, LLMTextResponse]):
         messages: list[dict[str, Any]],
         schema: type[BaseModel] | None = None,
     ) -> LLMTextResponse:
-        self._validate_request_limit(self.max_model_requests)
         limit = self.max_model_requests
         tools = [tool.to_tool_params() for tool in (self.tools or {}).values()]
         final_name = None

@@ -58,7 +58,10 @@ class TesterAgent:
         return response
 
     async def get_pending_test(
-        self, user_id: UUID, module_id: UUID, lesson_id: UUID,
+        self,
+        user_id: UUID,
+        module_id: UUID,
+        lesson_id: UUID,
     ) -> dict[str, Any]:
         lesson = await self.lesson_repo.read(lesson_id)
         if lesson is None or lesson.module_id != module_id:
@@ -69,7 +72,10 @@ class TesterAgent:
         return {"practice": test.practice[0], "practice_id": test.id, "result": None}
 
     async def create_in_background(
-        self, user_id: UUID, module_id: UUID, lesson_id: UUID,
+        self,
+        user_id: UUID,
+        module_id: UUID,
+        lesson_id: UUID,
     ) -> dict[str, Any]:
         return await self._create_or_reuse(user_id, module_id, lesson_id)
 
@@ -80,7 +86,9 @@ class TesterAgent:
         if lesson is None or lesson.module_id != module_id:
             raise NotFoundError(message="Урок не найден в указанном модуле")
         await self.practice_repo.lock_knowledge_test(user_id, module_id, lesson_id)
-        existing = await self.practice_repo.read_latest_knowledge_test(user_id, module_id, lesson_id)
+        existing = await self.practice_repo.read_latest_knowledge_test(
+            user_id, module_id, lesson_id
+        )
         if existing is not None and existing.status == PracticeStatus.NOT_STARTED:
             await self.transaction()
             return {"practice": existing.practice[0], "practice_id": existing.id}

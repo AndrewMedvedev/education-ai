@@ -2,6 +2,7 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from ddf.ratelimit.redis import RedisRateLimiter
 from fastapi import FastAPI
 from qdrant_client import models
 
@@ -38,7 +39,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     configure_logging(log_level="INFO")
 
     await redis_client.ping()  # pyright: ignore[reportGeneralTypeIssues]
-
+    app.state.rate_limiter = RedisRateLimiter(redis=redis_client, prefix="rate_limit")
     if not taskiq_broker.is_worker_process:
         await taskiq_broker.startup()
         await _run_bootstrap_commands()
